@@ -1,0 +1,134 @@
+# REX-BOT-AI Docker Compose
+# Full stack: REX core + Redis + Ollama + ChromaDB
+# Usage: docker compose up -d
+
+services:
+  # ---- Infrastructure ----
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-rex-default-password}
+      --bind 0.0.0.0
+    volumes:
+      - redis-data:/data
+    networks:
+      - rex-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-rex-default-password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - rex-internal
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+      OLLAMA_NOTELEMETRY: "1"
+    # Uncomment for NVIDIA GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chromadb:
+    image: chromadb/chroma:latest
+    restart: unless-stopped
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - rex-internal
+    environment:
+      ANONYMIZED_TELEMETRY: "false"
+      IS_PERSISTENT: "TRUE"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ---- REX Services ----
+
+  rex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REX_MODE: ${REX_MODE:-basic}
+      REX_LOG_LEVEL: ${REX_LOG_LEVEL:-info}
+      REX_DATA_DIR: /etc/rex-bot-ai
+      REX_DASHBOARD_PORT: "8443"
+      REX_DASHBOARD_HOST: "0.0.0.0"
+      REDIS_URL: redis://:${REDIS_PASSWORD:-rex-default-password}@redis:6379
+      OLLAMA_URL: http://ollama:11434
+      CHROMA_URL: http://chromadb:8000
+      REX_NETWORK_INTERFACE: ${REX_NETWORK_INTERFACE:-auto}
+      REX_SCAN_INTERVAL: ${REX_SCAN_INTERVAL:-300}
+      # Notifications (optional)
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      NOTIFICATION_EMAIL: ${NOTIFICATION_EMAIL:-}
+      MATRIX_HOMESERVER: ${MATRIX_HOMESERVER:-}
+      MATRIX_ROOM_ID: ${MATRIX_ROOM_ID:-}
+      MATRIX_ACCESS_TOKEN: ${MATRIX_ACCESS_TOKEN:-}
+      # Privacy
+      OLLAMA_NOTELEMETRY: "1"
+      REX_FEDERATION_ENABLED: ${REX_FEDERATION_ENABLED:-false}
+    # Host network for packet capture and firewall management
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - rex-data:/etc/rex-bot-ai
+      - rex-logs:/var/log/rex-bot-ai
+    ports:
+      - "${REX_DASHBOARD_PORT:-8443}:8443"
+
+volumes:
+  redis-data:
+    driver: local
+  ollama-models:
+    driver: local
+  chroma-data:
+    driver: local
+  rex-data:
+    driver: local
+  rex-logs:
+    driver: local
+
+networks:
+  rex-internal:
+    driver: bridge
+    internal: true

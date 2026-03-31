@@ -1,0 +1,103 @@
+"""Power manager -- state machine for AWAKE/ALERT_SLEEP/DEEP_SLEEP/OFF.
+
+In ALERT_SLEEP, a lightweight watchdog monitors for critical events
+and wakes REX within 5 seconds if needed.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from datetime import datetime, timezone
+from typing import Any
+
+from rex.shared.enums import PowerState
+from rex.shared.utils import utc_now
+
+logger = logging.getLogger(__name__)
+
+_VALID_TRANSITIONS = {
+    PowerState.AWAKE: {PowerState.ALERT_SLEEP, PowerState.DEEP_SLEEP, PowerState.OFF},
+    PowerState.ALERT_SLEEP: {PowerState.AWAKE, PowerState.DEEP_SLEEP, PowerState.OFF},
+    PowerState.DEEP_SLEEP: {PowerState.AWAKE, PowerState.OFF},
+    PowerState.OFF: {PowerState.AWAKE},
+}
+
+
+class PowerManager:
+    """Controls the system's power state to balance security and resource usage."""
+
+    def __init__(self) -> None:
+        self._state = PowerState.AWAKE
+        self._transition_time = utc_now()
+        self._scheduled_wake: datetime | None = None
+        self._scheduled_sleep: datetime | None = None
+        self._idle_since: float = time.monotonic()
+        self._eco_threshold_minutes = 60
+
+    async def transition(self, target_state: PowerState) -> None:
+        """Transition to a new power state. Validates transition is legal."""
+        if target_state == self._state:
+            return
+
+        valid = _VALID_TRANSITIONS.get(self._state, set())
+        if target_state not in valid:
+            logger.warning("Invalid transition %s -> %s", self._state, target_state)
+            return
+
+        old = self._state
+        self._state = target_state
+        self._transition_time = utc_now()
+        logger.info("Power state: %s -> %s", old.value, target_state.value)
+
+    def get_state(self) -> PowerState:
+        """Return the current power state."""
+        return self._state
+
+    def get_uptime(self) -> float:
+        """Return seconds since last AWAKE transition."""
+        return (utc_now() - self._transition_time).total_seconds()
+
+    async def schedule_wake(self, wake_time: datetime) -> None:
+        """Schedule a wake-up at the specified time."""
+        self._scheduled_wake = wake_time
+        logger.info("Wake scheduled for %s", wake_time.isoformat())
+
+    async def schedule_sleep(self, sleep_time: datetime) -> None:
+        """Schedule sleep at the specified time."""
+        self._scheduled_sleep = sleep_time
+        logger.info("Sleep scheduled for %s", sleep_time.isoformat())
+
+    async def check_scheduled(self) -> None:
+        """Check if any scheduled transitions should fire now."""
+        now = utc_now()
+        if self._scheduled_wake and now >= self._scheduled_wake:
+            await self.transition(PowerState.AWAKE)
+            self._scheduled_wake = None
+        if self._scheduled_sleep and now >= self._scheduled_sleep:
+            await self.transition(PowerState.ALERT_SLEEP)
+            self._scheduled_sleep = None
+
+    def record_activity(self) -> None:
+        """Record that user/threat activity occurred (resets idle timer)."""
+        self._idle_since = time.monotonic()
+
+    async def auto_eco_mode(self) -> bool:
+        """Suggest ALERT_SLEEP if idle for too long. Return True if transitioned."""
+        idle_minutes = (time.monotonic() - self._idle_since) / 60
+        if idle_minutes >= self._eco_threshold_minutes and self._state == PowerState.AWAKE:
+            logger.info("Auto eco-mode: idle for %.0f minutes, entering ALERT_SLEEP", idle_minutes)
+            await self.transition(PowerState.ALERT_SLEEP)
+            return True
+        return False
+
+    def get_status(self) -> dict[str, Any]:
+        """Return power manager status."""
+        return {
+            "state": self._state.value,
+            "uptime_seconds": self.get_uptime(),
+            "transition_time": self._transition_time.isoformat(),
+            "scheduled_wake": self._scheduled_wake.isoformat() if self._scheduled_wake else None,
+            "scheduled_sleep": self._scheduled_sleep.isoformat() if self._scheduled_sleep else None,
+        }

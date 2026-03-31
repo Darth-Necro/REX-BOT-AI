@@ -1,0 +1,20 @@
+# REX-BOT-AI — development / testing dependencies
+# Install with: pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+fakeredis[lua]==2.26.2
+respx==0.22.0
+
+# Linting & formatting
+ruff==0.9.4
+
+# Type checking
+mypy==1.14.1
+
+# Git hooks
+pre-commit==4.0.1
