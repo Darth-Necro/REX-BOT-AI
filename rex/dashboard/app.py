@@ -57,8 +57,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
-        self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self.window]
-        if len(self._requests[client_ip]) >= self.max_requests:
+        timestamps = [t for t in self._requests[client_ip] if now - t < self.window]
+        if not timestamps:
+            # Clean up stale IP keys to prevent unbounded dict growth
+            self._requests.pop(client_ip, None)
+        else:
+            self._requests[client_ip] = timestamps
+        if len(timestamps) >= self.max_requests:
             return JSONResponse(
                 {"detail": "Rate limit exceeded"}, status_code=429,
                 headers={"Retry-After": str(self.window)},

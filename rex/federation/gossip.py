@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import OrderedDict
 from typing import Any
 
 from rex.shared.utils import generate_id, utc_now
@@ -25,7 +26,7 @@ class GossipProtocol:
     def __init__(self) -> None:
         self._peers: dict[str, dict[str, Any]] = {}  # peer_id -> metadata
         self._message_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
-        self._seen_messages: set[str] = set()  # Dedup message IDs
+        self._seen_messages: OrderedDict[str, None] = OrderedDict()  # Dedup message IDs (ordered for FIFO pruning)
         self._running = False
 
     async def discover_peers(self) -> list[dict[str, Any]]:
@@ -62,10 +63,10 @@ class GossipProtocol:
         if msg_id in self._seen_messages:
             return 0  # Already seen, don't re-broadcast
 
-        self._seen_messages.add(msg_id)
-        # Trim seen set to prevent unbounded growth
-        if len(self._seen_messages) > 50000:
-            self._seen_messages = set(list(self._seen_messages)[-25000:])
+        self._seen_messages[msg_id] = None
+        # Trim to prevent unbounded growth — evict oldest entries first
+        while len(self._seen_messages) > 50000:
+            self._seen_messages.popitem(last=False)
 
         delivered = 0
         for peer_id, peer in self._peers.items():
