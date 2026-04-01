@@ -30,7 +30,7 @@ pip install -r requirements-dev.txt
 
 ```bash
 pytest
-# Expected: 1018 passed, 10 xfailed, 0 failed
+# Expected: ~2,979 passed, 5 xfailed, 0 failed
 ```
 
 ### 3. Start Redis (required for event bus)

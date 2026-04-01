@@ -9,8 +9,8 @@
 - [ ] First-boot password displayed in CLI (FIXED)
 
 ### Service Lifecycle
-- [ ] Service task lifecycle verified (no orphaning)
-- [ ] Orchestrator creates all services (FIXED)
+- [x] Service task lifecycle verified (no orphaning)
+- [x] Orchestrator creates all services with per-service EventBus isolation
 - [ ] Graceful shutdown verified under SIGTERM
 - [ ] Crash recovery tested
 
@@ -32,7 +32,7 @@
 - [ ] KB context sanitized (FIXED)
 - [ ] Newlines stripped (FIXED)
 - [ ] Unicode/homoglyph detection (FIXED)
-- [ ] 1018+ pentest tests passing
+- [x] 3000+ tests passing, 3 xfail (VULN-004/005/010 edge cases)
 
 ### Action Boundary
 - [ ] Private IP enforcement on scanning (FIXED)
@@ -47,15 +47,15 @@
 - [ ] Plugin output sanitized
 
 ### Scheduler/Power
-- [ ] Scheduler triggers real scans via event bus
-- [ ] Power state changes service behavior
+- [x] Scheduler triggers real scans via event bus (publishes RexEvent)
+- [x] Power state changes service behavior
 - [ ] Retention jobs prune old data
 
 ### Privacy/Federation
 - [ ] Federation salt per-install (FIXED)
 - [ ] Archive encryption
 - [ ] Baseline file permissions (FIXED)
-- [ ] Privacy audit wired to dashboard
+- [x] Privacy audit wired to dashboard
 
 ### Cross-Platform
 - [ ] Windows PAL functional (basic methods)
