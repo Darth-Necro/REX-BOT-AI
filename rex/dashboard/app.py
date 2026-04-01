@@ -75,6 +75,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers (CSP, X-Frame-Options, etc.) to all responses."""
 
+    def __init__(self, app: FastAPI, enable_hsts: bool = False) -> None:
+        super().__init__(app)
+        self.enable_hsts = enable_hsts
+
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -90,7 +94,28 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "font-src 'self'; "
             "frame-ancestors 'none'"
         )
+        if self.enable_hsts:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         return response
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests with bodies exceeding the configured limit."""
+
+    def __init__(self, app: FastAPI, max_bytes: int = 1_048_576) -> None:
+        super().__init__(app)
+        self.max_bytes = max_bytes
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > self.max_bytes:
+            return JSONResponse(
+                {"detail": "Request body too large"},
+                status_code=413,
+            )
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -168,16 +193,21 @@ def create_app() -> FastAPI:
     # Rate limiting (applied before CORS so abuse is blocked early)
     app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
-    # Security headers
-    app.add_middleware(SecurityHeadersMiddleware)
+    from rex.shared.config import get_config
+    rex_cfg = get_config()
+
+    # Body size limit (1 MB) to prevent memory exhaustion via large payloads
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=1_048_576)
+
+    # Security headers -- enable HSTS only when TLS certs are present
+    tls_available = (rex_cfg.certs_dir / "cert.pem").exists()
+    app.add_middleware(SecurityHeadersMiddleware, enable_hsts=tls_available)
 
     # CORS — read allowed origins from config.
     # SECURITY: allow_credentials=True must NEVER be combined with a wildcard
     # origin ("*"), as that would allow any site to make credentialed cross-origin
     # requests (a CSRF vector).  We strip wildcards and fall back to the safe
     # default if no explicit origins remain.
-    from rex.shared.config import get_config
-    rex_cfg = get_config()
     _raw_origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
     # Reject wildcard origins -- they are incompatible with allow_credentials
     origins = [o for o in _raw_origins if o != "*"]

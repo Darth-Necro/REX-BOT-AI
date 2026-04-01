@@ -119,31 +119,60 @@ class WebSocketManager:
     async def handle_client(self, websocket: WebSocket) -> None:
         """Main handler loop for a WebSocket client.
 
-        Authenticates via JWT token in the ``token`` query parameter
-        before accepting the connection.
-        """
-        # --- Authentication gate ---
-        token = websocket.query_params.get("token")
-        if not token:
-            await websocket.close(code=4001, reason="Missing auth token")
-            return
+        Authenticates via JWT token. Supports two methods:
 
+        1. **Query parameter** (legacy): ``?token=<jwt>`` -- convenient but
+           tokens may appear in server/proxy access logs.
+        2. **First-message auth** (preferred): connect without a token, then
+           send ``{"type": "auth", "token": "<jwt>"}`` within 5 seconds.
+        """
         from rex.dashboard.deps import get_auth
 
         try:
             auth = get_auth()
         except Exception:
-            # AuthManager not initialised yet (app still starting up)
             await websocket.close(code=4003, reason="Auth service unavailable")
             return
 
-        payload = auth.verify_token(token)
-        if payload is None:
-            await websocket.close(code=4003, reason="Invalid or expired token")
-            return
+        # --- Authentication gate ---
+        token = websocket.query_params.get("token")
 
-        # --- Token valid -- accept and serve ---
-        await self.connect(websocket)
+        if token:
+            # Method 1: query-param token (legacy)
+            payload = auth.verify_token(token)
+            if payload is None:
+                await websocket.close(code=4003, reason="Invalid or expired token")
+                return
+        else:
+            # Method 2: accept provisionally, expect auth in first message
+            await websocket.accept()
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+                msg = json.loads(raw)
+                if msg.get("type") == "auth" and isinstance(msg.get("token"), str):
+                    token = msg["token"]
+            except (asyncio.TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
+                pass
+
+            if not token:
+                await websocket.close(code=4001, reason="Missing auth token")
+                return
+
+            payload = auth.verify_token(token)
+            if payload is None:
+                await websocket.close(code=4003, reason="Invalid or expired token")
+                return
+
+            # Already accepted above -- register directly without re-accepting
+            async with self._lock:
+                self._connections[websocket] = set(_DEFAULT_CHANNELS)
+            logger.info("WebSocket client connected via first-message auth (total: %d)", len(self._connections))
+
+        if token and websocket not in self._connections:
+            # Method 1 path: accept and register
+            await self.connect(websocket)
+
+        # --- Authenticated -- serve ---
         try:
             while True:
                 data = await websocket.receive_text()

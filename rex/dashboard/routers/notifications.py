@@ -60,8 +60,8 @@ async def update_settings(
         logger.info("Notification settings saved (%d bytes)", settings_file.stat().st_size)
         return settings
     except Exception as e:
-        logger.exception("Failed to save notification settings")
-        return {"status": "error", "detail": str(e)}
+        logger.exception("Failed to save notification settings: %s", e)
+        return {"status": "error", "detail": "Failed to save notification settings"}
 
 
 @router.post("/test/{channel}")
@@ -83,9 +83,10 @@ async def test_notification(
         await bus.publish("rex:bark:notifications", event)
         return {"status": "sent", "channel": channel, "delivered_to_bus": True}
     except Exception as e:
+        logger.exception("Failed to send test notification to %s: %s", channel, e)
         return {
             "status": "not_sent",
             "channel": channel,
             "delivered_to_bus": False,
-            "detail": str(e),
+            "detail": "Event bus unavailable",
         }

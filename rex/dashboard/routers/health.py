@@ -8,7 +8,7 @@ from typing import Any
 
 import psutil
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 
 from rex.dashboard.deps import get_current_user
 from rex.shared.constants import VERSION
@@ -62,8 +62,12 @@ async def _get_threats_blocked_24h() -> int:
 
 
 @router.get("/status")
-async def get_status() -> dict[str, Any]:
-    """Return actual system status by probing backend services."""
+async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
+    """Return system status. Full details require authentication.
+
+    Unauthenticated callers receive only status, version, and timestamp
+    to prevent information disclosure about internal services and resources.
+    """
     from rex.shared.config import get_config
 
     config = get_config()
@@ -120,6 +124,28 @@ async def get_status() -> dict[str, Any]:
     else:
         status = "error"
 
+    # Always-safe public fields
+    result: dict[str, Any] = {
+        "status": status,
+        "version": VERSION,
+        "timestamp": utc_now().isoformat(),
+    }
+
+    # Check if the caller is authenticated -- if so, include full details
+    authed = False
+    if authorization.startswith("Bearer "):
+        from rex.dashboard.deps import get_auth
+
+        try:
+            auth = get_auth()
+            if auth.verify_token(authorization[7:]):
+                authed = True
+        except Exception:
+            pass
+
+    if not authed:
+        return result
+
     # Uptime
     uptime_seconds = 0
     try:
@@ -136,10 +162,7 @@ async def get_status() -> dict[str, Any]:
     # Mode from config
     mode = config.mode.value if hasattr(config.mode, "value") else str(config.mode)
 
-    return {
-        "status": status,
-        "version": VERSION,
-        "timestamp": utc_now().isoformat(),
+    result.update({
         "mode": mode,
         "power_state": power_state,
         "llm_status": llm_status,
@@ -155,7 +178,8 @@ async def get_status() -> dict[str, Any]:
         },
         "device_count": await _get_device_count(),
         "active_threats": await _get_active_threats(),
-    }
+    })
+    return result
 
 
 @router.get("/health")

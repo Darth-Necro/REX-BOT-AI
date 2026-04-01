@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import ipaddress
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/firewall", tags=["firewall"])
 
@@ -26,22 +30,32 @@ async def list_rules(user: dict = Depends(get_current_user)) -> dict[str, Any]:
             "total": len(rules),
         }
     except Exception as e:
+        logger.exception("Failed to list firewall rules: %s", e)
         return {
             "rules": [],
             "total": 0,
-            "error": str(e),
             "note": "Could not query firewall rules",
         }
 
 
 @router.post("/rules")
 async def add_rule(
-    ip: str = Body(...),
+    ip: str = Body(..., max_length=45),
     direction: str = Body("both"),
-    reason: str = Body(""),
+    reason: str = Body("", max_length=500),
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Add a manual firewall rule via the platform adapter."""
+    # Validate IP address or CIDR notation
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        try:
+            ipaddress.ip_network(ip, strict=False)
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail="Invalid IP address or CIDR notation"
+            )
     try:
         from rex.pal import get_adapter
 
@@ -54,7 +68,8 @@ async def add_rule(
             "rule": rule.model_dump() if hasattr(rule, "model_dump") else str(rule),
         }
     except Exception as e:
-        return {"status": "error", "ip": ip, "detail": str(e)}
+        logger.exception("Failed to add firewall rule for %s: %s", ip, e)
+        return {"status": "error", "ip": ip, "detail": "Failed to add firewall rule"}
 
 
 @router.delete("/rules/{rule_id}")
@@ -84,7 +99,8 @@ async def remove_rule(
             "rule_id": rule_id,
         }
     except Exception as e:
-        return {"status": "error", "rule_id": rule_id, "detail": str(e)}
+        logger.exception("Failed to remove firewall rule %s: %s", rule_id, e)
+        return {"status": "error", "rule_id": rule_id, "detail": "Failed to remove firewall rule"}
 
 
 @router.post("/panic")
@@ -100,7 +116,8 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
             "action": "panic_restore",
         }
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        logger.exception("Panic button failed: %s", e)
+        return {"status": "error", "detail": "Panic restore failed"}
 
 
 @router.post("/panic/restore")
@@ -116,4 +133,5 @@ async def panic_restore(user: dict = Depends(get_current_user)) -> dict[str, Any
             "action": "panic_restore",
         }
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        logger.exception("Panic restore failed: %s", e)
+        return {"status": "error", "detail": "Panic restore failed"}

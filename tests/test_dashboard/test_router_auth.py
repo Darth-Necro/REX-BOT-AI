@@ -179,7 +179,7 @@ class TestChangePasswordEndpoint:
         """New password under 8 chars returns 400."""
         app = _make_app()
         mock_mgr = _mock_auth_manager(
-            change_pw_error=ValueError("New password must be at least 8 characters"),
+            change_pw_error=ValueError("New password must be at least 12 characters"),
         )
         app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
@@ -191,7 +191,7 @@ class TestChangePasswordEndpoint:
             )
 
         assert response.status_code == 400
-        assert "8 characters" in response.json()["detail"]
+        assert "12 characters" in response.json()["detail"]
 
     def test_change_password_requires_auth(self) -> None:
         """Without auth, change-password returns 401."""

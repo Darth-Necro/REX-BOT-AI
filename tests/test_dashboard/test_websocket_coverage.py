@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -115,9 +116,15 @@ async def test_unsubscribe_removes_channels(ws_manager) -> None:
 
 @pytest.mark.asyncio
 async def test_handle_client_no_token_closes(ws_manager) -> None:
-    """handle_client closes the connection if no token is provided."""
+    """handle_client closes the connection if no token is provided (first-message timeout)."""
     ws = _make_mock_ws(query_params={})
-    await ws_manager.handle_client(ws)
+    # Simulate timeout on first-message auth (no message sent within 5s)
+    ws.receive_text = AsyncMock(side_effect=asyncio.TimeoutError)
+    mock_auth = MagicMock()
+
+    with patch("rex.dashboard.deps.get_auth", return_value=mock_auth):
+        await ws_manager.handle_client(ws)
+
     ws.close.assert_awaited_once_with(code=4001, reason="Missing auth token")
 
 

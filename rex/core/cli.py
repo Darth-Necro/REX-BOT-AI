@@ -9,9 +9,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+import warnings
 from datetime import UTC
 
 import typer
+
+# Suppress InsecureRequestWarning for self-signed TLS certs used by the dashboard.
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except ImportError:
+    pass
+# httpx equivalent
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 from rex.shared.constants import VERSION
 
@@ -106,7 +116,7 @@ def status() -> None:
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("")
     try:
-        resp = httpx.get("http://localhost:8443/api/status", timeout=5)
+        resp = httpx.get("https://localhost:8443/api/status", timeout=5, verify=False)
         data = resp.json()
         typer.echo(f"  Status:     {data.get('status', 'unknown')}")
         typer.echo(f"  Devices:    {data.get('device_count', 0)}")

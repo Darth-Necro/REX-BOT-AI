@@ -207,7 +207,7 @@ async def test_change_password_too_short_raises(tmp_path: Path) -> None:
         manager._secrets_manager = None
         initial_pw = await manager.initialize()
 
-    with pytest.raises(ValueError, match="at least 8 characters"):
+    with pytest.raises(ValueError, match="at least 12 characters"):
         await manager.change_password("admin", initial_pw, "short")
 
 
