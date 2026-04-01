@@ -156,10 +156,16 @@ def create_app() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS — read allowed origins from config
+    # CORS — read allowed origins from config.
+    # Wildcard ("*") is stripped when credentials are enabled because
+    # the CORS spec forbids Access-Control-Allow-Origin: * with
+    # Access-Control-Allow-Credentials: true.
     from rex.shared.config import get_config
     rex_cfg = get_config()
     origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
+    if any(o == "*" for o in origins):
+        logger.warning("Wildcard CORS origin with credentials is insecure; using localhost")
+        origins = [o for o in origins if o != "*"]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins or ["http://localhost:3000"],

@@ -94,7 +94,7 @@ class TestActionValidatorProtectedResources:
         """set_protected_ips should store the IP set."""
         validator = _make_validator()
         validator.set_protected_ips({"192.168.1.1", "192.168.1.50"})
-        assert len(validator.PROTECTED_IPS) == 2
+        assert len(validator._protected_ips) == 2
 
 
 class TestActionValidatorConfirmation:

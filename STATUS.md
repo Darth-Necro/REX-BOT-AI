@@ -1,8 +1,8 @@
 # REX-BOT-AI: Project Status
 
-**Last updated**: 2026-03-31
-**Version**: 0.1.0-alpha
-**Stage**: Alpha candidate — modules integrated, not end-to-end verified
+**Last updated**: 2026-04-01
+**Version**: 0.2.0-beta
+**Stage**: Beta candidate — critical bus/event/security fixes applied
 
 ## What Changed Since Pre-Alpha
 

@@ -85,26 +85,25 @@ async def update_kb(
         return {"status": "error", "detail": str(e)}
 
 
-@router.get("/history")
+@router.get("/history", status_code=501)
 async def get_history(
     limit: int = Query(50, ge=1),
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return version history of the knowledge base. Not yet implemented."""
     return {
-        "commits": [],
-        "total": 0,
+        "status": "not_implemented",
         "note": "Version history tracking not yet implemented",
     }
 
 
-@router.post("/revert/{commit_hash}")
+@router.post("/revert/{commit_hash}", status_code=501)
 async def revert(
     commit_hash: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Revert knowledge base to a specific version. Not yet implemented."""
     return {
-        "status": "not_available",
+        "status": "not_implemented",
         "commit": commit_hash,
         "note": "Version revert not yet implemented",
     }

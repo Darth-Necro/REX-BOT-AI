@@ -12,14 +12,14 @@ cat << 'BANNER'
  ( o.o )  REX-BOT-AI Installer
   > ^ <   Autonomous Security Agent
  /|   |\
-(_|   |_) v1.0.0
+(_|   |_) v0.2.0-beta
 
 BANNER
 
 # ============================================================
 # Configuration
 # ============================================================
-REX_VERSION="1.0.0"
+REX_VERSION="0.2.0-beta"
 REX_INSTALL_DIR="/opt/rex-bot-ai"
 REX_DATA_DIR="/etc/rex-bot-ai"
 REX_LOG_DIR="/var/log/rex-bot-ai"
@@ -209,9 +209,10 @@ install_rex() {
                 -o "${REX_INSTALL_DIR}/.env"
         }
         if [ -d "${REX_INSTALL_DIR}/repo" ]; then
+            # Keep the full repo as Docker build context (Dockerfile needs
+            # rex/, frontend/, requirements.txt, pyproject.toml).
             cp "${REX_INSTALL_DIR}/repo/docker-compose.yml" "${REX_INSTALL_DIR}/"
             cp "${REX_INSTALL_DIR}/repo/.env.example" "${REX_INSTALL_DIR}/.env" 2>/dev/null || true
-            rm -rf "${REX_INSTALL_DIR}/repo"
         fi
     fi
 

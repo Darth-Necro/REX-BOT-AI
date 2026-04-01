@@ -17,6 +17,7 @@ Checks performed (in order):
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import time
 from collections import defaultdict
@@ -98,10 +99,6 @@ class ActionValidator:
         The global :class:`RexConfig` configuration object.
     """
 
-    # IPs that must never be the target of a blocking / isolation action.
-    # Populated at runtime by :meth:`set_protected_ips`.
-    PROTECTED_IPS: set[str] = set()
-
     # Action parameters that refer to target hosts.
     _TARGET_PARAMS: frozenset[str] = frozenset({
         "ip", "target_ip", "source_ip", "destination_ip",
@@ -120,6 +117,11 @@ class ActionValidator:
         self.config = config
         # Sliding window: action_type -> list of epoch timestamps
         self._action_counts: dict[str, list[float]] = defaultdict(list)
+        # IPs that must never be the target of a blocking / isolation action.
+        # Populated at runtime by :meth:`set_protected_ips`.  Instance-level
+        # so that separate validator instances don't leak state to each other.
+        self._protected_ips: set[str] = set()
+        self._normalized_protected_ips: set[str] = set()
 
     # -- public API ---------------------------------------------------------
 
@@ -211,6 +213,38 @@ class ActionValidator:
         )
         return ValidationResult(allowed=True, reason="Action approved.")
 
+    @staticmethod
+    def _normalize_ip(raw: str) -> str | None:
+        """Normalize an IP string to its canonical form.
+
+        Handles zero-padded octets (``192.168.001.001``), IPv4-mapped IPv6
+        (``::ffff:192.168.1.1``), and decimal notation (``3232235777``).
+        Returns ``None`` if *raw* is not a valid IP representation.
+        """
+        try:
+            addr = ipaddress.ip_address(raw)
+            if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+                addr = addr.ipv4_mapped
+            return str(addr)
+        except ValueError:
+            # Python's ipaddress rejects leading zeros (e.g. "192.168.001.001").
+            # Strip them and retry.
+            if "." in raw:
+                stripped = ".".join(
+                    str(int(octet)) for octet in raw.split(".")
+                    if octet.isdigit()
+                )
+                try:
+                    return str(ipaddress.ip_address(stripped))
+                except (ValueError, TypeError):
+                    pass
+            # Try decimal notation (e.g. 3232235777 → 192.168.1.1)
+            try:
+                addr = ipaddress.ip_address(int(raw))
+                return str(addr)
+            except (ValueError, OverflowError):
+                return None
+
     def set_protected_ips(self, ips: set[str]) -> None:
         """Set the IPs that must never be targeted by blocking actions.
 
@@ -222,8 +256,13 @@ class ActionValidator:
         ips:
             Set of IPv4 address strings (e.g. ``{"192.168.1.1", "192.168.1.50"}``).
         """
-        self.PROTECTED_IPS = set(ips)
-        logger.info("Protected IPs set: %s", self.PROTECTED_IPS)
+        self._protected_ips = set(ips)
+        self._normalized_protected_ips = set()
+        for ip in ips:
+            normalized = self._normalize_ip(ip)
+            if normalized:
+                self._normalized_protected_ips.add(normalized)
+        logger.info("Protected IPs set: %s", self._protected_ips)
 
     # -- internal -----------------------------------------------------------
 
@@ -237,18 +276,20 @@ class ActionValidator:
         if request.action_type not in self._BLOCKING_ACTIONS:
             return None
 
-        if not self.PROTECTED_IPS:
+        if not self._normalized_protected_ips:
             return None
 
         for param_name in self._TARGET_PARAMS:
             target_value = request.params.get(param_name)
-            if isinstance(target_value, str) and target_value in self.PROTECTED_IPS:
-                return ValidationResult(
-                    allowed=False,
-                    reason=f"Cannot target protected IP {target_value} with "
-                           f"action '{request.action_type}'. The gateway and "
-                           f"REX's own IP are never valid targets for blocking actions.",
-                )
+            if isinstance(target_value, str):
+                normalized = self._normalize_ip(target_value)
+                if normalized and normalized in self._normalized_protected_ips:
+                    return ValidationResult(
+                        allowed=False,
+                        reason=f"Cannot target protected IP {target_value} with "
+                               f"action '{request.action_type}'. The gateway and "
+                               f"REX's own IP are never valid targets for blocking actions.",
+                    )
         return None
 
     def _needs_confirmation(

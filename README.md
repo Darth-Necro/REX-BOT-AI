@@ -9,15 +9,15 @@
                  |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**PRE-ALPHA** -- Early-stage local-first network security prototype with a Linux PAL, agent-policy foundation, and local LLM integration.
+**BETA** -- Local-first network security agent with Linux PAL, agent-policy foundation, and local LLM integration.
 
-> This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
+> This project is under active development. Do not rely on it as your sole network security solution.
 
 ---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Status: Pre-Alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)]()
+[![Status: Beta](https://img.shields.io/badge/status-beta-yellow.svg)]()
 
 ---
 
