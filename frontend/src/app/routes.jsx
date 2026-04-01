@@ -5,25 +5,31 @@
  * Auth-gated:    / (redirects to /overview), /overview, /devices, /threats
  *
  * The ProtectedRoute wrapper checks for auth token and redirects
- * unauthenticated users to /login. The AppShell provides the sidebar
- * + top bar layout for all authenticated pages.
+ * unauthenticated users to /login. Uses the existing AppShell layout
+ * for authenticated pages.
  */
 
 import React, { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../stores/useAuthStore';
 import useSystemStore from '../stores/useSystemStore';
 import LoginPage from '../pages/auth/LoginPage';
-import SidebarNav from '../layouts/SidebarNav';
-import TopCommandBar from '../layouts/TopCommandBar';
+import AppShell from '../layouts/AppShell';
 
 /* Lazy-load page components for code-splitting */
 const DevicesPage = lazy(() => import('../pages/devices/DevicesPage'));
 const ThreatsPage = lazy(() => import('../pages/threats/ThreatsPage'));
+const AdvancedOverviewPage = lazy(() => import('../pages/overview/AdvancedOverviewPage'));
 
-/* Re-use Batch 1 views for Overview (basic/advanced mode) */
+/* Batch 3 — operational pages */
+const FirewallPage = lazy(() => import('../pages/firewall/FirewallPage'));
+const KnowledgeBasePage = lazy(() => import('../pages/knowledge/KnowledgeBasePage'));
+const SchedulerPage = lazy(() => import('../pages/scheduler/SchedulerPage'));
+const PluginsPage = lazy(() => import('../pages/plugins/PluginsPage'));
+const DiagnosticsPage = lazy(() => import('../pages/diagnostics/DiagnosticsPage'));
+
+/* Fallback for legacy basic mode */
 const BasicView = lazy(() => import('../views/BasicView'));
-const AdvancedView = lazy(() => import('../views/AdvancedView'));
 
 /* ---------- loading fallback ---------- */
 
@@ -55,21 +61,65 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-/* ---------- app shell (sidebar + topbar + content) ---------- */
+/* ---------- route-to-page mapping for AppShell nav ---------- */
 
-function AppShell({ pageLabel, children }) {
+const PAGE_ID_FROM_PATH = {
+  '/overview':    'overview',
+  '/':            'overview',
+  '/threats':     'threats',
+  '/devices':     'devices',
+  '/chat':        'chat',
+  '/firewall':    'firewall',
+  '/knowledge':   'knowledge',
+  '/scheduler':   'scheduler',
+  '/plugins':     'plugins',
+  '/diagnostics': 'diagnostics',
+};
+
+/* ---------- shell wrapper that hooks AppShell to routes ---------- */
+
+function AuthenticatedShell() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPage = PAGE_ID_FROM_PATH[location.pathname] || 'overview';
+
+  const handleNavigate = (id) => {
+    const route = {
+      overview: '/overview',
+      threats: '/threats',
+      devices: '/devices',
+      chat: '/chat',
+      firewall: '/firewall',
+      knowledge: '/knowledge',
+      scheduler: '/scheduler',
+      plugins: '/plugins',
+      diagnostics: '/diagnostics',
+    }[id];
+    if (route) navigate(route);
+  };
+
   return (
-    <div className="flex h-screen bg-rex-bg overflow-hidden">
-      <SidebarNav />
-      <div className="flex flex-col flex-1 min-w-0">
-        <TopCommandBar pageLabel={pageLabel} />
-        <main className="flex-1 overflow-hidden">
-          <Suspense fallback={<PageLoader />}>
-            {children}
-          </Suspense>
-        </main>
-      </div>
-    </div>
+    <AppShell currentPage={currentPage} onNavigate={handleNavigate}>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/overview" element={<OverviewPage />} />
+          <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/threats" element={<ThreatsPage />} />
+          {/* Batch 3 — operational pages */}
+          <Route path="/firewall" element={<FirewallPage />} />
+          <Route path="/knowledge" element={<KnowledgeBasePage />} />
+          <Route path="/scheduler" element={<SchedulerPage />} />
+          <Route path="/plugins" element={<PluginsPage />} />
+          <Route path="/diagnostics" element={<DiagnosticsPage />} />
+          {/* Legacy chat route -- falls back to overview until chat page exists */}
+          <Route path="/chat" element={<AdvancedOverviewPage />} />
+          {/* Root redirects to overview */}
+          <Route path="/" element={<Navigate to="/overview" replace />} />
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/overview" replace />} />
+        </Routes>
+      </Suspense>
+    </AppShell>
   );
 }
 
@@ -77,7 +127,7 @@ function AppShell({ pageLabel, children }) {
 
 function OverviewPage() {
   const mode = useSystemStore((s) => s.mode);
-  return mode === 'basic' ? <BasicView /> : <AdvancedView />;
+  return mode === 'basic' ? <BasicView /> : <AdvancedOverviewPage />;
 }
 
 /* ---------- exported route tree ---------- */
@@ -88,45 +138,15 @@ export default function AppRoutes() {
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Auth-gated pages */}
+      {/* All auth-gated routes go through the shell */}
       <Route
-        path="/overview"
+        path="/*"
         element={
           <ProtectedRoute>
-            <AppShell pageLabel="Overview">
-              <OverviewPage />
-            </AppShell>
+            <AuthenticatedShell />
           </ProtectedRoute>
         }
       />
-
-      <Route
-        path="/devices"
-        element={
-          <ProtectedRoute>
-            <AppShell pageLabel="Devices">
-              <DevicesPage />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/threats"
-        element={
-          <ProtectedRoute>
-            <AppShell pageLabel="Threats">
-              <ThreatsPage />
-            </AppShell>
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Root redirects to overview */}
-      <Route path="/" element={<Navigate to="/overview" replace />} />
-
-      {/* Fallback -- redirect unknown paths to overview */}
-      <Route path="*" element={<Navigate to="/overview" replace />} />
     </Routes>
   );
 }

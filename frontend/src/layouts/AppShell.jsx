@@ -8,10 +8,15 @@ import useSystemStore from '../stores/useSystemStore';
 /* ------------------------------------------------------------------ */
 
 const DEFAULT_NAV = [
-  { id: 'overview', label: 'Overview', icon: NavIconGrid },
-  { id: 'threats', label: 'Threats', icon: NavIconShield },
-  { id: 'devices', label: 'Devices', icon: NavIconCpu },
-  { id: 'chat', label: 'REX Chat', icon: NavIconChat },
+  { id: 'overview',    label: 'Overview',        icon: NavIconGrid },
+  { id: 'threats',     label: 'Threats',         icon: NavIconShield },
+  { id: 'devices',     label: 'Devices',         icon: NavIconCpu },
+  { id: 'firewall',    label: 'Firewall',        icon: NavIconShield },
+  { id: 'knowledge',   label: 'Knowledge Base',  icon: NavIconBook },
+  { id: 'scheduler',   label: 'Scheduler',       icon: NavIconClock },
+  { id: 'plugins',     label: 'Plugins',         icon: NavIconPlugin },
+  { id: 'diagnostics', label: 'Diagnostics',     icon: NavIconDiag },
+  { id: 'chat',        label: 'REX Chat',        icon: NavIconChat },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -50,6 +55,39 @@ function NavIconChat({ active }) {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={active ? 'text-cyan-400' : 'text-slate-500'}>
       <path d="M4 4H16C16.6 4 17 4.4 17 5V13C17 13.6 16.6 14 16 14H7L3 17V5C3 4.4 3.4 4 4 4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NavIconBook({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={active ? 'text-cyan-400' : 'text-slate-500'}>
+      <path d="M10 5A7 7 0 005 3C4.2 3 3.4 3.14 2.6 3.4V14.4C3.4 14.14 4.2 14 5 14C6.8 14 8.4 14.7 10 15.8M10 5A7 7 0 0115 3C15.8 3 16.6 3.14 17.4 3.4V14.4C16.6 14.14 15.8 14 15 14C13.2 14 11.6 14.7 10 15.8M10 5V15.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NavIconClock({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={active ? 'text-cyan-400' : 'text-slate-500'}>
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10 5.5V10H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NavIconPlugin({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={active ? 'text-cyan-400' : 'text-slate-500'}>
+      <path d="M11.5 4.5C11.5 3.67 10.83 3 10 3S8.5 3.67 8.5 4.5V6H6V8.5C5.17 8.5 4.5 9.17 4.5 10S5.17 11.5 6 11.5V14H8.5V15.5C8.5 16.33 9.17 17 10 17S11.5 16.33 11.5 15.5V14H14V11.5C14.83 11.5 15.5 10.83 15.5 10S14.83 8.5 14 8.5V6H11.5V4.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NavIconDiag({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={active ? 'text-cyan-400' : 'text-slate-500'}>
+      <path d="M3 10H6L8 5L12 15L14 10H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

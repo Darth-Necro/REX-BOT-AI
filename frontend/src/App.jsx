@@ -1,73 +1,39 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+/**
+ * App -- root component.
+ *
+ * Wires:
+ *   1. BrowserRouter + AppRoutes (auth gating, /login, /overview, /devices, /threats)
+ *   2. useBootstrap   -- API hydration on auth (system status, health)
+ *   3. useRealtimeSync -- WebSocket connection + event routing to stores
+ *
+ * Auth flow:
+ *   - useAuthStore holds the in-memory token (Batch 2)
+ *   - useSystemStore still holds a localStorage token (Batch 1 compat)
+ *   - Both are checked by ProtectedRoute in routes.jsx
+ */
+
+import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import AppRoutes from './app/routes';
 import useSystemStore from './stores/useSystemStore';
+import useAuthStore from './stores/useAuthStore';
 import useBootstrap from './hooks/useBootstrap';
-import AppShell from './layouts/AppShell';
-import AdvancedOverviewPage from './pages/overview/AdvancedOverviewPage';
-import LoginView from './views/LoginView';
-
-/* ------------------------------------------------------------------ */
-/*  Legacy views (keep imports alive for sub-routes)                  */
-/* ------------------------------------------------------------------ */
-import AdvancedView from './views/AdvancedView';
-
-/* ------------------------------------------------------------------ */
-/*  Page ID <-> route mapping                                         */
-/* ------------------------------------------------------------------ */
-
-const PAGE_ROUTES = {
-  overview: '/',
-  threats: '/threats',
-  devices: '/devices',
-  chat: '/chat',
-};
-
-/* ------------------------------------------------------------------ */
-/*  Inner shell that owns routing (needs to be inside BrowserRouter)  */
-/* ------------------------------------------------------------------ */
-
-function ShellWithRoutes() {
-  const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState('overview');
-
-  const handleNavigate = (id) => {
-    setCurrentPage(id);
-    const route = PAGE_ROUTES[id];
-    if (route) navigate(route);
-  };
-
-  return (
-    <AppShell currentPage={currentPage} onNavigate={handleNavigate}>
-      <Routes>
-        <Route path="/" element={<AdvancedOverviewPage />} />
-        {/* Legacy routes still work */}
-        <Route path="/threats" element={<AdvancedView />} />
-        <Route path="/devices" element={<AdvancedView />} />
-        <Route path="/chat" element={<AdvancedView />} />
-        {/* Catch-all falls back to overview */}
-        <Route path="*" element={<AdvancedOverviewPage />} />
-      </Routes>
-    </AppShell>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Root App                                                          */
-/* ------------------------------------------------------------------ */
+import useRealtimeSync from './hooks/useRealtimeSync';
 
 export default function App() {
-  const token = useSystemStore((s) => s.token);
+  const authToken = useAuthStore((s) => s.token);
+  const systemToken = useSystemStore((s) => s.token);
+  const token = authToken || systemToken;
 
-  // Bootstrap fires hydration + WebSocket setup when token is present
+  // 1. API hydration (system status + health fetch on auth)
   useBootstrap();
 
-  if (!token) {
-    return <LoginView />;
-  }
+  // 2. WebSocket realtime sync (connects after auth, routes events to stores)
+  useRealtimeSync(token);
 
   return (
     <BrowserRouter>
-      <ShellWithRoutes />
+      <AppRoutes />
     </BrowserRouter>
   );
 }
