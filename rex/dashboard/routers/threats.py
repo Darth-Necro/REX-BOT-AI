@@ -6,12 +6,14 @@ If this data is ever served as raw HTML, it MUST be escaped first.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/threats", tags=["threats"])
 
 
@@ -27,13 +29,16 @@ async def list_threats(
     threat_log = get_threat_log()
     if threat_log is not None:
         try:
-            threats = await threat_log.get_recent(limit=limit, severity=severity)
+            threats = await threat_log.get_recent(limit=limit)
+            # Filter by severity in-process (threat log doesn't support server-side filtering)
+            if severity:
+                threats = [t for t in threats if t.get("severity") == severity]
             return {
                 "threats": threats,
                 "total": len(threats),
             }
         except Exception:
-            pass
+            logger.exception("Failed to retrieve threat list")
 
     return {
         "threats": [],
@@ -47,7 +52,18 @@ async def get_threat(
     threat_id: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Return details for a specific threat."""
-    raise HTTPException(status_code=404, detail=f"Threat {threat_id} not found")
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            threat = await threat_log.get_by_id(threat_id)
+            if threat is not None:
+                return threat
+        except Exception:
+            logger.exception("Failed to retrieve threat %s", threat_id)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Threat {threat_id} not found")
 
 
 @router.put("/{threat_id}/resolve")
@@ -56,11 +72,21 @@ async def resolve_threat(
     resolution: str = "resolved",
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Mark a threat as resolved. Currently no threat store to update."""
+    """Mark a threat as resolved."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            applied = await threat_log.resolve(threat_id, resolution)
+            return {"threat_id": threat_id, "applied": applied, "resolution": resolution}
+        except Exception:
+            logger.exception("Failed to resolve threat %s", threat_id)
+
     return {
         "threat_id": threat_id,
         "applied": False,
-        "note": "Threat store not yet wired; resolution not persisted",
+        "note": "Threat log not active; resolution not persisted",
     }
 
 
@@ -68,9 +94,19 @@ async def resolve_threat(
 async def mark_false_positive(
     threat_id: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Mark a threat as a false positive. Currently no threat store to update."""
+    """Mark a threat as a false positive."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            applied = await threat_log.resolve(threat_id, "false_positive")
+            return {"threat_id": threat_id, "applied": applied, "marked_as": "false_positive"}
+        except Exception:
+            logger.exception("Failed to mark threat %s as false positive", threat_id)
+
     return {
         "threat_id": threat_id,
         "applied": False,
-        "note": "Threat store not yet wired; false-positive not persisted",
+        "note": "Threat log not active; false-positive not persisted",
     }
