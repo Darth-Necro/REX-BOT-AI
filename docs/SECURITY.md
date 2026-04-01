@@ -153,7 +153,7 @@ All network-derived strings are sanitized before inclusion in any LLM prompt:
 - **Service banners**: Truncated to 128 characters.
 - **HTTP User-Agents**: Truncated to 200 characters.
 - **Control characters**: Stripped entirely.
-- **Injection patterns**: 20+ regex patterns detect attempts like:
+- **Injection patterns**: 44 regex patterns detect attempts like:
   - "ignore all previous instructions"
   - "you are now..."
   - "mark as trusted"

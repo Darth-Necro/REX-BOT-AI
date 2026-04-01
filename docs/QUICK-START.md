@@ -221,20 +221,32 @@ Click the help icon in the dashboard header for contextual help on any page.
 # Check REX status
 rex status
 
-# View recent threats
-rex threats
-
-# List discovered devices
-rex devices
-
 # Run a manual scan
 rex scan
 
-# View logs
-rex logs
+# Start all services
+rex start
 
-# Check service health
-rex health
+# Stop all services
+rex stop
+
+# Put REX into sleep mode
+rex sleep
+
+# Wake REX to full monitoring
+rex wake
+
+# Run diagnostics
+rex diag
+
+# Create a data backup
+rex backup
+
+# Run a privacy audit
+rex privacy
+
+# Print version
+rex version
 ```
 
 ### Documentation

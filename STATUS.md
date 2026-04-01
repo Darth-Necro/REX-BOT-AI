@@ -46,14 +46,14 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Threat classifier: 12 categories with MITRE ATT&CK alignment
 - LLM client: hardcoded localhost enforcement, data sanitizer, Brain L1-L4 routing
 - Command executor: whitelisted commands, parameter validation, zero shell=True
-- Prompt injection sanitizer: 30+ patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
+- Prompt injection sanitizer: 44 patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
 - Network data sanitizer: control chars, truncation, injection detection on all event surfaces
 - Web content sanitizer: HTML stripping, injection patterns, untrusted content delimiters
 - Network scanner: ARP + nmap, device fingerprinting, DNS monitoring
 - Knowledge base: markdown parser/writer, git versioning, section CRUD
 - Firewall manager: safety invariants (gateway/self never blocked), rate limiting, auto-rollback
 - Auth: bcrypt hashing, PyJWT tokens, per-IP lockout, rate limiting
-- Dashboard API: 11 routers, 44 endpoints, honest responses (empty with notes, not fake success)
+- Dashboard API: 11 routers, 43 endpoints, honest responses (empty with notes, not fake success)
 - Orchestrator: service lifecycle, health monitoring, auto-restart (3 attempts)
 
 ## What Does NOT Work Yet
@@ -71,22 +71,22 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 |--------|-------|
 | Tests | 2,979 |
 | Failures | 0 |
-| xfail (documented) | 10 |
+| xfail (documented) | 5 |
 | Coverage | 84% |
-| Security pentest tests | 306 |
-| Lines of code (rex/) | 12,040 |
+| Security pentest tests | 255 test functions + 56 regression payloads |
+| Lines of code (rex/) | 35,953 |
 
 ## Alpha Release Checklist
 
 Before labeling this "alpha":
 
 - [x] All 13 modules implemented with real logic
-- [x] Security regression corpus: 306 tests, 0 failures, 10 xfail (documented VULNs)
+- [x] Security regression corpus: 255 test functions + 56 payloads, 0 failures, 5 xfail (documented VULNs)
 - [x] Overall test suite: 2,979 passed, 84% coverage
-- [x] Prompt injection defense: 30+ patterns, Unicode normalization, homoglyph detection
+- [x] Prompt injection defense: 44 patterns, Unicode normalization, homoglyph detection
 - [x] Auth: bcrypt + PyJWT (not homemade SHA-256)
 - [x] Docker hardened: pinned images, read-only root, no-new-privileges
-- [x] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
+- [ ] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
 - [ ] `docker compose up -d` verified end-to-end with events flowing
 - [ ] Mode switch calls backend ModeManager
 - [ ] Install script path alignment with Docker volumes

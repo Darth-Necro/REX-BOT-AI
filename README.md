@@ -42,8 +42,8 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Device fingerprinter | Working -- MAC OUI, OS detection, type classification |
 | Knowledge base (markdown) | Working -- REX-BOT-AI.md read/write/parse with git |
 | Privacy/encryption module | Working -- Fernet secrets, audit tools |
-| Agent security (scope, sanitizers) | Working -- prompt injection defense (30+ patterns), IP normalization, action whitelist |
-| Dashboard API (FastAPI) | Working -- 11 routers, 44+ endpoints, typed event publishing |
+| Agent security (scope, sanitizers) | Working -- prompt injection defense (44 patterns), IP normalization, action whitelist |
+| Dashboard API (FastAPI) | Working -- 11 routers, 43 endpoints, typed event publishing |
 | Dashboard frontend (React) | **Partial** -- fetches real state on mount, WebSocket sync wired |
 | Notification channels | **Partial** -- channel classes exist, not integration-tested |
 | Plugin system | **Minimal** -- SDK defined, sandbox is a dict not Docker |
@@ -51,7 +51,7 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
 | Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test suite | 3000+ tests, 3 xfail (known edge cases), 0 failures |
+| Test suite | 2,979 tests, 5 xfail (known edge cases), 0 failures |
 
 ## Architecture
 
@@ -96,6 +96,21 @@ pytest
 
 # Lint
 ruff check rex/ tests/
+```
+
+## CLI Commands
+
+```bash
+rex start      # Start all services (blocks until Ctrl+C)
+rex stop       # Stop all services gracefully
+rex status     # Show service health
+rex scan       # Trigger manual network scan
+rex sleep      # Put REX into alert-sleep mode
+rex wake       # Wake REX to full monitoring
+rex diag       # Full diagnostic dump
+rex backup     # Create data backup
+rex privacy    # Run privacy audit
+rex version    # Print version string
 ```
 
 ## Contributing
