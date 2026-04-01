@@ -14,6 +14,19 @@ router = APIRouter(prefix="/api/devices", tags=["devices"])
 @router.get("/")
 async def list_devices(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Return discovered devices. Empty until first scan completes."""
+    from rex.dashboard.data_registry import get_device_store
+
+    device_store = get_device_store()
+    if device_store is not None:
+        try:
+            devices = await device_store.get_all_devices()
+            return {
+                "devices": devices,
+                "total": len(devices),
+            }
+        except Exception:
+            pass
+
     return {
         "devices": [],
         "total": 0,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from rex.dashboard.deps import get_auth, get_current_user
 
@@ -12,11 +12,12 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/login")
-async def login(password: str = Body(..., embed=True)) -> dict[str, Any]:
+async def login(request: Request, password: str = Body(..., embed=True)) -> dict[str, Any]:
     """Authenticate and receive a JWT token."""
     auth = get_auth()
+    client_ip = request.client.host if request.client else "unknown"
     try:
-        result = await auth.login(username="admin", password=password)
+        result = await auth.login(username="admin", password=password, client_ip=client_ip)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

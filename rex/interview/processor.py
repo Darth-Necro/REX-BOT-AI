@@ -10,9 +10,13 @@ user confirmation before finalisation.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from rex.shared.utils import iso_timestamp
+
+# Maximum length for free-text answers (e.g. notes)
+_MAX_FREETEXT_LENGTH = 1000
 
 logger = logging.getLogger("rex.interview.processor")
 
@@ -497,11 +501,41 @@ class AnswerProcessor:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _sanitize_answer(value: str, max_length: int = _MAX_FREETEXT_LENGTH) -> str:
+        """Sanitize a free-text answer before writing to the KB.
+
+        - Strips markdown heading syntax (## and #)
+        - Escapes pipe characters (table safety)
+        - Truncates to *max_length* characters
+
+        Parameters
+        ----------
+        value:
+            The raw text to sanitize.
+        max_length:
+            Maximum allowed length.
+
+        Returns
+        -------
+        str
+            Sanitized text safe for KB storage.
+        """
+        # Strip markdown heading syntax
+        value = re.sub(r"^#{1,6}\s*", "", value, flags=re.MULTILINE)
+        # Escape pipe characters for table safety
+        value = value.replace("|", "\\|")
+        # Truncate to reasonable length
+        if len(value) > max_length:
+            value = value[:max_length]
+        return value
+
     def _format_for_kb(self, question_id: str, answer: Any) -> str:
         """Format an answer value for storage in the KB markdown.
 
         Multi-select answers become comma-separated strings.
-        Everything else is coerced to ``str``.
+        Free-text answers are sanitized.  Everything else is coerced
+        to ``str``.
 
         Parameters
         ----------
@@ -517,7 +551,11 @@ class AnswerProcessor:
         """
         if isinstance(answer, list):
             return ", ".join(str(v) for v in answer)
-        return str(answer) if answer is not None else ""
+        result = str(answer) if answer is not None else ""
+        # Sanitize free-text fields
+        if question_id in ("additional_notes", "authorized_pentest_ips"):
+            result = self._sanitize_answer(result)
+        return result
 
     async def _write_user_notes(self, kb: Any, text: str) -> None:
         """Write free-text notes to the USER NOTES section.

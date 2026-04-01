@@ -12,6 +12,32 @@ from rex.shared.utils import utc_now
 router = APIRouter(prefix="/api", tags=["health"])
 
 
+def _get_device_count() -> int:
+    """Return the number of discovered devices, or 0 if unavailable."""
+    from rex.dashboard.data_registry import get_device_store
+
+    device_store = get_device_store()
+    if device_store is not None:
+        try:
+            return device_store.count()
+        except Exception:
+            pass
+    return 0
+
+
+def _get_active_threats() -> int:
+    """Return the number of active threats, or 0 if unavailable."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            return threat_log.active_count()
+        except Exception:
+            pass
+    return 0
+
+
 @router.get("/status")
 async def get_status() -> dict[str, Any]:
     """Return actual system status by probing backend services."""
@@ -55,8 +81,8 @@ async def get_status() -> dict[str, Any]:
             "redis": {"healthy": redis_ok},
             "ollama": {"healthy": ollama_ok, "degraded": not ollama_ok},
         },
-        "device_count": 0,  # TODO: wire to DeviceStore
-        "active_threats": 0,  # TODO: wire to ThreatLog
+        "device_count": _get_device_count(),
+        "active_threats": _get_active_threats(),
     }
 
 

@@ -9,7 +9,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import secrets
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -43,14 +45,30 @@ class PrivacyEngine:
         self._salt_cache: dict[str, str] = {}
 
     def _get_daily_salt(self) -> str:
-        """Return a salt that rotates daily. Deterministic per day."""
+        """Return a salt that rotates daily. Deterministic per day per install."""
         today = datetime.now(UTC).strftime("%Y-%m-%d")
         if today not in self._salt_cache:
             self._salt_cache.clear()
+            # Include per-install secret to prevent salt precomputation
+            install_id = self._get_install_id()
             self._salt_cache[today] = hashlib.sha256(
-                f"rex-federation-salt-{today}".encode()
+                f"rex-federation-{install_id}-{today}".encode()
             ).hexdigest()[:16]
         return self._salt_cache[today]
+
+    def _get_install_id(self) -> str:
+        """Read or generate a per-install random ID."""
+        id_file = Path("/etc/rex-bot-ai/.install-id")
+        if id_file.exists():
+            return id_file.read_text().strip()
+        install_id = secrets.token_hex(16)
+        try:
+            id_file.parent.mkdir(parents=True, exist_ok=True)
+            id_file.write_text(install_id)
+            id_file.chmod(0o600)
+        except OSError:
+            pass
+        return install_id
 
     def hash_indicator(self, value: str) -> str:
         """Hash an IOC value with daily rotating salt."""

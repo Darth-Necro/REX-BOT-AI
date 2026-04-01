@@ -22,6 +22,19 @@ async def list_threats(
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return recent threats. Empty until threat detection is running."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            threats = await threat_log.get_recent(limit=limit, severity=severity)
+            return {
+                "threats": threats,
+                "total": len(threats),
+            }
+        except Exception:
+            pass
+
     return {
         "threats": [],
         "total": 0,

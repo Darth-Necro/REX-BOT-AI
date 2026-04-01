@@ -538,7 +538,10 @@ class FirewallManager:
             )
 
         # Gateway IP -- NEVER block.
-        if self._gateway_ip and ip == self._gateway_ip:
+        if self._gateway_ip is None:
+            logger.warning("Gateway IP unknown — cannot verify target is not the gateway")
+            # Continue with other checks (loopback, self-IP, etc.)
+        elif ip == self._gateway_ip:
             raise RexFirewallError(
                 f"SAFETY: Refusing to block gateway IP {ip}. "
                 "Blocking the gateway would sever all network connectivity!",
