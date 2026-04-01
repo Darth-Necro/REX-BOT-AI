@@ -337,7 +337,7 @@ class VectorStore:
         norm_a = math.sqrt(sum(x * x for x in a))
         norm_b = math.sqrt(sum(x * x for x in b))
 
-        if norm_a == 0.0 or norm_b == 0.0:
+        if norm_a < 1e-10 or norm_b < 1e-10:
             return 1.0  # undefined -- treat as maximum drift
 
         similarity = dot / (norm_a * norm_b)

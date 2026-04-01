@@ -170,7 +170,7 @@ class AuthManager:
                 if stored:
                     pw_hash = stored
             except Exception:
-                pass
+                logger.debug("Failed to retrieve password_hash from SecretsManager", exc_info=True)
 
         # Verify password
         if not verify_password(password, pw_hash):
@@ -197,7 +197,7 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.debug("Failed to retrieve jwt_secret from SecretsManager", exc_info=True)
 
         # Generate JWT
         token = create_token({"sub": username}, jwt_secret)
@@ -238,5 +238,8 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.debug(
+                    "Failed to retrieve jwt_secret from SecretsManager for verification",
+                    exc_info=True,
+                )
         return verify_token_str(token, jwt_secret)
