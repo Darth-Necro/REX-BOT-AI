@@ -1,0 +1,263 @@
+"""Tests for rex.store.sdk.plugin_api -- Plugin REST API endpoints."""
+
+from __future__ import annotations
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from rex.store.sdk.plugin_api import _verify_plugin_token, router
+
+# ------------------------------------------------------------------
+# App setup
+# ------------------------------------------------------------------
+
+_app = FastAPI()
+_app.include_router(router)
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Return a TestClient wired to the plugin API router."""
+    return TestClient(_app)
+
+
+HEADERS = {"X-Plugin-Token": "test-plugin-42"}
+
+
+# ------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------
+
+class TestPluginAuth:
+    """Token verification tests."""
+
+    def test_missing_token_returns_422(self, client: TestClient) -> None:
+        """Requests without X-Plugin-Token must be rejected."""
+        resp = client.get("/plugin-api/devices")
+        assert resp.status_code == 422
+
+    def test_valid_token_returns_200(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/devices", headers=HEADERS)
+        assert resp.status_code == 200
+
+    def test_empty_token_returns_401(self, client: TestClient) -> None:
+        """An empty string token triggers the truthiness check in
+        _verify_plugin_token, which raises HTTPException 401."""
+        resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": ""})
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Missing plugin token"
+
+
+# ------------------------------------------------------------------
+# GET /devices
+# ------------------------------------------------------------------
+
+class TestGetDevices:
+
+    def test_returns_device_list(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/devices", headers=HEADERS)
+        data = resp.json()
+        assert data == {"devices": [], "total": 0}
+
+    def test_response_structure(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/devices", headers=HEADERS)
+        data = resp.json()
+        assert "devices" in data
+        assert "total" in data
+
+
+# ------------------------------------------------------------------
+# GET /events
+# ------------------------------------------------------------------
+
+class TestGetEvents:
+
+    def test_returns_event_list(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/events", headers=HEADERS)
+        data = resp.json()
+        assert data == {"events": []}
+
+
+# ------------------------------------------------------------------
+# POST /alerts
+# ------------------------------------------------------------------
+
+class TestPostAlerts:
+
+    def test_submit_alert_success(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/alerts",
+            params={"severity": "high", "message": "Brute force detected"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        assert data["plugin"] == "test-plugin-42"
+
+    def test_submit_alert_missing_params(self, client: TestClient) -> None:
+        resp = client.post("/plugin-api/alerts", headers=HEADERS)
+        assert resp.status_code == 422
+
+    def test_submit_alert_missing_severity(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/alerts",
+            params={"message": "something"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 422
+
+    def test_submit_alert_missing_message(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/alerts",
+            params={"severity": "low"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 422
+
+
+# ------------------------------------------------------------------
+# POST /actions
+# ------------------------------------------------------------------
+
+class TestPostActions:
+
+    def test_request_action_success(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/actions",
+            params={"action_type": "block_ip"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "pending_approval"
+        assert data["plugin"] == "test-plugin-42"
+
+    def test_request_action_with_params(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/actions",
+            params={"action_type": "quarantine"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+
+    def test_request_action_missing_type(self, client: TestClient) -> None:
+        resp = client.post("/plugin-api/actions", headers=HEADERS)
+        assert resp.status_code == 422
+
+
+# ------------------------------------------------------------------
+# GET /knowledge-base/{section}
+# ------------------------------------------------------------------
+
+class TestGetKnowledgeBase:
+
+    def test_get_kb_section(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/knowledge-base/threats", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["section"] == "threats"
+        assert data["data"] is None
+
+    def test_get_kb_different_section(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/knowledge-base/network-map", headers=HEADERS)
+        data = resp.json()
+        assert data["section"] == "network-map"
+
+    def test_get_kb_without_token(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/knowledge-base/threats")
+        assert resp.status_code == 422
+
+
+# ------------------------------------------------------------------
+# POST /log
+# ------------------------------------------------------------------
+
+class TestPostLog:
+
+    def test_submit_log(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/log",
+            params={"message": "Plugin started scan"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "logged"
+
+    def test_submit_log_with_level(self, client: TestClient) -> None:
+        resp = client.post(
+            "/plugin-api/log",
+            params={"message": "Warning!", "level": "warning"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "logged"
+
+    def test_submit_log_default_level(self, client: TestClient) -> None:
+        """Level defaults to 'info' when not provided."""
+        resp = client.post(
+            "/plugin-api/log",
+            params={"message": "default level"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+
+    def test_submit_log_missing_message(self, client: TestClient) -> None:
+        resp = client.post("/plugin-api/log", headers=HEADERS)
+        assert resp.status_code == 422
+
+
+# ------------------------------------------------------------------
+# PUT /store/{key}
+# ------------------------------------------------------------------
+
+class TestPutStore:
+
+    def test_store_data(self, client: TestClient) -> None:
+        resp = client.put(
+            "/plugin-api/store/my_key",
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "stored"
+        assert data["key"] == "my_key"
+
+    def test_store_data_with_value(self, client: TestClient) -> None:
+        resp = client.put(
+            "/plugin-api/store/config",
+            params={"value": "some-value"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["key"] == "config"
+
+    def test_store_different_keys(self, client: TestClient) -> None:
+        for key in ["alpha", "beta", "gamma"]:
+            resp = client.put(f"/plugin-api/store/{key}", headers=HEADERS)
+            assert resp.json()["key"] == key
+
+
+# ------------------------------------------------------------------
+# GET /store/{key}
+# ------------------------------------------------------------------
+
+class TestGetStore:
+
+    def test_retrieve_data(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/store/my_key", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["key"] == "my_key"
+        assert data["value"] is None
+
+    def test_retrieve_different_key(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/store/other_key", headers=HEADERS)
+        data = resp.json()
+        assert data["key"] == "other_key"
+
+    def test_retrieve_without_token(self, client: TestClient) -> None:
+        resp = client.get("/plugin-api/store/secret")
+        assert resp.status_code == 422
