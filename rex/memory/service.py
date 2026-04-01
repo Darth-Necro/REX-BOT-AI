@@ -187,7 +187,8 @@ class MemoryService(BaseService):
 
         await self._kb.update_device(device)
         await self._kb.add_changelog_entry(
-            f"Device updated: {device.mac_address} ({device.hostname or device.ip_address or 'unknown'})",
+            f"Device updated: {device.mac_address}"
+            f" ({device.hostname or device.ip_address or 'unknown'})",
             source="EYES",
         )
         self._pending_commits += 1
@@ -227,7 +228,8 @@ class MemoryService(BaseService):
         await self._kb.append_threat(threat)
 
         await self._kb.add_changelog_entry(
-            f"Threat logged: [{threat.severity}] {threat.threat_type} from {threat.source_ip or 'unknown'}",
+            f"Threat logged: [{threat.severity}] {threat.threat_type}"
+            f" from {threat.source_ip or 'unknown'}",
             source="EYES",
         )
 

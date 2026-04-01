@@ -38,7 +38,10 @@ class WebPushChannel(BaseChannel):
         return True
 
     async def test(self) -> bool:
-        return await self.send("REX test notification. Web push is working.", {"title": "REX Test", "severity": "info"})
+        return await self.send(
+            "REX test notification. Web push is working.",
+            {"title": "REX Test", "severity": "info"},
+        )
 
     def drain_pending(self) -> list[dict[str, Any]]:
         """Return and clear all pending push notifications."""

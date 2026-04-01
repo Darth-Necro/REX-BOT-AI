@@ -174,7 +174,7 @@ class NetworkScanner:
         # Step 4: Enrich with reverse DNS and DHCP hostnames
         dhcp_hostnames = await self._read_dhcp_hostnames()
         enrichment_tasks = []
-        for mac, dev in merged.items():
+        for _mac, dev in merged.items():
             enrichment_tasks.append(self._enrich_device_hostname(dev, dhcp_hostnames))
         await asyncio.gather(*enrichment_tasks, return_exceptions=True)
 

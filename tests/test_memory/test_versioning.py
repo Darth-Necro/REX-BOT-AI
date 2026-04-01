@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.memory.versioning import GitManager
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # GitManager initialisation
@@ -32,11 +34,10 @@ class TestGitManagerInit:
 
         with patch.dict("sys.modules", {"git": None}):
             # Force ImportError on git import
-            original_init = gm._init_sync
 
             def _mock_init():
                 try:
-                    import git  # noqa: F811
+                    import git
                     if git is None:
                         raise ImportError("mocked")
                 except ImportError:

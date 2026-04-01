@@ -355,7 +355,8 @@ class WindowsAdapter(PlatformAdapter):
         """
         raise RexPlatformNotSupportedError(
             "Windows get_active_rules: TODO -- "
-            "Implemented in Phase 2 using 'netsh advfirewall firewall show rule' with REX group filter"
+            "Implemented in Phase 2 using"
+            " 'netsh advfirewall firewall show rule' with REX group filter"
         )
 
     def panic_restore(self) -> bool:
@@ -438,7 +439,8 @@ class WindowsAdapter(PlatformAdapter):
         """
         raise RexPlatformNotSupportedError(
             "Windows set_wake_timer: TODO -- "
-            "Implemented in Phase 2 using Task Scheduler (schtasks /create with /RL HIGHEST wake flag)"
+            "Implemented in Phase 2 using Task Scheduler"
+            " (schtasks /create with /RL HIGHEST wake flag)"
         )
 
     def cancel_wake_timer(self) -> bool:

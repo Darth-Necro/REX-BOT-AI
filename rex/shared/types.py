@@ -11,7 +11,7 @@ from __future__ import annotations
 # Network identifiers
 # ---------------------------------------------------------------------------
 MacAddress = str
-"""IEEE 802 MAC address, normalised to lowercase colon-separated hex (e.g. ``aa:bb:cc:dd:ee:ff``)."""
+"""MAC address, normalised to lowercase colon-separated hex (``aa:bb:cc:dd:ee:ff``)."""
 
 IPv4Address = str
 """Dotted-quad IPv4 address string (e.g. ``192.168.1.1``)."""

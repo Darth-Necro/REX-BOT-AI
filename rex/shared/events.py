@@ -34,7 +34,10 @@ class RexEvent(RexBaseModel):
     """
 
     event_id: str = Field(default_factory=generate_id, description="Unique event identifier.")
-    timestamp: datetime = Field(default_factory=utc_now, description="Event creation timestamp (UTC).")
+    timestamp: datetime = Field(
+        default_factory=utc_now,
+        description="Event creation timestamp (UTC).",
+    )
     source: ServiceName = Field(..., description="Service that emitted this event.")
     event_type: str = Field(..., description="Dot-free snake_case event type string.")
     payload: dict[str, Any] = Field(default_factory=dict, description="Event-specific data.")

@@ -115,7 +115,9 @@ def _run(
         )
     except FileNotFoundError:
         logger.warning("Command not found: %s", cmd[0])
-        return subprocess.CompletedProcess(cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found")
+        return subprocess.CompletedProcess(
+            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found"
+        )
     except subprocess.TimeoutExpired:
         logger.warning("Command timed out after %ds: %s", timeout, " ".join(cmd))
         return subprocess.CompletedProcess(cmd, returncode=-1, stdout="", stderr="timeout")
@@ -598,7 +600,11 @@ class _IptablesFirewall:
                 ip_match = re.search(r"(\d+\.\d+\.\d+\.\d+)", line)
                 comment_match = re.search(rf"{_REX_COMMENT_TAG}: (.+?)(?:\s*$)", line)
                 action = "drop" if "DROP" in line else "accept" if "ACCEPT" in line else "reject"
-                direction = "inbound" if "INPUT" in chain else "outbound" if "OUTPUT" in chain else "forward"
+                direction = (
+                    "inbound" if "INPUT" in chain
+                    else "outbound" if "OUTPUT" in chain
+                    else "forward"
+                )
 
                 rules.append(FirewallRule(
                     ip=ip_match.group(1) if ip_match else None,
@@ -1170,8 +1176,12 @@ class LinuxAdapter:
 
                     transport_offset = 14 + ihl
                     if ip_proto in (6, 17) and len(raw_packet) >= transport_offset + 4:
-                        src_port = struct.unpack("!H", raw_packet[transport_offset:transport_offset + 2])[0]
-                        dst_port = struct.unpack("!H", raw_packet[transport_offset + 2:transport_offset + 4])[0]
+                        src_port = struct.unpack(
+                            "!H", raw_packet[transport_offset:transport_offset + 2]
+                        )[0]
+                        dst_port = struct.unpack(
+                            "!H", raw_packet[transport_offset + 2:transport_offset + 4]
+                        )[0]
                 elif eth_type == 0x0806:
                     protocol = "ARP"
                 elif eth_type == 0x86DD:
@@ -1180,9 +1190,10 @@ class LinuxAdapter:
                     protocol = f"0x{eth_type:04x}"
 
                 # Apply BPF-style filter manually if specified
-                if bpf_filter:
-                    if not _bpf_match(bpf_filter, src_ip, dst_ip, protocol, src_port, dst_port):
-                        continue
+                if bpf_filter and not _bpf_match(
+                    bpf_filter, src_ip, dst_ip, protocol, src_port, dst_port
+                ):
+                    continue
 
                 yield {
                     "src_mac": src_mac,
@@ -1273,7 +1284,11 @@ class LinuxAdapter:
                         if not ssid or ssid == "--":
                             continue
                         # BSSID has colons, so rejoin parts 1-6
-                        bssid = ":".join(parts[1:7]).strip() if len(parts) >= 7 else parts[1].strip()
+                        bssid = (
+                            ":".join(parts[1:7]).strip()
+                            if len(parts) >= 7
+                            else parts[1].strip()
+                        )
                         remaining = parts[7:] if len(parts) >= 8 else parts[2:]
                         networks.append({
                             "ssid": ssid,
@@ -1305,7 +1320,10 @@ class LinuxAdapter:
                         if line.startswith("Cell"):
                             if current.get("bssid"):
                                 networks.append(current)
-                            current = {"ssid": "", "bssid": "", "signal": "", "frequency": "", "security": ""}
+                            current = {
+                                "ssid": "", "bssid": "", "signal": "",
+                                "frequency": "", "security": "",
+                            }
                             addr_match = re.search(r"Address:\s*([\da-fA-F:]+)", line)
                             if addr_match:
                                 current["bssid"] = addr_match.group(1)
@@ -1895,10 +1913,7 @@ WantedBy=multi-user.target
 
         # Fallback: check the HTTP endpoint directly
         result = _run(["curl", "-s", "--max-time", "3", "http://localhost:11434"])
-        if result.returncode == 0 and result.stdout.strip():
-            return True
-
-        return False
+        return bool(result.returncode == 0 and result.stdout.strip())
 
     def get_gpu_info(self) -> GPUInfo | None:
         """Detect GPU hardware and capabilities.
@@ -1931,7 +1946,10 @@ WantedBy=multi-user.target
 
                     # Check for CUDA
                     cuda_available = False
-                    cuda_check = _run(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"])
+                    cuda_check = _run([
+                        "nvidia-smi", "--query-gpu=compute_cap",
+                        "--format=csv,noheader",
+                    ])
                     if cuda_check.returncode == 0 and cuda_check.stdout.strip():
                         cuda_available = True
 
@@ -1952,7 +1970,10 @@ WantedBy=multi-user.target
                     # rocm-smi JSON format varies; try common structures
                     for _card_key, card_data in data.items():
                         if isinstance(card_data, dict):
-                            model = card_data.get("Card SKU", card_data.get("Card series", "AMD GPU"))
+                            model = card_data.get(
+                                "Card SKU",
+                                card_data.get("Card series", "AMD GPU"),
+                            )
                             break
                     else:
                         model = "AMD GPU"

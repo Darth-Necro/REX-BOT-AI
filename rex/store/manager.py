@@ -107,7 +107,10 @@ class PluginManager:
         devices = network_data.get("devices", [])
 
         # Check for IoT devices
-        iot_types = {DeviceType.IOT_CAMERA, DeviceType.IOT_CLIMATE, DeviceType.IOT_HUB, DeviceType.SMART_TV}
+        iot_types = {
+            DeviceType.IOT_CAMERA, DeviceType.IOT_CLIMATE,
+            DeviceType.IOT_HUB, DeviceType.SMART_TV,
+        }
         has_iot = any(d.get("device_type") in iot_types for d in devices)
         if has_iot:
             recommendations.append("rex-plugin-iot-monitor")

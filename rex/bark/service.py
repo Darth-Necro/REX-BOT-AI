@@ -66,7 +66,11 @@ class BarkService(BaseService):
         matrix_room = os.environ.get("MATRIX_ROOM_ID", "")
         matrix_token = os.environ.get("MATRIX_ACCESS_TOKEN", "")
         if matrix_hs and matrix_room and matrix_token:
-            self._manager.register_channel(MatrixChannel(homeserver=matrix_hs, room_id=matrix_room, access_token=matrix_token))
+            self._manager.register_channel(MatrixChannel(
+                homeserver=matrix_hs,
+                room_id=matrix_room,
+                access_token=matrix_token,
+            ))
 
         # Web push is always available
         self._manager.register_channel(WebPushChannel())

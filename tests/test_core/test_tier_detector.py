@@ -39,7 +39,10 @@ class TestTierDetector:
         """Between 10 and 50 devices (no server) should return STANDARD."""
         td = TierDetector()
         devices = [
-            {"mac": f"aa:bb:cc:dd:{(i >> 8) & 0xFF:02x}:{i & 0xFF:02x}", "ip": f"10.0.{i // 256}.{i % 256}"}
+            {
+                "mac": f"aa:bb:cc:dd:{(i >> 8) & 0xFF:02x}:{i & 0xFF:02x}",
+                "ip": f"10.0.{i // 256}.{i % 256}",
+            }
             for i in range(30)
         ]
         result = td.detect_tier(devices, {})
@@ -49,7 +52,10 @@ class TestTierDetector:
         """More than 50 devices should return FULL."""
         td = TierDetector()
         devices = [
-            {"mac": f"aa:bb:cc:{(i >> 16) & 0xFF:02x}:{(i >> 8) & 0xFF:02x}:{i & 0xFF:02x}", "ip": f"10.0.{i // 256}.{i % 256}"}
+            {
+                "mac": f"aa:bb:cc:{(i >> 16) & 0xFF:02x}:{(i >> 8) & 0xFF:02x}:{i & 0xFF:02x}",
+                "ip": f"10.0.{i // 256}.{i % 256}",
+            }
             for i in range(51)
         ]
         result = td.detect_tier(devices, {})

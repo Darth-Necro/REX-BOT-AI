@@ -451,7 +451,10 @@ class PrivacyAuditor:
         # Encryption status
         lines.append("--- ENCRYPTION STATUS ---")
         disk = audit["encryption_status"].get("disk_encryption", {})
-        lines.append(f"  Disk Encryption: {disk.get('method', 'None')} -- {disk.get('details', 'N/A')}")
+        lines.append(
+            f"  Disk Encryption: {disk.get('method', 'None')}"
+            f" -- {disk.get('details', 'N/A')}"
+        )
         enc_stores = audit["encryption_status"].get("data_stores", {})
         non_compliant = [
             name for name, info in enc_stores.items()

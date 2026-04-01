@@ -362,7 +362,11 @@ class PortScanner:
                 state = state_elem.get("state", "unknown") if state_elem is not None else "unknown"
 
                 service_elem = port_elem.find("service")
-                service = service_elem.get("name", "unknown") if service_elem is not None else "unknown"
+                service = (
+                    service_elem.get("name", "unknown")
+                    if service_elem is not None
+                    else "unknown"
+                )
 
                 if state == "open":
                     results.append((portid, state, service))

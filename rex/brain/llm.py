@@ -95,6 +95,12 @@ _WINDOWS_PATH_RE = re.compile(
 _SSID_RE = re.compile(
     r'(?:SSID|ssid|network)[:\s]*["\']?([^"\';\n,]+)'
 )
+# Bare hostnames without dots (e.g., "johns-macbook-pro", "DESKTOP-AB12CD")
+_BARE_HOSTNAME_RE = re.compile(
+    r"\b[a-zA-Z][a-zA-Z0-9]*(?:-[a-zA-Z0-9]+){2,}\b"  # multi-hyphenated names
+    r"|\b(?:DESKTOP|LAPTOP|WORKSTATION|SERVER|MACBOOK"
+    r"|IPHONE|IPAD|ANDROID)-[A-Za-z0-9]+\b"  # known patterns
+)
 
 
 # ---------------------------------------------------------------------------
@@ -174,11 +180,26 @@ class OllamaClient(LLMProvider):
                 f"LLM endpoint must be localhost. Got: {parsed.hostname}. "
                 f"REX will NEVER send network data to an external LLM API."
             )
-        self.base_url = base_url.rstrip("/")
+        self._base_url = base_url.rstrip("/")
         self._model: str | None = None if model == "auto" else model
         self._available: bool = False
         self._client: httpx.AsyncClient | None = None
         self._last_health_check: float = 0.0
+
+    @property
+    def base_url(self) -> str:
+        """Read-only base URL. Cannot be mutated after init to prevent privacy bypass."""
+        return self._base_url
+
+    @base_url.setter
+    def base_url(self, value: str) -> None:
+        """Reject any attempt to change base_url after initialization."""
+        parsed = urlparse(value)
+        if parsed.hostname not in ALLOWED_HOSTS:
+            raise PrivacyViolationError(
+                f"Cannot change LLM endpoint to non-localhost: {parsed.hostname}"
+            )
+        self._base_url = value.rstrip("/")
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -576,8 +597,13 @@ class DataSanitizer:
             lambda m: self._get_placeholder("path", m.group(0)), text,
         )
 
-        # Hostnames / FQDNs (last, most generic)
+        # Hostnames / FQDNs
         text = _HOSTNAME_RE.sub(
+            lambda m: self._get_placeholder("host", m.group(0)), text,
+        )
+
+        # Bare hostnames (no dots — e.g., "johns-macbook-pro", "DESKTOP-ABC123")
+        text = _BARE_HOSTNAME_RE.sub(
             lambda m: self._get_placeholder("host", m.group(0)), text,
         )
 

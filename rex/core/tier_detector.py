@@ -10,7 +10,9 @@ from rex.shared.enums import HardwareTier
 class TierDetector:
     """Auto-detects the hardware tier (MINIMAL / STANDARD / FULL)."""
 
-    def detect_tier(self, devices: list[dict[str, Any]], network_info: dict[str, Any]) -> HardwareTier:
+    def detect_tier(
+        self, devices: list[dict[str, Any]], network_info: dict[str, Any]
+    ) -> HardwareTier:
         """Analyse network topology and device count to determine tier.
 
         < 10 devices, single subnet -> MINIMAL (home)

@@ -8,7 +8,6 @@ from rex.eyes.device_store import DeviceStore
 from rex.shared.enums import DeviceStatus, DeviceType
 from rex.shared.models import Device, ScanResult
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -159,7 +158,7 @@ class TestDeviceStoreUpdateFromScan:
         updated_device = _make_device(mac="aa:aa:aa:11:11:11", ip="192.168.1.99")
         scan = _make_scan([updated_device])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        new, updated, _departed = await store.update_from_scan(scan)
         assert len(new) == 0
         assert len(updated) == 1
         assert updated[0].ip_address == "192.168.1.99"
@@ -176,7 +175,7 @@ class TestDeviceStoreUpdateFromScan:
         # Scan with NO devices (all existing ones have departed)
         scan = _make_scan([])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, _updated, departed = await store.update_from_scan(scan)
         assert len(departed) == 1
         assert departed[0].status == DeviceStatus.OFFLINE
 

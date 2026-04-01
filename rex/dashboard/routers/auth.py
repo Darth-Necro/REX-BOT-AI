@@ -22,7 +22,7 @@ async def login(password: str = Body(..., embed=True)) -> dict[str, Any]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
     return result
 
 
@@ -45,5 +45,5 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
-        )
+        ) from exc
     return {"status": "changed"}

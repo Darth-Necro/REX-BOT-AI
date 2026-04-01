@@ -36,7 +36,11 @@ class TelegramChannel(BaseChannel):
         url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         payload = {"chat_id": self._chat_id, "text": text, "parse_mode": "Markdown"}
         try:
-            req = Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
+            req = Request(
+                url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            )
             with urlopen(req, timeout=10) as resp:
                 return resp.status == 200
         except Exception:
@@ -44,4 +48,7 @@ class TelegramChannel(BaseChannel):
             return False
 
     async def test(self) -> bool:
-        return await self.send("REX test notification. Telegram alerts are working.", {"title": "REX Test", "severity": "info"})
+        return await self.send(
+            "REX test notification. Telegram alerts are working.",
+            {"title": "REX Test", "severity": "info"},
+        )

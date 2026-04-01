@@ -94,7 +94,7 @@ class EventBus:
             self._running = True
             logger.info("EventBus connected to Redis at %s", self._redis_url)
             # Attempt to drain any leftover WAL entries from a previous crash
-            asyncio.create_task(self._drain_wal())
+            self._drain_task = asyncio.create_task(self._drain_wal())
         except (ConnectionError, OSError, aioredis.RedisError) as exc:
             self._running = True  # allow WAL-only operation
             logger.warning(
@@ -353,7 +353,7 @@ class EventBus:
         if replayed_ids:
             placeholders = ",".join("?" * len(replayed_ids))
             await self._wal_db.execute(
-                f"UPDATE wal SET replayed = 1 WHERE id IN ({placeholders})",
+                f"UPDATE wal SET replayed = 1 WHERE id IN ({placeholders})",  # noqa: S608
                 replayed_ids,
             )
             await self._wal_db.commit()

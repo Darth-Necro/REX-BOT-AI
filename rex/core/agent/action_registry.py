@@ -221,7 +221,10 @@ class ActionRegistry:
         self._register(ActionSpec(
             action_id="fingerprint_device",
             name="Fingerprint Device",
-            description="Identify OS, services, and vendor of a specific device via active probing.",
+            description=(
+                "Identify OS, services, and vendor of a"
+                " specific device via active probing."
+            ),
             domain="monitoring",
             risk=RiskLevel.LOW,
             auto_execute_basic=True,
@@ -265,7 +268,10 @@ class ActionRegistry:
         self._register(ActionSpec(
             action_id="vulnerability_scan",
             name="Vulnerability Scan",
-            description="Run a lightweight vulnerability assessment against a device using known CVEs.",
+            description=(
+                "Run a lightweight vulnerability assessment"
+                " against a device using known CVEs."
+            ),
             domain="monitoring",
             risk=RiskLevel.MEDIUM,
             auto_execute_basic=False,
@@ -276,7 +282,10 @@ class ActionRegistry:
         self._register(ActionSpec(
             action_id="deep_scan_device",
             name="Deep Scan Device",
-            description="Perform an intensive nmap scan with service version detection and OS fingerprinting.",
+            description=(
+                "Perform an intensive nmap scan with service"
+                " version detection and OS fingerprinting."
+            ),
             domain="monitoring",
             risk=RiskLevel.MEDIUM,
             auto_execute_basic=False,
@@ -561,7 +570,10 @@ class ActionRegistry:
         self._register(ActionSpec(
             action_id="research_threat",
             name="Research Threat",
-            description="Use the LLM knowledge base to research a specific threat type or indicator.",
+            description=(
+                "Use the LLM knowledge base to research a"
+                " specific threat type or indicator."
+            ),
             domain="information",
             risk=RiskLevel.LOW,
             auto_execute_basic=True,

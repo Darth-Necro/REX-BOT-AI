@@ -115,8 +115,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S106", "S105"]
+"tests/**/*.py" = ["S101", "S106", "S105", "E501"]
 "rex/core/cli.py" = ["T201"]
+"rex/brain/prompts.py" = ["E501"]
 
 # ---------------------------------------------------------------------------
 # Type Checking — mypy

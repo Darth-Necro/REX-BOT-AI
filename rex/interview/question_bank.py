@@ -41,7 +41,8 @@ def _has_iot_devices(network_data: dict[str, Any], _answers: dict[str, Any]) -> 
         DeviceType.SMART_TV,
     }
     return any(
-        d.get("device_type") in iot_types or str(d.get("device_type", "")) in {t.value for t in iot_types}
+        d.get("device_type") in iot_types
+        or str(d.get("device_type", "")) in {t.value for t in iot_types}
         for d in devices
     )
 

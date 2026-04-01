@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from datetime import timedelta
-from unittest.mock import patch
 
 import pytest
 

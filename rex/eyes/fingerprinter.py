@@ -16,6 +16,7 @@ import logging
 import re
 import shutil
 import sqlite3
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -811,7 +812,3 @@ class DeviceFingerprinter:
         if self._nmap_available is None:
             self._nmap_available = shutil.which("nmap") is not None
         return self._nmap_available
-
-
-# Make ET available for nmap XML parsing
-import xml.etree.ElementTree as ET

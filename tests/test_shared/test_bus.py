@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
 from rex.shared.events import RexEvent
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # EventBus construction
@@ -135,7 +136,7 @@ class TestEventBusPublish:
     @pytest.mark.asyncio
     async def test_publish_calls_redis_xadd(self, tmp_path: Path) -> None:
         """publish() should call Redis xadd with JSON-serialized event data."""
-        with patch("rex.shared.bus.aioredis") as mock_aioredis, \
+        with patch("rex.shared.bus.aioredis"), \
              patch("rex.shared.bus.aiosqlite"):
             from rex.shared.bus import EventBus
 

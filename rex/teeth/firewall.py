@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ipaddress
 import json
 import logging
 import time
@@ -508,6 +509,12 @@ class FirewallManager:
             raise RexFirewallError(
                 f"Invalid IPv4 address: {ip!r}", service="teeth",
             )
+
+        # Normalise to the canonical dotted-quad form so that whitespace-
+        # padded variants (e.g. " 192.168.1.1 ") cannot bypass the string
+        # comparisons below.  is_valid_ipv4() calls .strip() internally,
+        # so we must do the same here before any further checks.
+        ip = str(ipaddress.IPv4Address(ip.strip()))
 
         # Loopback -- NEVER block.
         if ip.startswith(_LOOPBACK_PREFIX):

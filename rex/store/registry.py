@@ -49,9 +49,27 @@ class PluginRegistry:
     def get_available(self) -> list[dict[str, Any]]:
         """Fetch available plugins from the catalog. Returns bundled defaults for now."""
         return [
-            {"plugin_id": "rex-plugin-dns-guard", "name": "DNS Guard", "description": "Enhanced DNS monitoring", "version": "1.0.0", "author": "rex-bot-ai"},
-            {"plugin_id": "rex-plugin-device-watch", "name": "Device Watch", "description": "New device detection alerts", "version": "1.0.0", "author": "rex-bot-ai"},
-            {"plugin_id": "rex-plugin-upnp-monitor", "name": "UPnP Monitor", "description": "Detect UPnP misconfigurations", "version": "1.0.0", "author": "rex-bot-ai"},
+            {
+                "plugin_id": "rex-plugin-dns-guard",
+                "name": "DNS Guard",
+                "description": "Enhanced DNS monitoring",
+                "version": "1.0.0",
+                "author": "rex-bot-ai",
+            },
+            {
+                "plugin_id": "rex-plugin-device-watch",
+                "name": "Device Watch",
+                "description": "New device detection alerts",
+                "version": "1.0.0",
+                "author": "rex-bot-ai",
+            },
+            {
+                "plugin_id": "rex-plugin-upnp-monitor",
+                "name": "UPnP Monitor",
+                "description": "Detect UPnP misconfigurations",
+                "version": "1.0.0",
+                "author": "rex-bot-ai",
+            },
         ]
 
     def get_manifest(self, plugin_id: PluginId) -> PluginManifest | None:

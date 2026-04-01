@@ -71,8 +71,12 @@ class Device(RexBaseModel):
     risk_score: float = Field(
         default=0.0, ge=0.0, le=1.0, description="Computed risk score (0.0-1.0)."
     )
-    first_seen: datetime = Field(default_factory=utc_now, description="When the device was first observed.")
-    last_seen: datetime = Field(default_factory=utc_now, description="Most recent observation timestamp.")
+    first_seen: datetime = Field(
+        default_factory=utc_now, description="When the device was first observed."
+    )
+    last_seen: datetime = Field(
+        default_factory=utc_now, description="Most recent observation timestamp."
+    )
     tags: list[str] = Field(default_factory=list, description="User-defined classification tags.")
 
 
@@ -99,11 +103,21 @@ class ThreatEvent(RexBaseModel):
 
     event_id: str = Field(default_factory=generate_id, description="Unique threat event ID.")
     timestamp: datetime = Field(default_factory=utc_now, description="When the event was detected.")
-    source_device_id: str | None = Field(default=None, description="Originating device ID, if known.")
-    source_ip: str | None = Field(default=None, description="Source IP of the suspicious activity.")
-    destination_ip: str | None = Field(default=None, description="Destination IP, if applicable.")
-    destination_port: int | None = Field(default=None, description="Destination port, if applicable.")
-    protocol: str | None = Field(default=None, description="Network protocol (TCP, UDP, ICMP, etc.).")
+    source_device_id: str | None = Field(
+        default=None, description="Originating device ID, if known."
+    )
+    source_ip: str | None = Field(
+        default=None, description="Source IP of the suspicious activity."
+    )
+    destination_ip: str | None = Field(
+        default=None, description="Destination IP, if applicable."
+    )
+    destination_port: int | None = Field(
+        default=None, description="Destination port, if applicable."
+    )
+    protocol: str | None = Field(
+        default=None, description="Network protocol (TCP, UDP, ICMP, etc.)."
+    )
     threat_type: ThreatCategory = Field(..., description="Classified threat category.")
     severity: ThreatSeverity = Field(..., description="Assessed severity level.")
     description: str = Field(..., description="Human-readable summary of the threat.")
@@ -244,7 +258,10 @@ class FirewallRule(RexBaseModel):
     direction: str = Field(
         default="inbound", description="Traffic direction (``inbound`` or ``outbound``)."
     )
-    action: str = Field(default="drop", description="Firewall action (``drop``, ``reject``, ``accept``).")
+    action: str = Field(
+        default="drop",
+        description="Firewall action (``drop``, ``reject``, ``accept``).",
+    )
     reason: str = Field(..., description="Human-readable reason for the rule.")
     expires_at: datetime | None = Field(
         default=None, description="Optional expiry time for automatic removal."
@@ -269,7 +286,9 @@ class SystemResources(RexBaseModel):
     ram_available_mb: int = Field(..., ge=0, description="Available RAM in MiB.")
     gpu_model: str | None = Field(default=None, description="GPU model string, if detected.")
     gpu_vram_mb: int | None = Field(default=None, description="GPU VRAM in MiB, if detected.")
-    disk_total_gb: float = Field(..., ge=0.0, description="Total disk on the data partition in GiB.")
+    disk_total_gb: float = Field(
+        ..., ge=0.0, description="Total disk on the data partition in GiB."
+    )
     disk_free_gb: float = Field(..., ge=0.0, description="Free disk on the data partition in GiB.")
 
 
@@ -279,7 +298,9 @@ class OSInfo(RexBaseModel):
     name: str = Field(..., description="OS name (e.g. ``'Ubuntu'``, ``'Debian'``).")
     version: str = Field(..., description="OS version string.")
     codename: str | None = Field(default=None, description="OS codename (e.g. ``'jammy'``).")
-    architecture: str = Field(..., description="CPU architecture (e.g. ``'x86_64'``, ``'aarch64'``).")
+    architecture: str = Field(
+        ..., description="CPU architecture (e.g. ``'x86_64'``, ``'aarch64'``)."
+    )
     is_wsl: bool = Field(default=False, description="Running inside Windows Subsystem for Linux.")
     is_docker: bool = Field(default=False, description="Running inside a Docker container.")
     is_vm: bool = Field(default=False, description="Running inside a virtual machine.")
@@ -311,7 +332,10 @@ class PluginManifest(RexBaseModel):
     license: str | None = Field(default=None, description="SPDX licence identifier.")
     permissions: list[str] = Field(
         default_factory=list,
-        description="Capabilities the plugin requests (e.g. ``['network.read', 'firewall.write']``).",
+        description=(
+            "Capabilities the plugin requests"
+            " (e.g. ``['network.read', 'firewall.write']``)."
+        ),
     )
     resources: dict[str, Any] = Field(
         default_factory=dict,
@@ -344,7 +368,8 @@ class BehavioralProfile(RexBaseModel):
         default=0.0, ge=0.0, description="Average bandwidth consumption in kbps."
     )
     active_hours: list[int] = Field(
-        default_factory=list, description="Hours of the day (0-23) when the device is typically active."
+        default_factory=list,
+        description="Hours of the day (0-23) when the device is typically active.",
     )
     dns_query_patterns: list[str] = Field(
         default_factory=list,

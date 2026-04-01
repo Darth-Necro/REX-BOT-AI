@@ -179,7 +179,10 @@ class InterviewService(BaseService):
             return {"accepted": False, "error": "Interview engine not initialised"}
 
         if self._complete:
-            return {"accepted": False, "error": "Onboarding already complete. Use restart() to redo."}
+            return {
+                "accepted": False,
+                "error": "Onboarding already complete. Use restart() to redo.",
+            }
 
         # Validate
         validation = self._processor.validate_answer(question_id, answer)
@@ -364,7 +367,10 @@ class InterviewService(BaseService):
             event = InterviewAnswerEvent(
                 payload={
                     "question_id": question_id,
-                    "answer": answer if isinstance(answer, (str, int, float, bool)) else json.loads(json.dumps(answer, default=str)),
+                    "answer": (
+                        answer if isinstance(answer, (str, int, float, bool))
+                        else json.loads(json.dumps(answer, default=str))
+                    ),
                 },
             )
             await self.bus.publish(STREAM_INTERVIEW_ANSWERS, event)

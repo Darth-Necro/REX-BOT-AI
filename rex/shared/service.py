@@ -159,7 +159,7 @@ class BaseService(ABC):
     # Prerequisite checks
     # ------------------------------------------------------------------
 
-    async def _check_prerequisites(self) -> None:
+    async def _check_prerequisites(self) -> None:  # noqa: B027
         """Override to perform permission / tool availability checks.
 
         The default implementation does nothing.  Subclasses like Eyes can

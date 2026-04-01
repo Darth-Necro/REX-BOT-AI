@@ -72,7 +72,8 @@ class PrivacyEngine:
             elif isinstance(value, list):
                 result[key] = [
                     self.anonymize(item) if isinstance(item, dict)
-                    else self.hash_indicator(item) if isinstance(item, str) and self._looks_like_pii(item)
+                    else self.hash_indicator(item)
+                    if isinstance(item, str) and self._looks_like_pii(item)
                     else item
                     for item in value
                 ]

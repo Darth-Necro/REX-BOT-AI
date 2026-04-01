@@ -66,11 +66,11 @@ class RexPlugin(ABC):
         """Request a response action. Goes through approval if required."""
         return {"status": "denied", "reason": "Not connected to REX runtime"}
 
-    async def log(self, message: str, level: str = "info") -> None:
+    async def log(self, message: str, level: str = "info") -> None:  # noqa: B027
         """Structured logging through REX's log system."""
         pass
 
-    async def store(self, key: str, value: Any) -> None:
+    async def store(self, key: str, value: Any) -> None:  # noqa: B027
         """Plugin-local key-value storage."""
         pass
 

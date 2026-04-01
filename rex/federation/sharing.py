@@ -60,7 +60,10 @@ class ThreatSharing:
         # In a full implementation, this would use GossipProtocol.broadcast()
         # For now, we log and count
         self._published_count += 1
-        logger.info("Published anonymized IOC #%d (type: %s)", self._published_count, indicator["type"])
+        logger.info(
+            "Published anonymized IOC #%d (type: %s)",
+            self._published_count, indicator["type"],
+        )
 
     async def subscribe_iocs(self) -> None:
         """Subscribe to IOC feeds from federated peers.

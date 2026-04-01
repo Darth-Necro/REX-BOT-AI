@@ -57,7 +57,11 @@ class NotificationManager:
 
         Returns dict of channel_name -> delivery_success.
         """
-        sev = ThreatSeverity(severity) if severity in [s.value for s in ThreatSeverity] else ThreatSeverity.MEDIUM
+        sev = (
+            ThreatSeverity(severity)
+            if severity in [s.value for s in ThreatSeverity]
+            else ThreatSeverity.MEDIUM
+        )
 
         # Deduplication: same event type + source within 5 minutes
         dedup_key = f"{event.get('threat_type', '')}:{event.get('source_ip', '')}:{severity}"

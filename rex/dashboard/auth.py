@@ -125,7 +125,9 @@ class AuthManager:
             if len(self._failed_attempts) >= _MAX_LOGIN_ATTEMPTS:
                 self._lockout_until = now + _LOCKOUT_SECONDS
                 logger.warning("Login lockout triggered (%d failed attempts)", _MAX_LOGIN_ATTEMPTS)
-                raise ValueError(f"Too many failed attempts. Locked for {_LOCKOUT_SECONDS // 60} minutes.")
+                raise ValueError(
+                    f"Too many failed attempts. Locked for {_LOCKOUT_SECONDS // 60} minutes."
+                )
             remaining = _MAX_LOGIN_ATTEMPTS - len(self._failed_attempts)
             raise ValueError(f"Invalid credentials. {remaining} attempts remaining.")
 
@@ -134,7 +136,11 @@ class AuthManager:
 
         # Generate JWT
         token = create_token({"sub": username}, self._jwt_secret)
-        return {"access_token": token, "token_type": "bearer", "expires_in": _JWT_EXPIRY_HOURS * 3600}
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "expires_in": _JWT_EXPIRY_HOURS * 3600,
+        }
 
     async def change_password(self, username: str, old_password: str, new_password: str) -> bool:
         """Change the admin password."""

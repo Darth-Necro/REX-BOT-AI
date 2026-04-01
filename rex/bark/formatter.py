@@ -44,7 +44,11 @@ class MessageFormatter:
         tuple[str, dict[str, Any]]
             (formatted_message, metadata_dict)
         """
-        sev = ThreatSeverity(severity) if severity in [s.value for s in ThreatSeverity] else ThreatSeverity.MEDIUM
+        sev = (
+            ThreatSeverity(severity)
+            if severity in [s.value for s in ThreatSeverity]
+            else ThreatSeverity.MEDIUM
+        )
         prefix = _PERSONA_PREFIXES.get(sev, "REX update:")
         description = event.get("description", "Suspicious activity detected.")
         action = event.get("action_taken", "monitoring")
@@ -70,7 +74,11 @@ class MessageFormatter:
             )
 
         title = f"REX {sev.value.upper()} Alert"
-        metadata = {"title": title, "severity": sev.value, "threat_type": event.get("threat_type", "")}
+        metadata = {
+            "title": title,
+            "severity": sev.value,
+            "threat_type": event.get("threat_type", ""),
+        }
         return message, metadata
 
     def format_daily_summary(self, events: list[dict], stats: dict[str, Any]) -> str:
@@ -84,7 +92,8 @@ class MessageFormatter:
             f"Devices protected: {device_count}\n"
             f"Events today: {total}\n"
             f"Threats blocked: {blocked}\n"
-            f"Network health: {'Good' if total < 10 else 'Fair' if total < 50 else 'Needs attention'}\n\n"
+            f"Network health: "
+            f"{'Good' if total < 10 else 'Fair' if total < 50 else 'Needs attention'}\n\n"
             f"REX is keeping watch. Stay safe."
         )
 

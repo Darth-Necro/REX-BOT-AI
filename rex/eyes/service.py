@@ -358,7 +358,7 @@ class EyesService(BaseService):
         assert self._interface is not None
 
         # Start a parallel anomaly detection sweep
-        asyncio.create_task(
+        self._anomaly_task = asyncio.create_task(
             self._anomaly_sweep_loop(), name="eyes:anomaly_sweep"
         )
 

@@ -1,16 +1,20 @@
 """Dashboard application factory -- creates and configures the FastAPI app.
 
-Includes CORS, CSP headers, WebSocket endpoint, and all API routers.
+Includes CORS, CSP headers, WebSocket endpoint, lifespan handler for
+dependency initialization, and all API routers.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, AsyncIterator
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+from rex.dashboard import deps
 from rex.dashboard.routers import (
     auth,
     config,
@@ -30,6 +34,8 @@ from rex.shared.constants import VERSION
 if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
+
+logger = logging.getLogger(__name__)
 
 _ws_manager = WebSocketManager()
 
@@ -55,6 +61,52 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Initialize shared dependencies on startup, clean up on shutdown."""
+    from rex.dashboard.auth import AuthManager
+    from rex.shared.config import get_config
+
+    config = get_config()
+
+    # Initialize auth manager
+    auth_mgr = AuthManager(data_dir=config.data_dir)
+    initial_password = await auth_mgr.initialize()
+    if initial_password:
+        logger.warning("=" * 50)
+        logger.warning("  INITIAL ADMIN PASSWORD: %s", initial_password)
+        logger.warning("  Write this down. It will not be shown again.")
+        logger.warning("=" * 50)
+
+    deps.set_auth_manager(auth_mgr)
+    deps.set_ws_manager(_ws_manager)
+
+    # Try to connect event bus (non-fatal if Redis unavailable)
+    try:
+        from rex.shared.bus import EventBus
+        from rex.shared.enums import ServiceName
+
+        bus = EventBus(redis_url=config.redis_url, service_name=ServiceName.DASHBOARD)
+        await bus.connect()
+        deps.set_bus(bus)
+        logger.info("Event bus connected")
+    except Exception:
+        logger.warning("Event bus not available — dashboard running without real-time events")
+
+    logger.info("Dashboard initialized (port %d)", config.dashboard_port)
+
+    yield  # App runs here
+
+    # Shutdown
+    try:
+        bus_instance = deps._bus_instance
+        if bus_instance:
+            await bus_instance.disconnect()
+    except Exception:
+        pass
+    logger.info("Dashboard shutdown complete")
+
+
 def create_app() -> FastAPI:
     """Create and configure the REX dashboard FastAPI application."""
     app = FastAPI(
@@ -62,15 +114,16 @@ def create_app() -> FastAPI:
         version=VERSION,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
+        lifespan=lifespan,
     )
 
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS -- default same-origin, configurable
+    # CORS — restrict to same-origin by default
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Tightened in production via config
+        allow_origins=["*"],  # TODO: read from config for production
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],

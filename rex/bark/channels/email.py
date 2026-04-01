@@ -16,7 +16,14 @@ logger = logging.getLogger(__name__)
 class EmailChannel(BaseChannel):
     """Send notifications via SMTP email."""
 
-    def __init__(self, smtp_host: str = "", smtp_port: int = 587, smtp_user: str = "", smtp_pass: str = "", to_address: str = "") -> None:
+    def __init__(
+        self,
+        smtp_host: str = "",
+        smtp_port: int = 587,
+        smtp_user: str = "",
+        smtp_pass: str = "",
+        to_address: str = "",
+    ) -> None:
         self._host = smtp_host
         self._port = smtp_port
         self._user = smtp_user
@@ -30,17 +37,27 @@ class EmailChannel(BaseChannel):
     def is_configured(self) -> bool:
         return bool(self._host and self._to)
 
-    async def send(self, message: str, metadata: dict[str, Any] | None = None) -> bool:
+    async def send(
+        self, message: str, metadata: dict[str, Any] | None = None
+    ) -> bool:
         if not self.is_configured():
             return False
         metadata = metadata or {}
         severity = metadata.get("severity", "info")
-        subject = f"[REX {severity.upper()}] {metadata.get('title', 'Security Alert')}"
+        title = metadata.get("title", "Security Alert")
+        subject = f"[REX {severity.upper()}] {title}"
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = self._user or f"rex@{self._host}"
         msg["To"] = self._to
-        html = f"<html><body><h2>REX-BOT-AI Alert</h2><p><strong>Severity:</strong> {severity.upper()}</p><p>{message}</p><hr><p><small>REX-BOT-AI - Autonomous Security Agent</small></p></body></html>"
+        html = (
+            "<html><body>"
+            "<h2>REX-BOT-AI Alert</h2>"
+            f"<p><strong>Severity:</strong> {severity.upper()}</p>"
+            f"<p>{message}</p><hr>"
+            "<p><small>REX-BOT-AI - Autonomous Security Agent"
+            "</small></p></body></html>"
+        )
         msg.attach(MIMEText(message, "plain"))
         msg.attach(MIMEText(html, "html"))
         try:
@@ -48,11 +65,16 @@ class EmailChannel(BaseChannel):
                 server.starttls()
                 if self._user and self._pass:
                     server.login(self._user, self._pass)
-                server.sendmail(msg["From"], [self._to], msg.as_string())
+                server.sendmail(
+                    msg["From"], [self._to], msg.as_string()
+                )
             return True
         except Exception:
             logger.exception("Email send failed")
             return False
 
     async def test(self) -> bool:
-        return await self.send("REX test notification. Email alerts are working.", {"title": "REX Test", "severity": "info"})
+        return await self.send(
+            "REX test notification. Email alerts are working.",
+            {"title": "REX Test", "severity": "info"},
+        )

@@ -100,7 +100,10 @@ class PluginSandbox:
             if restarts < _MAX_RESTARTS:
                 self._restart_counts[plugin_id] = restarts + 1
                 container["status"] = "running"
-                logger.warning("Restarted crashed plugin %s (%d/%d)", plugin_id, restarts + 1, _MAX_RESTARTS)
+                logger.warning(
+                    "Restarted crashed plugin %s (%d/%d)",
+                    plugin_id, restarts + 1, _MAX_RESTARTS,
+                )
             else:
                 container["status"] = "disabled"
                 logger.error("Plugin %s exceeded max restarts — disabled", plugin_id)

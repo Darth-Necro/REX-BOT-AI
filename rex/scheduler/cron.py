@@ -16,7 +16,13 @@ logger = logging.getLogger(__name__)
 class CronJob:
     """Represents a scheduled cron job."""
 
-    def __init__(self, job_id: str, name: str, expression: str, func: Callable[..., Any] | None = None) -> None:
+    def __init__(
+        self,
+        job_id: str,
+        name: str,
+        expression: str,
+        func: Callable[..., Any] | None = None,
+    ) -> None:
         self.job_id = job_id
         self.name = name
         self.expression = expression

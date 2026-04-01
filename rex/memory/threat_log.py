@@ -173,7 +173,10 @@ class ThreatLog:
         self._threats = self._threats[-keep_count:]
 
         archived_count = await asyncio.to_thread(self._write_archives, to_archive)
-        self._logger.info("Archived %d threats, %d remain in hot store.", archived_count, len(self._threats))
+        self._logger.info(
+            "Archived %d threats, %d remain in hot store.",
+            archived_count, len(self._threats),
+        )
         return archived_count
 
     def _write_archives(self, threats: list[dict[str, Any]]) -> int:
@@ -290,7 +293,9 @@ class ThreatLog:
                         "source_ip": record.get("source_ip") or record.get("Source"),
                         "description": record.get("description") or record.get("Description", ""),
                         "action": record.get("action") or record.get("Action", "pending"),
-                        "resolved": self._parse_bool(record.get("resolved") or record.get("Resolved", False)),
+                        "resolved": self._parse_bool(
+                            record.get("resolved") or record.get("Resolved", False)
+                        ),
                         "resolution": record.get("resolution"),
                     }
                     self._threats.append(normalised)

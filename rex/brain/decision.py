@@ -150,7 +150,7 @@ class DecisionEngine:
         if self._llm_available:
             d = await self._layer3_llm(event)
             if d:
-                asyncio.create_task(self._layer4_federated(event, d))
+                self._bg_task = asyncio.create_task(self._layer4_federated(event, d))
                 return d
         return self._default_decision(event)
 
@@ -212,7 +212,10 @@ class DecisionEngine:
                 prompt = (
                     THREAT_ANALYSIS_TEMPLATE
                     .replace("{{ network_context }}", kb_context[:2000])
-                    .replace("{{ device_context }}", str(event.raw_data.get("device_context", "N/A")))
+                    .replace(
+                        "{{ device_context }}",
+                        str(event.raw_data.get("device_context", "N/A")),
+                    )
                     .replace("{{ recent_threats }}", "See KB context above.")
                     .replace("{{ user_notes }}", "")
                     .replace("{{ event_json }}", event.model_dump_json(indent=2)[:2000])

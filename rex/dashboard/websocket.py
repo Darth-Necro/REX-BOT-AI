@@ -129,6 +129,8 @@ class WebSocketManager:
                     elif msg_type == "ping":
                         await self.send_personal(websocket, {"type": "pong"})
                 except json.JSONDecodeError:
-                    await self.send_personal(websocket, {"type": "error", "message": "Invalid JSON"})
+                    await self.send_personal(
+                        websocket, {"type": "error", "message": "Invalid JSON"}
+                    )
         except WebSocketDisconnect:
             self.disconnect(websocket)
