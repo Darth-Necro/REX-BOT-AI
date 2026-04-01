@@ -27,7 +27,9 @@ async def list_threats(
     threat_log = get_threat_log()
     if threat_log is not None:
         try:
-            threats = await threat_log.get_recent(limit=limit, severity=severity)
+            threats = await threat_log.get_recent(limit=limit)
+            if severity:
+                threats = [t for t in threats if t.get("severity") == severity]
             return {
                 "threats": threats,
                 "total": len(threats),

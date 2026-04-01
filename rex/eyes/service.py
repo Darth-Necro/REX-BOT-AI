@@ -14,7 +14,6 @@ Orchestrates the full network monitoring pipeline:
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import TYPE_CHECKING, Any
 
 from rex.eyes.device_store import DeviceStore
@@ -121,6 +120,10 @@ class EyesService(BaseService):
         self._traffic_monitor = TrafficMonitor(self._pal)
         self._port_scanner = PortScanner()
         self._device_store = DeviceStore()
+
+        # Register device store in the dashboard data registry
+        from rex.dashboard.data_registry import set_device_store
+        set_device_store(self._device_store)
 
         # Step 3: Detect interface
         try:
@@ -480,17 +483,10 @@ class EyesService(BaseService):
                 await asyncio.sleep(1)
             return
 
-        async def handler(
-            stream_name: str, msg_id: str, fields: dict[str, Any]
-        ) -> None:
-            data_raw = fields.get("data", "{}")
-            try:
-                data = json.loads(data_raw) if isinstance(data_raw, str) else data_raw
-            except (json.JSONDecodeError, TypeError):
-                data = {}
+        async def handler(event: Any) -> None:
+            from rex.shared.events import RexEvent
 
-            payload = data.get("payload", {})
-            data.get("event_type", "")
+            payload = event.payload if isinstance(event, RexEvent) else {}
             target_service = payload.get("target_service", "")
 
             # Only handle commands directed at Eyes

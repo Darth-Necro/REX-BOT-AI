@@ -73,6 +73,17 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"ignore\s*all\s*previous\s*instructions?",
         r"ignore\s*all\s*instructions?",
         r"disable\s*all?\s*firewall\s*rules?",
+        # Standalone "override" (not just "IMPORTANT: override")
+        r"\boverride\b",
+        # Admin / debug mode escalation
+        r"\badmin\s+mode\b",
+        r"\bdebug\s+mode\b",
+        # Command execution attempts
+        r"\bexecute\s+command\s*:",
+        # JSON role injection: {"role":"system"} or similar
+        r'[{]\s*"role"\s*:\s*"(?:system|assistant|user)"',
+        # Markdown heading injection (## used to create fake KB sections)
+        r"(?:^|\s)#{2,6}\s",
     ]
 ]
 

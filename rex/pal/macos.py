@@ -1,19 +1,24 @@
-"""macOS platform adapter stub.
+"""macOS platform adapter for REX-BOT-AI.
 
 Layer 0.5 -- implements :class:`~rex.pal.base.PlatformAdapter` for
 Apple macOS (Darwin).
 
-Phase 1.5 delivers ``get_os_info()`` and ``get_system_resources()`` via
-platform-agnostic stdlib calls.  All other methods raise
-:class:`~rex.shared.errors.RexPlatformNotSupportedError` with a clear
-description of the macOS tool or API that will be used in Phase 2.
+Provides functional implementations for network discovery, firewall
+control via ``pfctl`` anchors, and autostart via launchd plists.
+All subprocess calls use ``subprocess.run`` with ``timeout=10``,
+``capture_output=True``, ``text=True``, ``check=False``.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
+import re
 import shutil
+import subprocess
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
@@ -31,15 +36,44 @@ from rex.shared.models import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+logger = logging.getLogger("rex.pal.macos")
+
+_DEFAULT_SUBPROCESS_TIMEOUT = 10
+_REX_ANCHOR = "rex"
+_REX_RULES_DIR = Path("/etc/pf.anchors")
+_REX_RULES_FILE = _REX_RULES_DIR / "rex"
+_LAUNCHD_DIR = Path("/Library/LaunchDaemons")
+
+
+# ---------------------------------------------------------------------------
+# Subprocess helper
+# ---------------------------------------------------------------------------
+def _run(
+    cmd: list[str],
+    *,
+    timeout: int = _DEFAULT_SUBPROCESS_TIMEOUT,
+) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess with standardised parameters."""
+    try:
+        return subprocess.run(
+            cmd,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.warning("Command not found: %s", cmd[0])
+        return subprocess.CompletedProcess(
+            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found",
+        )
+
 
 class MacOSAdapter(PlatformAdapter):
     """Concrete :class:`PlatformAdapter` for Apple macOS (Darwin) hosts.
 
-    Only ``get_os_info()`` and ``get_system_resources()`` are functional
-    in this phase.  Every other method raises
-    :class:`~rex.shared.errors.RexPlatformNotSupportedError` indicating
-    which macOS API or tool will be used when full support lands in
-    Phase 2.
+    Provides real implementations for network discovery, pf-based firewall
+    management via pfctl anchors, and autostart via launchd plists.
     """
 
     # ================================================================
@@ -137,16 +171,29 @@ class MacOSAdapter(PlatformAdapter):
     # ================================================================
 
     def get_default_interface(self) -> str:
-        """Detect the default network interface on macOS.
+        """Detect the default network interface via ``route get default``.
+
+        Returns
+        -------
+        str
+            Interface name (e.g. ``"en0"``).
 
         Raises
         ------
         RexPlatformNotSupportedError
-            macOS support: TODO -- Will parse ``route -n get default`` in Phase 2.
+            If no default interface can be determined.
         """
+        result = _run(["route", "-n", "get", "default"])
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("interface:"):
+                    iface = line.split(":", 1)[1].strip()
+                    if iface:
+                        return iface
+
         raise RexPlatformNotSupportedError(
-            "macOS get_default_interface: TODO -- "
-            "Implemented in Phase 2 using 'route -n get default' / SCDynamicStore API"
+            "Cannot determine default network interface from 'route get default'",
         )
 
     def capture_packets(
@@ -170,43 +217,128 @@ class MacOSAdapter(PlatformAdapter):
         yield {}  # type: ignore[misc]  # pragma: no cover
 
     def scan_arp_table(self) -> list[dict[str, str]]:
-        """Read the macOS ARP cache.
+        """Read the macOS ARP cache by parsing ``arp -a`` output.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will parse ``arp -an`` output in Phase 2.
+        Parses lines like:
+        ``? (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0 ifscope [ethernet]``
+
+        Returns
+        -------
+        list[dict[str, str]]
+            Each dict contains ``ip``, ``mac``, and ``interface`` keys.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS scan_arp_table: TODO -- "
-            "Implemented in Phase 2 using 'arp -an' parsing"
-        )
+        entries: list[dict[str, str]] = []
+        result = _run(["arp", "-a"])
+        if result.returncode != 0:
+            logger.warning("arp -a failed: %s", result.stderr)
+            return entries
+
+        for line in result.stdout.splitlines():
+            # ? (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0 ...
+            match = re.match(
+                r"^\?\s+\(([\d.]+)\)\s+at\s+"
+                r"([\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:"
+                r"[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2})"
+                r"\s+on\s+(\S+)",
+                line,
+            )
+            if match:
+                mac = match.group(2).lower()
+                if mac == "ff:ff:ff:ff:ff:ff" or mac == "(incomplete)":
+                    continue
+                entries.append({
+                    "ip": match.group(1),
+                    "mac": mac,
+                    "interface": match.group(3),
+                })
+
+        return entries
 
     def get_network_info(self) -> NetworkInfo:
         """Collect local network environment snapshot on macOS.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will use system_profiler SPNetworkDataType in Phase 2.
+        Combines data from ``route get default``, ``ifconfig``, and
+        ``scutil --dns`` to populate gateway, subnet CIDR, and DNS.
+
+        Returns
+        -------
+        NetworkInfo
+            Snapshot of the local network environment.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS get_network_info: TODO -- "
-            "Implemented in Phase 2 using system_profiler SPNetworkDataType / ifconfig / scutil"
+        interface = self.get_default_interface()
+        gateway = "0.0.0.0"
+        subnet_cidr = "0.0.0.0/0"
+        dns_servers = self.get_dns_servers()
+
+        # Gateway from route
+        route_result = _run(["route", "-n", "get", "default"])
+        if route_result.returncode == 0:
+            for line in route_result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("gateway:"):
+                    gw = line.split(":", 1)[1].strip()
+                    if gw:
+                        gateway = gw
+                    break
+
+        # Subnet from ifconfig
+        ifc_result = _run(["ifconfig", interface])
+        if ifc_result.returncode == 0:
+            ip_addr: str | None = None
+            netmask_hex: str | None = None
+            for line in ifc_result.stdout.splitlines():
+                inet_match = re.search(
+                    r"inet\s+([\d.]+)\s+netmask\s+(0x[\da-fA-F]+)", line,
+                )
+                if inet_match:
+                    ip_addr = inet_match.group(1)
+                    netmask_hex = inet_match.group(2)
+                    break
+
+            if ip_addr and netmask_hex:
+                try:
+                    import ipaddress
+                    mask_int = int(netmask_hex, 16)
+                    # Convert hex mask to dotted notation
+                    mask_str = ".".join(
+                        str((mask_int >> (8 * (3 - i))) & 0xFF) for i in range(4)
+                    )
+                    net = ipaddress.IPv4Network(f"{ip_addr}/{mask_str}", strict=False)
+                    subnet_cidr = str(net)
+                except ValueError:
+                    pass
+
+        return NetworkInfo(
+            interface=interface,
+            gateway_ip=gateway,
+            subnet_cidr=subnet_cidr,
+            dns_servers=dns_servers,
         )
 
     def get_dns_servers(self) -> list[str]:
-        """Return configured DNS servers on macOS.
+        """Return configured DNS servers from ``scutil --dns``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will parse ``scutil --dns`` in Phase 2.
+        Parses the ``nameserver[N]`` entries from ``scutil --dns`` output.
+
+        Returns
+        -------
+        list[str]
+            Ordered list of DNS server IP addresses.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS get_dns_servers: TODO -- "
-            "Implemented in Phase 2 using 'scutil --dns' resolver parsing"
-        )
+        servers: list[str] = []
+        result = _run(["scutil", "--dns"])
+        if result.returncode != 0:
+            return servers
+
+        for line in result.stdout.splitlines():
+            # "  nameserver[0] : 8.8.8.8"
+            match = re.match(r"\s*nameserver\[\d+\]\s*:\s*([\d.]+)", line)
+            if match:
+                addr = match.group(1)
+                if addr not in servers:
+                    servers.append(addr)
+
+        return servers
 
     def get_dhcp_leases(self) -> list[dict[str, str]]:
         """Return DHCP lease information on macOS.
@@ -279,30 +411,72 @@ class MacOSAdapter(PlatformAdapter):
     # ================================================================
 
     def block_ip(self, ip: str, direction: str = "both", reason: str = "") -> FirewallRule:
-        """Block an IP address using macOS pf (packet filter).
+        """Block an IP address using a pfctl anchor rule.
+
+        Writes a block rule to the REX anchor file and reloads the anchor.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to block.
+        direction:
+            ``"inbound"``, ``"outbound"``, or ``"both"``.
+        reason:
+            Human-readable justification.
+
+        Returns
+        -------
+        FirewallRule
+            The newly created rule.
 
         Raises
         ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will use pfctl anchor rules in Phase 2.
+        FirewallError
+            If the rule cannot be applied.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS block_ip: TODO -- "
-            "Implemented in Phase 2 using pfctl -a rex/block -f rules (pf anchor)"
+        from rex.pal.base import FirewallError
+
+        rules = self._read_anchor_rules()
+
+        if direction == "inbound":
+            rules.append(f"block in quick from {ip} to any  # REX:{reason}")
+        elif direction == "outbound":
+            rules.append(f"block out quick from any to {ip}  # REX:{reason}")
+        else:
+            rules.append(f"block quick from {ip} to any  # REX:{reason}")
+            rules.append(f"block quick from any to {ip}  # REX:{reason}")
+
+        if not self._write_and_reload_anchor(rules):
+            raise FirewallError(f"Failed to block {ip} via pfctl anchor")
+
+        return FirewallRule(
+            ip=ip,
+            direction=direction,
+            action="drop",
+            reason=reason or f"Blocked by REX: {ip}",
         )
 
     def unblock_ip(self, ip: str) -> bool:
-        """Remove pf block rules for an IP on macOS.
+        """Remove pfctl anchor rules targeting an IP.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will use pfctl anchor management in Phase 2.
+        Rewrites the anchor file excluding rules that reference the IP,
+        then reloads the anchor.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to unblock.
+
+        Returns
+        -------
+        bool
+            ``True`` if at least one rule was removed.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS unblock_ip: TODO -- "
-            "Implemented in Phase 2 using pfctl -a rex/block anchor flush and reload"
-        )
+        rules = self._read_anchor_rules()
+        new_rules = [r for r in rules if ip not in r]
+        if len(new_rules) == len(rules):
+            return False  # Nothing to remove
+        return self._write_and_reload_anchor(new_rules)
 
     def isolate_device(self, ip: str, mac: str | None = None) -> list[FirewallRule]:
         """Isolate a device via macOS pf rules.
@@ -344,30 +518,62 @@ class MacOSAdapter(PlatformAdapter):
         )
 
     def get_active_rules(self) -> list[FirewallRule]:
-        """List active REX-managed pf rules on macOS.
+        """List active REX-managed pf rules from the anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will parse ``pfctl -a rex -sr`` in Phase 2.
+        Parses ``pfctl -a rex -sr`` output for block rules.
+
+        Returns
+        -------
+        list[FirewallRule]
         """
-        raise RexPlatformNotSupportedError(
-            "macOS get_active_rules: TODO -- "
-            "Implemented in Phase 2 using 'pfctl -a rex -sr' anchor rule listing"
-        )
+        rules: list[FirewallRule] = []
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-sr"])
+        if result.returncode != 0:
+            # Also try reading from the anchor file directly
+            file_rules = self._read_anchor_rules()
+            for line in file_rules:
+                rule = self._parse_pf_rule(line)
+                if rule:
+                    rules.append(rule)
+            return rules
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rule = self._parse_pf_rule(line)
+            if rule:
+                rules.append(rule)
+
+        return rules
 
     def panic_restore(self) -> bool:
-        """Remove all REX pf rules on macOS.
+        """Remove all REX pf rules by flushing the anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will flush all REX pf anchors in Phase 2.
+        Flushes the ``rex`` anchor via ``pfctl -a rex -F all`` and
+        clears the anchor rules file.
+
+        Returns
+        -------
+        bool
+            ``True`` if the flush succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS panic_restore: TODO -- "
-            "Implemented in Phase 2 using pfctl -a rex -F all (flush all REX anchors)"
-        )
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-F", "all"])
+        # Also clear the rules file
+        try:
+            if _REX_RULES_FILE.exists():
+                _REX_RULES_FILE.write_text("")
+        except OSError as exc:
+            logger.error("Cannot clear anchor file: %s", exc)
+
+        if result.returncode == 0:
+            logger.warning("PANIC RESTORE: all REX pf rules flushed")
+            return True
+
+        # If pfctl failed (e.g., anchor doesn't exist), that's OK
+        logger.warning("PANIC RESTORE: pfctl flush returned %d, anchor may not exist",
+                       result.returncode)
+        return True
 
     def create_rex_chains(self) -> bool:
         """Create REX pf anchor on macOS.

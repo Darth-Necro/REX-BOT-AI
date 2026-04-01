@@ -24,10 +24,26 @@ class PluginManager:
     def __init__(self, data_dir: Path) -> None:
         self._registry = PluginRegistry(data_dir)
         self._sandbox = PluginSandbox()
+        self._active_plugins: dict[str, Any] = {}
 
     async def initialize(self) -> None:
         """Load registry from disk."""
         await self._registry.load()
+
+    async def load_bundled_plugins(self) -> None:
+        """Load plugins from rex/store/bundled/."""
+        from rex.store.bundled.device_watch import DeviceWatchPlugin
+        from rex.store.bundled.dns_guard import DnsGuardPlugin
+        from rex.store.bundled.upnp_monitor import UpnpMonitorPlugin
+
+        self._active_plugins = {
+            "dns-guard": DnsGuardPlugin(),
+            "device-watch": DeviceWatchPlugin(),
+            "upnp-monitor": UpnpMonitorPlugin(),
+        }
+        for name, plugin in self._active_plugins.items():
+            await plugin.on_install()
+            logger.info("Loaded bundled plugin: %s", name)
 
     async def install(self, plugin_id: PluginId) -> bool:
         """Install a plugin: pull image, create sandbox, register."""

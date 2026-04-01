@@ -16,6 +16,8 @@ from rex.shared.utils import utc_now
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from rex.shared.bus import EventBus
+
 logger = logging.getLogger(__name__)
 
 _VALID_TRANSITIONS = {
@@ -29,16 +31,26 @@ _VALID_TRANSITIONS = {
 class PowerManager:
     """Controls the system's power state to balance security and resource usage."""
 
-    def __init__(self) -> None:
+    def __init__(self, bus: EventBus | None = None) -> None:
         self._state = PowerState.AWAKE
         self._transition_time = utc_now()
         self._scheduled_wake: datetime | None = None
         self._scheduled_sleep: datetime | None = None
         self._idle_since: float = time.monotonic()
         self._eco_threshold_minutes = 60
+        self._bus = bus
 
-    async def transition(self, target_state: PowerState) -> None:
-        """Transition to a new power state. Validates transition is legal."""
+    async def transition(self, target_state: PowerState, bus: EventBus | None = None) -> None:
+        """Transition to a new power state. Validates transition is legal.
+
+        Parameters
+        ----------
+        target_state:
+            The power state to transition to.
+        bus:
+            Optional :class:`~rex.shared.bus.EventBus` override.  Falls
+            back to the instance-level ``_bus`` if not provided.
+        """
         if target_state == self._state:
             return
 
@@ -51,6 +63,22 @@ class PowerManager:
         self._state = target_state
         self._transition_time = utc_now()
         logger.info("Power state: %s -> %s", old.value, target_state.value)
+
+        effective_bus = bus or self._bus
+        if effective_bus:
+            try:
+                from rex.shared.events import ModeChangeEvent
+                from rex.shared.enums import ServiceName
+                await effective_bus.publish("rex:core:commands", ModeChangeEvent(
+                    source=ServiceName.SCHEDULER,
+                    event_type="power_state_change",
+                    payload={
+                        "old_state": old.value,
+                        "new_state": target_state.value,
+                    },
+                ))
+            except Exception:
+                logger.warning("Failed to publish power state change event")
 
     def get_state(self) -> PowerState:
         """Return the current power state."""
@@ -97,6 +125,7 @@ class PowerManager:
         """Return power manager status."""
         return {
             "state": self._state.value,
+            "note": "Power state is tracked but does not yet suspend services in ALERT_SLEEP",
             "uptime_seconds": self.get_uptime(),
             "transition_time": self._transition_time.isoformat(),
             "scheduled_wake": self._scheduled_wake.isoformat() if self._scheduled_wake else None,

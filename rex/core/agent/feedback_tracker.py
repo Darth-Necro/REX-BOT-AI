@@ -60,6 +60,7 @@ class FeedbackTracker:
 
     DEFAULT_AUTO_TRUST_THRESHOLD: int = 10
     DEFAULT_AUTO_TRUST_ACCURACY: float = 0.90
+    MAX_FEEDBACK_ENTRIES: int = 50_000
 
     def __init__(
         self,
@@ -142,6 +143,12 @@ class FeedbackTracker:
 
         self._feedback.append(entry)
         self._dirty = True
+
+        # Enforce maximum feedback list size to prevent unbounded growth.
+        if len(self._feedback) > self.MAX_FEEDBACK_ENTRIES:
+            # Flush before trimming so older entries are persisted.
+            self._save()
+            self._feedback = self._feedback[-self.MAX_FEEDBACK_ENTRIES:]
 
         logger.info(
             "Feedback recorded: decision=%s response=%s category=%s",

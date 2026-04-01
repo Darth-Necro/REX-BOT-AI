@@ -13,7 +13,6 @@ failure events, but does not touch the firewall.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -174,36 +173,28 @@ class TeethService(BaseService):
         )
 
     async def _handle_decision_message(
-        self, stream: str, msg_id: str, fields: dict[str, Any],
+        self, event: Any,
     ) -> None:
         """Process a single decision message from the Brain.
 
         Parameters
         ----------
-        stream:
-            The Redis stream name.
-        msg_id:
-            The Redis message ID.
-        fields:
-            The raw message fields (containing a ``data`` JSON string).
+        event:
+            A :class:`~rex.shared.events.RexEvent` with the decision payload.
         """
-        raw_data = fields.get("data", "{}")
-        try:
-            payload = json.loads(raw_data)
-        except (json.JSONDecodeError, TypeError) as exc:
-            self._log.error(
-                "Invalid JSON in decision message %s: %s", msg_id, exc,
-            )
+        from rex.shared.events import RexEvent
+
+        if not isinstance(event, RexEvent):
+            self._log.error("Expected RexEvent, got %s", type(event).__name__)
             return
 
-        # Extract the decision payload.  The event envelope wraps the
-        # decision inside the ``payload`` key.
-        decision_data = payload.get("payload", payload)
+        # Extract the decision payload from the event.
+        decision_data = event.payload
 
         decision_action_str = decision_data.get("action", "")
         severity_str = decision_data.get("severity", "medium")
         threat_event_id = decision_data.get("threat_event_id", "")
-        decision_id = decision_data.get("decision_id", msg_id)
+        decision_id = decision_data.get("decision_id", event.event_id)
         reasoning = decision_data.get("reasoning", "")
         confidence = decision_data.get("confidence", 0.5)
 

@@ -11,10 +11,13 @@ import asyncio
 import json
 import logging
 from collections import Counter
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.constants import MAX_THREAT_LOG_ROWS
 from rex.shared.utils import iso_timestamp
+
+ARCHIVE_RETENTION_DAYS: int = 90
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -202,6 +205,14 @@ class ThreatLog:
             month_key = ts[:7] if len(ts) >= 7 else "unknown"
             by_month.setdefault(month_key, []).append(t)
 
+        # Try to load SecretsManager for encrypted archives
+        secrets_manager = None
+        try:
+            from rex.core.privacy.encryption import SecretsManager
+            secrets_manager = SecretsManager(data_dir=self.config.data_dir)
+        except Exception:
+            pass
+
         total = 0
         for month_key, month_threats in by_month.items():
             archive_file = self._archive_dir / f"{month_key}.json"
@@ -210,20 +221,72 @@ class ThreatLog:
             existing: list[dict[str, Any]] = []
             if archive_file.exists():
                 try:
-                    existing = json.loads(archive_file.read_text("utf-8"))
+                    raw = archive_file.read_text("utf-8")
+                    # Try to decrypt if it was previously encrypted
+                    if secrets_manager is not None:
+                        try:
+                            raw = secrets_manager.decrypt(raw)
+                        except Exception:
+                            pass  # Not encrypted or different key -- treat as plaintext
+                    existing = json.loads(raw)
                 except (json.JSONDecodeError, OSError):
                     self._logger.warning("Corrupt archive file %s -- overwriting.", archive_file)
 
             existing.extend(month_threats)
 
-            archive_file.write_text(
-                json.dumps(existing, indent=2, default=str),
-                encoding="utf-8",
-            )
+            # Encrypt archive file if SecretsManager available
+            try:
+                if secrets_manager is not None:
+                    content = json.dumps(existing, indent=2, default=str)
+                    encrypted = secrets_manager.encrypt(content)
+                    archive_file.write_text(encrypted, encoding="utf-8")
+                else:
+                    raise RuntimeError("No SecretsManager")
+            except Exception:
+                # Fallback to plaintext with restricted permissions
+                archive_file.write_text(
+                    json.dumps(existing, indent=2, default=str),
+                    encoding="utf-8",
+                )
+                try:
+                    archive_file.chmod(0o600)
+                except OSError:
+                    pass
             total += len(month_threats)
             self._logger.debug("Wrote %d threats to %s", len(month_threats), archive_file)
 
+        # Prune archive files older than the retention period.
+        self._prune_old_archives()
+
         return total
+
+    def _prune_old_archives(self) -> None:
+        """Delete archive files older than ``ARCHIVE_RETENTION_DAYS``.
+
+        Archive filenames follow the ``YYYY-MM.json`` pattern.  Any file
+        whose month is more than 90 days in the past is removed.
+        """
+        if not self._archive_dir.exists():
+            return
+
+        now = datetime.now(timezone.utc)
+        for archive_file in self._archive_dir.glob("*.json"):
+            month_key = archive_file.stem  # e.g. "2025-06"
+            try:
+                # Parse the month key as the first day of that month.
+                archive_date = datetime.strptime(month_key, "%Y-%m").replace(
+                    tzinfo=timezone.utc
+                )
+                age_days = (now - archive_date).days
+                if age_days > ARCHIVE_RETENTION_DAYS:
+                    archive_file.unlink()
+                    self._logger.info(
+                        "Pruned old archive %s (%d days old, retention=%d)",
+                        archive_file.name, age_days, ARCHIVE_RETENTION_DAYS,
+                    )
+            except (ValueError, OSError):
+                # Skip files that don't match the expected naming pattern.
+                pass
 
     async def get_stats(self) -> dict[str, Any]:
         """Compute summary statistics over the current hot store.

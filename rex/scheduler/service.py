@@ -28,8 +28,8 @@ class SchedulerService(BaseService):
 
     async def _on_start(self) -> None:
         """Initialize power manager, scan scheduler, and cron manager."""
-        self._power = PowerManager()
-        self._scans = ScanScheduler()
+        self._power = PowerManager(bus=self.bus)
+        self._scans = ScanScheduler(bus=self.bus)
         self._cron = CronManager()
 
         # Set up default scheduled scans
@@ -58,9 +58,9 @@ class SchedulerService(BaseService):
         """Listen for schedule commands."""
         async def handler(event: RexEvent) -> None:
             if event.event_type == "schedule_sleep":
-                await self._power.transition(PowerState.ALERT_SLEEP)
+                await self._power.transition(PowerState.ALERT_SLEEP, bus=self.bus)
             elif event.event_type == "schedule_wake":
-                await self._power.transition(PowerState.AWAKE)
+                await self._power.transition(PowerState.AWAKE, bus=self.bus)
             elif event.event_type == "scan_now":
                 await self._scans.run_scan_now(event.payload.get("scan_type", "quick"))
 

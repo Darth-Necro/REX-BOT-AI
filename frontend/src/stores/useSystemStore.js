@@ -34,8 +34,8 @@ const useSystemStore = create((set) => ({
   setActiveThreats: (activeThreats) => set({ activeThreats }),
   setConnected: (connected) => set({ connected }),
   updateFromStatus: (data) => set({
-    status: data.status || 'operational',
-    powerState: data.power_state || 'awake',
+    status: data.status || 'unknown',
+    powerState: data.power_state || 'unknown',
     deviceCount: data.device_count || 0,
     activeThreats: data.active_threats || 0,
     threatsBlocked24h: data.threats_blocked_24h || 0,

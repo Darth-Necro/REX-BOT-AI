@@ -15,6 +15,7 @@ import signal
 import time
 from typing import TYPE_CHECKING, Any
 
+from rex.core.health import HealthAggregator
 from rex.shared.bus import EventBus
 from rex.shared.config import RexConfig, get_config
 from rex.shared.enums import ServiceName
@@ -61,6 +62,7 @@ class ServiceOrchestrator:
         self._config: RexConfig | None = None
         self._bus: EventBus | None = None
         self._health_task: asyncio.Task[Any] | None = None
+        self._health_agg = HealthAggregator()
 
     async def initialize(self) -> None:
         """Create config, bus, and all service instances."""
@@ -225,6 +227,12 @@ class ServiceOrchestrator:
                 if status == "running" and name in self._services:
                     try:
                         health = await self._services[name].health()
+                        # Feed real health data into the aggregator
+                        self._health_agg.update(name, {
+                            "healthy": health.healthy,
+                            "degraded": health.degraded if hasattr(health, "degraded") else False,
+                            "details": health.details if hasattr(health, "details") else "",
+                        })
                         if not health.healthy:
                             logger.warning(
                                 "Service %s unhealthy: %s",
@@ -233,9 +241,19 @@ class ServiceOrchestrator:
                             await self._auto_restart(name)
                     except Exception:
                         logger.warning("Health check failed for %s", name.value)
+                        self._health_agg.update(name, {
+                            "healthy": False,
+                            "degraded": True,
+                            "details": "health check raised an exception",
+                        })
                         await self._auto_restart(name)
 
                 elif status == "failed":
+                    self._health_agg.update(name, {
+                        "healthy": False,
+                        "degraded": False,
+                        "details": "service failed to start",
+                    })
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
@@ -256,12 +274,20 @@ class ServiceOrchestrator:
         )
         await self._start_service(name)
 
+    @property
+    def health_aggregator(self) -> HealthAggregator:
+        """Return the health aggregator instance."""
+        return self._health_agg
+
     def get_status(self) -> dict[str, Any]:
         """Return full orchestrator status."""
         uptime = time.monotonic() - self._start_time if self._start_time else 0
+        degraded = self._health_agg.get_degraded_services()
         return {
             "uptime_seconds": round(uptime, 1),
             "running": self._running,
+            "system_healthy": self._health_agg.is_system_healthy(),
+            "degraded_services": [s.value for s in degraded],
             "services": {
                 name.value: {
                     "status": self._status.get(name, "unknown"),

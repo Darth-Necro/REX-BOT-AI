@@ -1,38 +1,43 @@
-"""Health router -- system status endpoints."""
+"""Health router -- system status and privacy audit endpoints."""
 
 from __future__ import annotations
 
+import shutil
 from typing import Any
 
-from fastapi import APIRouter
+import psutil
 
+from fastapi import APIRouter, Depends
+
+from rex.dashboard.deps import get_current_user
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
 router = APIRouter(prefix="/api", tags=["health"])
 
 
-def _get_device_count() -> int:
+async def _get_device_count() -> int:
     """Return the number of discovered devices, or 0 if unavailable."""
     from rex.dashboard.data_registry import get_device_store
 
     device_store = get_device_store()
     if device_store is not None:
         try:
-            return device_store.count()
+            return await device_store.count()
         except Exception:
             pass
     return 0
 
 
-def _get_active_threats() -> int:
+async def _get_active_threats() -> int:
     """Return the number of active threats, or 0 if unavailable."""
     from rex.dashboard.data_registry import get_threat_log
 
     threat_log = get_threat_log()
     if threat_log is not None:
         try:
-            return threat_log.active_count()
+            threats = await threat_log.get_recent(limit=100)
+            return len([t for t in threats if not t.get("resolved", False)])
         except Exception:
             pass
     return 0
@@ -66,7 +71,28 @@ async def get_status() -> dict[str, Any]:
     except Exception:
         pass
 
-    if redis_ok and ollama_ok:
+    # Check disk space
+    disk_ok = True
+    disk_pct = 0.0
+    try:
+        disk = shutil.disk_usage("/")
+        disk_pct = (disk.used / disk.total) * 100
+        disk_ok = disk_pct < 95  # Degraded above 95%
+    except Exception:
+        disk_ok = False
+
+    # Check memory
+    mem_ok = True
+    mem_pct = 0.0
+    try:
+        mem = psutil.virtual_memory()
+        mem_pct = mem.percent
+        mem_ok = mem_pct < 95  # Degraded above 95%
+    except Exception:
+        mem_ok = False
+
+    all_ok = redis_ok and ollama_ok and disk_ok and mem_ok
+    if all_ok:
         status = "operational"
     elif redis_ok:
         status = "degraded"
@@ -81,8 +107,12 @@ async def get_status() -> dict[str, Any]:
             "redis": {"healthy": redis_ok},
             "ollama": {"healthy": ollama_ok, "degraded": not ollama_ok},
         },
-        "device_count": _get_device_count(),
-        "active_threats": _get_active_threats(),
+        "resources": {
+            "disk": {"used_pct": round(disk_pct, 1), "healthy": disk_ok},
+            "memory": {"used_pct": round(mem_pct, 1), "healthy": mem_ok},
+        },
+        "device_count": await _get_device_count(),
+        "active_threats": await _get_active_threats(),
     }
 
 
@@ -90,3 +120,14 @@ async def get_status() -> dict[str, Any]:
 async def health_check() -> dict[str, str]:
     """Simple health check endpoint for load balancers and monitoring."""
     return {"status": "ok"}
+
+
+@router.get("/privacy/audit")
+async def privacy_audit(user: dict = Depends(get_current_user)) -> dict[str, Any]:
+    """Run a full privacy audit and return the structured report."""
+    from rex.core.privacy.audit import PrivacyAuditor
+    from rex.pal import get_adapter
+    from rex.shared.config import get_config
+
+    auditor = PrivacyAuditor(config=get_config(), pal=get_adapter())
+    return auditor.run_full_audit()

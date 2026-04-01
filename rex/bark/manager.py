@@ -71,6 +71,18 @@ class NotificationManager:
             return {}
         self._dedup_cache[dedup_key] = now
 
+        # Prune expired entries and enforce max dedup cache size
+        max_dedup = 10_000
+        if len(self._dedup_cache) > max_dedup:
+            # Remove entries older than 5 minutes first
+            self._dedup_cache = {
+                k: v for k, v in self._dedup_cache.items() if now - v < 300
+            }
+            # If still over limit, keep only the newest entries
+            if len(self._dedup_cache) > max_dedup:
+                sorted_items = sorted(self._dedup_cache.items(), key=lambda x: x[1])
+                self._dedup_cache = dict(sorted_items[-max_dedup:])
+
         # Severity routing
         if sev == ThreatSeverity.INFO:
             return {}  # Never notify for INFO

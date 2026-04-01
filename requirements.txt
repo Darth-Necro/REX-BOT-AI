@@ -27,6 +27,7 @@ pyyaml==6.0.2
 aiosqlite==0.20.0
 anyio==4.8.0
 defusedxml>=0.7.1
+psutil==6.1.1
 
 # --- transitive pins (security-relevant) ---
 starlette==0.45.3

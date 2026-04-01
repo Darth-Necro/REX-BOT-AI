@@ -1,19 +1,23 @@
-"""Windows platform adapter stub.
+"""Windows platform adapter for REX-BOT-AI.
 
 Layer 0.5 -- implements :class:`~rex.pal.base.PlatformAdapter` for
 Microsoft Windows.
 
-Phase 1.5 delivers ``get_os_info()`` and ``get_system_resources()`` via
-platform-agnostic stdlib calls.  All other methods raise
-:class:`~rex.shared.errors.RexPlatformNotSupportedError` with a clear
-description of the Windows API or tool that will be used in Phase 2.
+Provides functional implementations for network discovery, firewall
+control via ``netsh advfirewall``, and autostart via Task Scheduler.
+All subprocess calls use ``subprocess.run`` with ``timeout=10``,
+``capture_output=True``, ``text=True``, ``check=False``.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
+import re
 import shutil
+import subprocess
+import sys
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
@@ -31,15 +35,41 @@ from rex.shared.models import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+logger = logging.getLogger("rex.pal.windows")
+
+_DEFAULT_SUBPROCESS_TIMEOUT = 10
+_REX_RULE_PREFIX = "REX-"
+
+
+# ---------------------------------------------------------------------------
+# Subprocess helper
+# ---------------------------------------------------------------------------
+def _run(
+    cmd: list[str],
+    *,
+    timeout: int = _DEFAULT_SUBPROCESS_TIMEOUT,
+) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess with standardised parameters."""
+    try:
+        return subprocess.run(
+            cmd,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.warning("Command not found: %s", cmd[0])
+        return subprocess.CompletedProcess(
+            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found",
+        )
+
 
 class WindowsAdapter(PlatformAdapter):
     """Concrete :class:`PlatformAdapter` for Microsoft Windows hosts.
 
-    Only ``get_os_info()`` and ``get_system_resources()`` are functional
-    in this phase.  Every other method raises
-    :class:`~rex.shared.errors.RexPlatformNotSupportedError` indicating
-    which Windows API or tool will be used when full support lands in
-    Phase 2.
+    Provides real implementations for network discovery, Windows Firewall
+    management via ``netsh advfirewall``, and autostart via Task Scheduler.
     """
 
     # ================================================================
@@ -137,17 +167,45 @@ class WindowsAdapter(PlatformAdapter):
     # ================================================================
 
     def get_default_interface(self) -> str:
-        """Detect the default network interface.
+        """Detect the default network interface by parsing ``ipconfig``.
+
+        Parses ``ipconfig`` output to find the first adapter with a
+        Default Gateway entry.  Returns the adapter name.
+
+        Returns
+        -------
+        str
+            Adapter name (e.g. ``"Ethernet"``, ``"Wi-Fi"``).
 
         Raises
         ------
         RexPlatformNotSupportedError
-            Windows support: TODO -- Will use ``Get-NetRoute`` via
-            PowerShell or ``GetBestInterface`` Win32 API in Phase 2.
+            If no default interface can be determined.
         """
+        result = _run(["ipconfig"])
+        if result.returncode != 0:
+            raise RexPlatformNotSupportedError(
+                "Cannot determine default network interface: ipconfig failed",
+            )
+
+        current_adapter: str | None = None
+        for line in result.stdout.splitlines():
+            # Adapter header lines: "Ethernet adapter Ethernet:"
+            adapter_match = re.match(
+                r"^(?:Ethernet|Wireless LAN|PPP)\s+adapter\s+(.+?):\s*$", line,
+            )
+            if adapter_match:
+                current_adapter = adapter_match.group(1).strip()
+                continue
+
+            # Look for a non-empty Default Gateway
+            if current_adapter and "Default Gateway" in line:
+                parts = line.split(":", 1)
+                if len(parts) == 2 and parts[1].strip():
+                    return current_adapter
+
         raise RexPlatformNotSupportedError(
-            "Windows get_default_interface: TODO -- "
-            "Implemented in Phase 2 using Get-NetRoute / GetBestInterface Win32 API"
+            "Cannot determine default network interface from ipconfig output",
         )
 
     def capture_packets(
@@ -172,43 +230,160 @@ class WindowsAdapter(PlatformAdapter):
         yield {}  # type: ignore[misc]  # pragma: no cover
 
     def scan_arp_table(self) -> list[dict[str, str]]:
-        """Read the Windows ARP cache.
+        """Read the Windows ARP cache by parsing ``arp -a`` output.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will parse ``arp -a`` output in Phase 2.
+        Returns
+        -------
+        list[dict[str, str]]
+            Each dict contains ``ip``, ``mac``, and ``interface`` keys.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows scan_arp_table: TODO -- "
-            "Implemented in Phase 2 using 'arp -a' / GetIpNetTable Win32 API"
-        )
+        entries: list[dict[str, str]] = []
+        result = _run(["arp", "-a"])
+        if result.returncode != 0:
+            logger.warning("arp -a failed: %s", result.stderr)
+            return entries
+
+        current_iface = "unknown"
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            # Interface header: "Interface: 192.168.1.5 --- 0x4"
+            iface_match = re.match(r"^Interface:\s+([\d.]+)\s+---\s+(\S+)", line)
+            if iface_match:
+                current_iface = iface_match.group(1)
+                continue
+
+            # ARP entry: "  192.168.1.1     aa-bb-cc-dd-ee-ff     dynamic"
+            arp_match = re.match(
+                r"^\s*([\d.]+)\s+([\da-fA-F]{2}[:-][\da-fA-F]{2}[:-][\da-fA-F]{2}"
+                r"[:-][\da-fA-F]{2}[:-][\da-fA-F]{2}[:-][\da-fA-F]{2})\s+\S+",
+                line,
+            )
+            if arp_match:
+                mac = arp_match.group(2).replace("-", ":").lower()
+                if mac == "ff:ff:ff:ff:ff:ff" or mac == "00:00:00:00:00:00":
+                    continue
+                entries.append({
+                    "ip": arp_match.group(1),
+                    "mac": mac,
+                    "interface": current_iface,
+                })
+
+        return entries
 
     def get_network_info(self) -> NetworkInfo:
-        """Collect local network environment snapshot on Windows.
+        """Collect local network environment snapshot from ``ipconfig /all``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will use WMI queries in Phase 2.
+        Parses gateway, subnet mask, and DNS servers from the default
+        adapter section of ``ipconfig /all``.
+
+        Returns
+        -------
+        NetworkInfo
+            Snapshot of the local network environment.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows get_network_info: TODO -- "
-            "Implemented in Phase 2 using WMI Win32_NetworkAdapterConfiguration queries"
+        interface = self.get_default_interface()
+        gateway = "0.0.0.0"
+        subnet_cidr = "0.0.0.0/0"
+        dns_servers = self.get_dns_servers()
+
+        result = _run(["ipconfig", "/all"])
+        if result.returncode == 0:
+            # Find the section for our interface
+            in_section = False
+            ip_addr: str | None = None
+            subnet_mask: str | None = None
+            for line in result.stdout.splitlines():
+                # Detect adapter header
+                adapter_match = re.match(
+                    r"^(?:Ethernet|Wireless LAN|PPP)\s+adapter\s+(.+?):\s*$", line,
+                )
+                if adapter_match:
+                    in_section = adapter_match.group(1).strip() == interface
+                    continue
+
+                if not in_section:
+                    continue
+
+                # Default Gateway
+                if "Default Gateway" in line:
+                    parts = line.split(":", 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        gateway = parts[1].strip()
+
+                # IPv4 Address
+                if "IPv4 Address" in line or "IP Address" in line:
+                    parts = line.split(":", 1)
+                    if len(parts) == 2:
+                        addr = parts[1].strip().rstrip("(Preferred)")
+                        addr = re.sub(r"\(.*\)", "", addr).strip()
+                        if re.match(r"^\d+\.\d+\.\d+\.\d+$", addr):
+                            ip_addr = addr
+
+                # Subnet Mask
+                if "Subnet Mask" in line:
+                    parts = line.split(":", 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        subnet_mask = parts[1].strip()
+
+            # Convert IP + mask to CIDR
+            if ip_addr and subnet_mask:
+                try:
+                    import ipaddress
+                    net = ipaddress.IPv4Network(
+                        f"{ip_addr}/{subnet_mask}", strict=False,
+                    )
+                    subnet_cidr = str(net)
+                except ValueError:
+                    pass
+
+        return NetworkInfo(
+            interface=interface,
+            gateway_ip=gateway,
+            subnet_cidr=subnet_cidr,
+            dns_servers=dns_servers,
         )
 
     def get_dns_servers(self) -> list[str]:
-        """Return configured DNS servers on Windows.
+        """Return configured DNS servers from ``ipconfig /all``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will query via WMI in Phase 2.
+        Returns
+        -------
+        list[str]
+            Ordered list of DNS server IP addresses.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows get_dns_servers: TODO -- "
-            "Implemented in Phase 2 using WMI DNS client configuration"
-        )
+        servers: list[str] = []
+        result = _run(["ipconfig", "/all"])
+        if result.returncode != 0:
+            return servers
+
+        in_dns = False
+        for line in result.stdout.splitlines():
+            # "   DNS Servers . . . : 8.8.8.8"
+            if "DNS Servers" in line:
+                in_dns = True
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    addr = parts[1].strip()
+                    if re.match(r"^\d+\.\d+\.\d+\.\d+$", addr):
+                        servers.append(addr)
+                continue
+
+            # Continuation lines for DNS (indented IPs)
+            if in_dns:
+                stripped = line.strip()
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", stripped):
+                    servers.append(stripped)
+                else:
+                    in_dns = False
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique: list[str] = []
+        for s in servers:
+            if s not in seen:
+                seen.add(s)
+                unique.append(s)
+        return unique
 
     def get_dhcp_leases(self) -> list[dict[str, str]]:
         """Return DHCP lease information on Windows.
@@ -281,30 +456,85 @@ class WindowsAdapter(PlatformAdapter):
     # ================================================================
 
     def block_ip(self, ip: str, direction: str = "both", reason: str = "") -> FirewallRule:
-        """Block an IP address on Windows Firewall.
+        """Block an IP address using ``netsh advfirewall firewall add rule``.
+
+        Creates one or two rules (inbound/outbound) with the name prefix
+        ``REX-BLOCK-<ip>``.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to block.
+        direction:
+            ``"inbound"``, ``"outbound"``, or ``"both"``.
+        reason:
+            Human-readable justification stored with the rule.
+
+        Returns
+        -------
+        FirewallRule
+            The newly created rule.
 
         Raises
         ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will use ``netsh advfirewall`` in Phase 2.
+        RexFirewallError
+            If the rule cannot be applied.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows block_ip: TODO -- "
-            "Implemented in Phase 2 using 'netsh advfirewall firewall add rule' / WFP API"
+        from rex.pal.base import FirewallError
+
+        directions = []
+        if direction in ("inbound", "both"):
+            directions.append("in")
+        if direction in ("outbound", "both"):
+            directions.append("out")
+
+        rule_name = f"{_REX_RULE_PREFIX}BLOCK-{ip}"
+        for d in directions:
+            result = _run([
+                "netsh", "advfirewall", "firewall", "add", "rule",
+                f"name={rule_name}-{d}",
+                f"dir={d}",
+                "action=block",
+                f"remoteip={ip}",
+                "enable=yes",
+            ])
+            if result.returncode != 0:
+                raise FirewallError(
+                    f"Failed to block {ip} ({d}): {result.stderr}",
+                )
+
+        return FirewallRule(
+            ip=ip,
+            direction=direction,
+            action="drop",
+            reason=reason or f"Blocked by REX: {ip}",
         )
 
     def unblock_ip(self, ip: str) -> bool:
-        """Remove block rules for an IP on Windows Firewall.
+        """Remove all REX block rules for an IP using ``netsh advfirewall``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will use ``netsh advfirewall`` in Phase 2.
+        Deletes rules whose name matches ``REX-BLOCK-<ip>-*``.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to unblock.
+
+        Returns
+        -------
+        bool
+            ``True`` if at least one rule was removed.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows unblock_ip: TODO -- "
-            "Implemented in Phase 2 using 'netsh advfirewall firewall delete rule'"
-        )
+        removed = False
+        for d in ("in", "out"):
+            rule_name = f"{_REX_RULE_PREFIX}BLOCK-{ip}-{d}"
+            result = _run([
+                "netsh", "advfirewall", "firewall", "delete", "rule",
+                f"name={rule_name}",
+            ])
+            if result.returncode == 0:
+                removed = True
+        return removed
 
     def isolate_device(self, ip: str, mac: str | None = None) -> list[FirewallRule]:
         """Isolate a device via Windows Firewall rules.
@@ -348,29 +578,96 @@ class WindowsAdapter(PlatformAdapter):
     def get_active_rules(self) -> list[FirewallRule]:
         """List active REX-managed Windows Firewall rules.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will query ``netsh advfirewall`` in Phase 2.
+        Queries ``netsh advfirewall firewall show rule name=all`` and
+        filters for rules whose name starts with ``REX-``.
+
+        Returns
+        -------
+        list[FirewallRule]
         """
-        raise RexPlatformNotSupportedError(
-            "Windows get_active_rules: TODO -- "
-            "Implemented in Phase 2 using"
-            " 'netsh advfirewall firewall show rule' with REX group filter"
-        )
+        rules: list[FirewallRule] = []
+        result = _run(["netsh", "advfirewall", "firewall", "show", "rule", "name=all"])
+        if result.returncode != 0:
+            logger.warning("Cannot list firewall rules: %s", result.stderr)
+            return rules
+
+        current: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                # End of a rule block -- process it
+                if current.get("name", "").startswith(_REX_RULE_PREFIX):
+                    direction = current.get("direction", "in")
+                    dir_str = "inbound" if direction.lower() == "in" else "outbound"
+                    action = "drop" if current.get("action", "").lower() == "block" else "accept"
+                    rules.append(FirewallRule(
+                        ip=current.get("remoteip"),
+                        direction=dir_str,
+                        action=action,
+                        reason=current.get("name", "REX rule"),
+                    ))
+                current = {}
+                continue
+
+            if ":" in line:
+                key, _, value = line.partition(":")
+                current[key.strip().lower().replace(" ", "")] = value.strip()
+
+        # Process final block
+        if current.get("name", "").startswith(_REX_RULE_PREFIX):
+            direction = current.get("direction", "in")
+            dir_str = "inbound" if direction.lower() == "in" else "outbound"
+            action = "drop" if current.get("action", "").lower() == "block" else "accept"
+            rules.append(FirewallRule(
+                ip=current.get("remoteip"),
+                direction=dir_str,
+                action=action,
+                reason=current.get("name", "REX rule"),
+            ))
+
+        return rules
 
     def panic_restore(self) -> bool:
-        """Remove all REX firewall rules on Windows.
+        """Remove all REX-managed Windows Firewall rules.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will use ``netsh advfirewall`` group deletion in Phase 2.
+        Queries all rules and deletes any whose name starts with ``REX-``.
+
+        Returns
+        -------
+        bool
+            ``True`` if the rollback succeeded (or no rules existed).
         """
-        raise RexPlatformNotSupportedError(
-            "Windows panic_restore: TODO -- "
-            "Implemented in Phase 2 using netsh advfirewall group=REX bulk deletion"
-        )
+        active = self.get_active_rules()
+        if not active:
+            return True
+
+        # Collect unique rule names by re-querying raw output
+        result = _run(["netsh", "advfirewall", "firewall", "show", "rule", "name=all"])
+        if result.returncode != 0:
+            logger.error("panic_restore: cannot list rules")
+            return False
+
+        rule_names: list[str] = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.lower().startswith("rule name:"):
+                name = line.split(":", 1)[1].strip()
+                if name.startswith(_REX_RULE_PREFIX):
+                    rule_names.append(name)
+
+        success = True
+        for name in rule_names:
+            del_result = _run([
+                "netsh", "advfirewall", "firewall", "delete", "rule",
+                f"name={name}",
+            ])
+            if del_result.returncode != 0:
+                logger.error("Failed to delete rule %s: %s", name, del_result.stderr)
+                success = False
+
+        if success:
+            logger.warning("PANIC RESTORE: all REX firewall rules deleted")
+        return success
 
     def create_rex_chains(self) -> bool:
         """Create REX firewall rule group on Windows.
@@ -404,17 +701,40 @@ class WindowsAdapter(PlatformAdapter):
     # ================================================================
 
     def register_autostart(self, service_name: str = "rex-bot-ai") -> bool:
-        """Register REX as a Windows Service for autostart.
+        """Register REX to start at login via Windows Task Scheduler.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            Windows support: TODO -- Will use Windows Service Manager / ``sc.exe`` in Phase 2.
+        Creates a scheduled task using ``schtasks /create`` that runs
+        at user logon.
+
+        Parameters
+        ----------
+        service_name:
+            Name for the scheduled task.
+
+        Returns
+        -------
+        bool
+            ``True`` if the task was created.
         """
-        raise RexPlatformNotSupportedError(
-            "Windows register_autostart: TODO -- "
-            "Implemented in Phase 2 using Windows Service Manager (sc.exe create / pywin32)"
-        )
+        rex_exec = shutil.which("rex-bot-ai") or shutil.which("rex")
+        if not rex_exec:
+            python = sys.executable or "python"
+            rex_exec = f"{python} -m rex.core"
+
+        result = _run([
+            "schtasks", "/create",
+            "/tn", service_name,
+            "/tr", rex_exec,
+            "/sc", "onlogon",
+            "/rl", "highest",
+            "/f",
+        ])
+        if result.returncode == 0:
+            logger.info("Registered autostart task: %s", service_name)
+            return True
+
+        logger.error("Failed to register autostart: %s", result.stderr)
+        return False
 
     def unregister_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Remove REX Windows Service autostart registration.

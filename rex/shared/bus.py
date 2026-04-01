@@ -75,12 +75,18 @@ class EventBus:
     async def connect(self) -> None:
         """Open the Redis connection and initialise the WAL database.
 
+        This method is idempotent -- calling it when already connected is a
+        no-op.
+
         Raises
         ------
         RexBusUnavailableError
             If the initial Redis connection fails.  The WAL is still
             initialised so that ``publish`` can degrade gracefully.
         """
+        if self._running:
+            return  # Already connected (shared bus instance)
+
         await self._init_wal()
         try:
             self._redis = aioredis.from_url(
@@ -386,6 +392,20 @@ class EventBus:
             )
             await self._wal_db.commit()
             logger.info("Drained %d WAL events to Redis.", len(replayed_ids))
+
+            # Clean up replayed entries to prevent unbounded WAL growth.
+            await self._cleanup_wal()
+
+    async def _cleanup_wal(self) -> None:
+        """Delete replayed WAL entries to prevent unbounded growth."""
+        if self._wal_db is None:
+            return
+        try:
+            await self._wal_db.execute("DELETE FROM wal WHERE replayed = 1")
+            await self._wal_db.commit()
+            logger.debug("Cleaned up replayed WAL entries.")
+        except Exception:
+            logger.warning("WAL cleanup failed.", exc_info=True)
 
     # ------------------------------------------------------------------
     # Consumer group helpers

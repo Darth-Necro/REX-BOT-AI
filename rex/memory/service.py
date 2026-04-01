@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 from typing import TYPE_CHECKING, Any
 
 from rex.memory.knowledge import KnowledgeBase
@@ -95,6 +94,11 @@ class MemoryService(BaseService):
         # 4. Threat log
         self._threat_log = ThreatLog(self.config)
 
+        # Register threat log and knowledge base in the dashboard data registry
+        from rex.dashboard.data_registry import set_threat_log, set_knowledge_base
+        set_threat_log(self._threat_log)
+        set_knowledge_base(self._kb)
+
         # Load existing threats from KB into the hot store
         try:
             existing_threats = await self._kb.read_section("THREAT LOG")
@@ -103,8 +107,10 @@ class MemoryService(BaseService):
         except Exception:
             self._logger.exception("Failed to load existing threats from KB.")
 
-        # 5. Start periodic commit task
+        # 5. Start periodic commit task (append to self._tasks so BaseService
+        # cancels it during stop())
         self._commit_task = asyncio.create_task(self._periodic_commit_loop())
+        self._tasks.append(self._commit_task)
 
         self._logger.info("Memory service fully initialised.")
 
@@ -136,27 +142,33 @@ class MemoryService(BaseService):
             STREAM_BRAIN_DECISIONS,
         ]
 
-        async def handler(stream: str, msg_id: str, fields: dict[str, Any]) -> None:
-            """Route incoming messages to the correct handler."""
+        async def handler(event: Any) -> None:
+            """Route incoming RexEvent to the correct handler."""
+            from rex.shared.events import RexEvent
+
+            if not isinstance(event, RexEvent):
+                self._logger.warning("Expected RexEvent, got %s", type(event).__name__)
+                return
+
             try:
-                data = fields.get("data", "{}")
-                payload = json.loads(data) if isinstance(data, str) else data
+                event_payload = event.payload
 
-                # Extract the actual payload from the event envelope
-                event_payload = payload.get("payload", payload)
-
-                if stream == STREAM_EYES_DEVICE_UPDATES:
+                if event.event_type in (
+                    "device_discovered", "device_update", "device_scan",
+                ):
                     await self._handle_device_update(event_payload)
-                elif stream == STREAM_EYES_THREATS:
+                elif event.event_type in (
+                    "threat_detected", "dns_threat", "traffic_anomaly",
+                ):
                     await self._handle_threat(event_payload)
-                elif stream == STREAM_BRAIN_DECISIONS:
+                elif event.event_type in (
+                    "decision_made", "decision_execute",
+                ):
                     await self._handle_decision(event_payload)
 
-            except json.JSONDecodeError:
-                self._logger.warning("Malformed JSON on stream %s: %s", stream, msg_id)
             except Exception:
                 self._logger.exception(
-                    "Error handling message %s from %s", msg_id, stream
+                    "Error handling event %s (type=%s)", event.event_id, event.event_type,
                 )
 
         await self.bus.subscribe(streams, handler)

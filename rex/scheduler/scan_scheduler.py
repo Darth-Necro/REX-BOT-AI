@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.utils import generate_id, utc_now
+
+if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +17,11 @@ logger = logging.getLogger(__name__)
 class ScanScheduler:
     """Schedules and tracks periodic network scans."""
 
-    def __init__(self) -> None:
+    def __init__(self, bus: EventBus | None = None) -> None:
         self._scheduled: dict[str, dict[str, Any]] = {}  # job_id -> spec
         self._history: list[dict[str, Any]] = []
         self._tasks: dict[str, asyncio.Task[Any]] = {}
+        self._bus = bus
 
     async def schedule_scan(self, scan_type: str = "quick", interval_seconds: int = 300) -> str:
         """Schedule a recurring scan. Returns job ID."""
@@ -72,14 +76,28 @@ class ScanScheduler:
             spec = self._scheduled[job_id]
             spec["last_run"] = utc_now().isoformat()
             spec["run_count"] += 1
-            # NOTE: This records that the scan interval fired, NOT that a
-            # real network scan completed.  Actual scan execution requires
-            # publishing to the event bus so EyesService picks it up.
+
+            # Actually trigger the scan via event bus
+            status = "scheduled"
+            if self._bus:
+                try:
+                    from rex.shared.events import ScanTriggeredEvent
+                    from rex.shared.enums import ServiceName
+                    await self._bus.publish("rex:core:commands", ScanTriggeredEvent(
+                        source=ServiceName.SCHEDULER,
+                        event_type="scan_now",
+                        payload={"scan_type": spec["scan_type"], "triggered_by": "scheduler"},
+                    ))
+                    status = "triggered"
+                except Exception:
+                    logger.warning("Failed to publish scan trigger for job %s", job_id)
+                    status = "trigger_failed"
+
             self._history.append({
                 "job_id": job_id,
                 "scan_type": spec["scan_type"],
                 "started_at": spec["last_run"],
-                "status": "scheduled",  # Honest: scan was triggered, not verified complete
+                "status": status,
             })
             if len(self._history) > 500:
                 self._history = self._history[-250:]

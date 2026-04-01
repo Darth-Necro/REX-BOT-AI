@@ -21,7 +21,10 @@ async def list_devices(user: dict = Depends(get_current_user)) -> dict[str, Any]
         try:
             devices = await device_store.get_all_devices()
             return {
-                "devices": devices,
+                "devices": [
+                    d.model_dump(mode="json") if hasattr(d, "model_dump") else d
+                    for d in devices
+                ],
                 "total": len(devices),
             }
         except Exception:
@@ -39,6 +42,20 @@ async def get_device(
     mac: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Return details for a specific device by MAC address."""
+    from rex.dashboard.data_registry import get_device_store
+
+    device_store = get_device_store()
+    if device_store is not None:
+        try:
+            device = await device_store.get_device(mac)
+            if device is not None:
+                return {
+                    "device": device.model_dump(mode="json")
+                    if hasattr(device, "model_dump")
+                    else device,
+                }
+        except Exception:
+            pass
     raise HTTPException(status_code=404, detail=f"Device {mac} not found")
 
 

@@ -574,6 +574,10 @@ class BehavioralBaseline:
                 encoding="utf-8",
             )
             tmp_path.replace(self._baseline_file)
+            try:
+                self._baseline_file.chmod(0o600)
+            except OSError:
+                pass
             logger.debug("Baselines saved to %s", self._baseline_file)
 
         except OSError as exc:
