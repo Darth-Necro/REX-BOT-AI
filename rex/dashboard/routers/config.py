@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 
-from rex.dashboard.deps import get_current_user
+from rex.dashboard.deps import get_current_user, get_mode_manager
+from rex.shared.enums import OperatingMode
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -42,3 +43,21 @@ async def update_config(
     }
 
 
+@router.put("/mode")
+async def set_mode(
+    body: dict = Body(...),
+    user: dict = Depends(get_current_user),
+    mode_manager: Any = Depends(get_mode_manager),
+) -> dict[str, Any]:
+    """Switch the operating mode between BASIC and ADVANCED."""
+    raw_mode = body.get("mode", "")
+    try:
+        new_mode = OperatingMode(raw_mode.lower())
+    except (ValueError, AttributeError):
+        valid = [m.value for m in OperatingMode]
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid mode '{raw_mode}'. Valid values: {valid}",
+        )
+    mode_manager.set_mode(new_mode)
+    return {"mode": new_mode.value}

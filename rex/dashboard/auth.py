@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import os
 import secrets
 import time
 from datetime import UTC, datetime, timedelta
@@ -112,8 +113,9 @@ class AuthManager:
             except Exception:
                 logger.warning("Corrupted credentials file, regenerating")
 
-        # Generate new credentials
-        initial_password = secrets.token_urlsafe(24)
+        # Generate new credentials — prefer REX_ADMIN_PASSWORD from env (set by installer)
+        env_password = os.environ.get("REX_ADMIN_PASSWORD", "").strip()
+        initial_password = env_password if env_password else secrets.token_urlsafe(24)
         self._jwt_secret = secrets.token_hex(32)
         self._password_hash = hash_password(initial_password)
 

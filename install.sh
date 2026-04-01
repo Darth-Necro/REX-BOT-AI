@@ -190,15 +190,8 @@ install_rex() {
         useradd -r -s /bin/false -d "${REX_DATA_DIR}" "${REX_USER}" 2>/dev/null || true
     fi
 
-    # Generate admin password
+    # Generate admin password (written to .env so the container auth system uses it)
     ADMIN_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-
-    # Generate self-signed TLS certificate
-    info "Generating TLS certificate..."
-    mkdir -p "${REX_DATA_DIR}/certs"
-    openssl req -x509 -newkey rsa:2048 -keyout "${REX_DATA_DIR}/certs/key.pem" \
-        -out "${REX_DATA_DIR}/certs/cert.pem" -days 365 -nodes \
-        -subj "/CN=rex.local/O=REX-BOT-AI" 2>/dev/null
 
     # Clone the repo to get docker-compose.yml and configs
     if [ -f "$(pwd)/docker-compose.yml" ]; then
@@ -222,7 +215,7 @@ install_rex() {
         fi
     fi
 
-    # Write .env
+    # Write .env — REX_ADMIN_PASSWORD is picked up by the auth system on first boot
     cat > "${REX_INSTALL_DIR}/.env" << ENVEOF
 REX_MODE=basic
 REX_LOG_LEVEL=info
@@ -231,6 +224,7 @@ REX_NETWORK_INTERFACE=auto
 REX_SCAN_INTERVAL=300
 REDIS_PASSWORD=$(openssl rand -hex 16)
 REX_FEDERATION_ENABLED=false
+REX_ADMIN_PASSWORD=${ADMIN_PASSWORD}
 ENVEOF
 
     # Set permissions
@@ -298,7 +292,8 @@ post_install() {
     echo "  Local URL: https://rex.local:${REX_PORT}"
     echo ""
     echo "  Admin Password: ${ADMIN_PASSWORD}"
-    echo "  (Write this down. It will not be shown again.)"
+    echo "  (Write this down — it will not be shown again.)"
+    echo "  Stored in: ${REX_INSTALL_DIR}/.env (root-readable only)"
     echo ""
     echo "  REX is awake and sniffing your network."
     echo "  Visit the dashboard to complete setup."

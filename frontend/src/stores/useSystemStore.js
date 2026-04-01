@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import { setMode } from '../api/client';
 
-const useSystemStore = create((set) => ({
+const useSystemStore = create((set, get) => ({
   // Defaults are HONEST — unknown until backend confirms.
   // Do NOT default to "operational" or "awake" — that is operator deception.
   status: 'unknown',
@@ -29,18 +30,27 @@ const useSystemStore = create((set) => ({
   setStatus: (status) => set({ status }),
   setPowerState: (powerState) => set({ powerState }),
   setMode: (mode) => set({ mode }),
-  toggleMode: () => set((s) => ({ mode: s.mode === 'basic' ? 'advanced' : 'basic' })),
+  toggleMode: async () => {
+    const nextMode = get().mode === 'basic' ? 'advanced' : 'basic';
+    try {
+      const res = await setMode(nextMode);
+      set({ mode: res.data.mode });
+    } catch {
+      // Backend unreachable — update local state so UI stays responsive
+      set({ mode: nextMode });
+    }
+  },
   setDeviceCount: (deviceCount) => set({ deviceCount }),
   setActiveThreats: (activeThreats) => set({ activeThreats }),
   setConnected: (connected) => set({ connected }),
   updateFromStatus: (data) => set({
-    status: data.status || 'operational',
-    powerState: data.power_state || 'awake',
-    deviceCount: data.device_count || 0,
-    activeThreats: data.active_threats || 0,
-    threatsBlocked24h: data.threats_blocked_24h || 0,
-    llmStatus: data.llm_status || 'unknown',
-    uptimeSeconds: data.uptime_seconds || 0,
+    status: data.status ?? 'unknown',
+    powerState: data.power_state ?? 'unknown',
+    deviceCount: data.device_count ?? 0,
+    activeThreats: data.active_threats ?? 0,
+    threatsBlocked24h: data.threats_blocked_24h ?? 0,
+    llmStatus: data.llm_status ?? 'unknown',
+    uptimeSeconds: data.uptime_seconds ?? 0,
   }),
 }));
 

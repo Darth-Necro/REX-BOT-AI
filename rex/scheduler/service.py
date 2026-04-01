@@ -28,8 +28,8 @@ class SchedulerService(BaseService):
 
     async def _on_start(self) -> None:
         """Initialize power manager, scan scheduler, and cron manager."""
-        self._power = PowerManager()
-        self._scans = ScanScheduler()
+        self._power = PowerManager(bus=self.bus)
+        self._scans = ScanScheduler(bus=self.bus)
         self._cron = CronManager()
 
         # Set up default scheduled scans
