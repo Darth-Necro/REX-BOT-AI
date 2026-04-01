@@ -38,6 +38,13 @@ const NotificationsPage = lazy(() => import('../pages/settings/NotificationsPage
 const AboutPage = lazy(() => import('../pages/settings/AboutPage'));
 const PrivacyPage = lazy(() => import('../pages/privacy/PrivacyPage'));
 
+/* Batch 5 -- network, investigations, device details, service health */
+const NetworkMapPage = lazy(() => import('../pages/network/NetworkMapPage'));
+const DeviceDetailsPage = lazy(() => import('../pages/devices/DeviceDetailsPage'));
+const ThreatDetailsPage = lazy(() => import('../pages/threats/ThreatDetailsPage'));
+const InvestigationsPage = lazy(() => import('../pages/threats/InvestigationsPage'));
+const ServiceHealthPage = lazy(() => import('../pages/diagnostics/ServiceHealthPage'));
+
 /* Fallback for legacy basic mode */
 const BasicView = lazy(() => import('../views/BasicView'));
 
@@ -76,6 +83,7 @@ function ProtectedRoute({ children }) {
 const PAGE_ID_FROM_PATH = {
   '/overview':              'overview',
   '/':                      'overview',
+  '/network':               'network',
   '/threats':               'threats',
   '/devices':               'devices',
   '/chat':                  'chat',
@@ -84,6 +92,7 @@ const PAGE_ID_FROM_PATH = {
   '/scheduler':             'scheduler',
   '/plugins':               'plugins',
   '/diagnostics':           'diagnostics',
+  '/diagnostics/services':  'diagnostics',
   '/onboarding':            'onboarding',
   '/settings':              'settings',
   '/settings/notifications': 'settings',
@@ -101,6 +110,7 @@ function AuthenticatedShell() {
   const handleNavigate = (id) => {
     const route = {
       overview: '/overview',
+      network: '/network',
       threats: '/threats',
       devices: '/devices',
       chat: '/chat',

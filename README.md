@@ -9,7 +9,7 @@
                  |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**PRE-ALPHA** -- Early-stage local-first network security prototype with a Linux PAL, agent-policy foundation, and local LLM integration.
+**v0.1.0-alpha** -- Local-first autonomous network security agent with Linux PAL, multi-layer AI decision pipeline, prompt injection defense, and 84% test coverage.
 
 > This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
@@ -17,15 +17,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Status: Pre-Alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)]()
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-yellow.svg)]()
 
 ---
 
 ## What This Is
 
-REX-BOT-AI aims to be an open-source autonomous AI security agent for home and small business networks. It uses a local LLM (via Ollama) to reason about network threats and takes defensive actions through a whitelisted command system.
+REX-BOT-AI is an open-source autonomous AI security agent for home and small business networks. It uses a local LLM (via Ollama) to reason about network threats and takes defensive actions through a whitelisted command system.
 
-The project has substantial low-level modules (Linux platform adapter, threat classifier, command executor, privacy enforcement) but the product surface (dashboard, installer, end-to-end orchestration) is incomplete.
+All 13 modules are implemented with real logic. The core security pipeline (EYES scan, BRAIN classify, TEETH enforce, BARK notify) is wired through Redis Streams. End-to-end Docker deployment is not yet verified.
 
 ## Current State (Honest)
 
@@ -42,16 +42,16 @@ The project has substantial low-level modules (Linux platform adapter, threat cl
 | Device fingerprinter | Working -- MAC OUI, OS detection, type classification |
 | Knowledge base (markdown) | Working -- REX-BOT-AI.md read/write/parse with git |
 | Privacy/encryption module | Working -- Fernet secrets, audit tools |
-| Agent security (scope, sanitizers) | Working -- prompt injection defense, action whitelist |
-| Dashboard API (FastAPI) | **Stubbed** -- endpoints exist but return hard-coded data |
-| Dashboard frontend (React) | **Skeleton** -- components exist but not wired to real data |
+| Agent security (scope, sanitizers) | Working -- prompt injection defense (30+ patterns), action whitelist |
+| Dashboard API (FastAPI) | Working -- 11 routers, 44 endpoints, honest responses |
+| Dashboard frontend (React) | **Partial** -- fetches real state on mount, not fully wired |
 | Notification channels | **Partial** -- channel classes exist, not integration-tested |
-| Plugin system | **Minimal** -- SDK defined, no real plugin execution |
-| Orchestrator | **Partial** -- starts services but not fully lifecycle-managed |
-| Docker deployment | **Broken** -- networking and entrypoint issues being fixed |
-| Installer (install.sh) | **Broken** -- curl pipe mode does not work correctly |
+| Plugin system | **Minimal** -- SDK defined, sandbox is a dict not Docker |
+| Orchestrator | Working -- service lifecycle, health monitor, auto-restart |
+| Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
+| Installer (install.sh) | **Unverified** -- path alignment with Docker volumes pending |
 | Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test coverage | **~13%** -- critical paths tested, most modules untested |
+| Test coverage | **84%** -- 2,979 tests (306 security pentests), 10 xfail |
 
 ## Development Setup
 
@@ -99,11 +99,11 @@ These are enforced in code, not just policy:
 This project needs help. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 Priority areas:
-1. Wire dashboard API to real service data (replace hard-coded responses)
-2. Integration tests for the EYES->BRAIN->TEETH pipeline
-3. Frontend login flow and WebSocket authentication
-4. Fix Docker Compose networking for end-to-end deployment
-5. Grow test coverage beyond 13%
+1. Verify end-to-end Docker Compose deployment with live events
+2. Integration tests with live Redis in CI
+3. Wire frontend to all dashboard API endpoints
+4. Replace plugin sandbox dict with real Docker isolation
+5. Implement Windows/macOS/BSD PAL adapters
 
 ## License
 

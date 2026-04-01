@@ -18,8 +18,8 @@ Thank you for your interest in contributing to REX-BOT-AI. This document covers 
 
 ```bash
 # Clone the repository
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
 
 # Create a virtual environment
 python3 -m venv .venv
@@ -345,8 +345,8 @@ python -m pytest tests/ -m "not slow and not integration"
 ```bash
 # Fork the repository on GitHub, then:
 git clone https://github.com/YOUR_USERNAME/rex-bot-ai.git
-cd rex-bot-ai
-git remote add upstream https://github.com/REX-BOT-AI/rex-bot-ai.git
+cd REX-BOT-AI
+git remote add upstream https://github.com/Darth-Necro/REX-BOT-AI.git
 
 # Create a feature branch
 git checkout -b feature/my-improvement

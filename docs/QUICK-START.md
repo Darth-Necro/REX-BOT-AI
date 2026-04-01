@@ -19,22 +19,22 @@ Get REX-BOT-AI running in 5 minutes.
 ### One-Liner Install
 
 ```bash
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git && cd rex-bot-ai && make install
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git && cd REX-BOT-AI && make install
 ```
 
 Or manually:
 
 ```bash
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
 bash install.sh
 ```
 
 ### Docker Install (Recommended for Production)
 
 ```bash
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
 docker compose up -d
 ```
 
@@ -43,8 +43,8 @@ This starts all services: REX core, Redis, Ollama, and ChromaDB.
 ### Development Install
 
 ```bash
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .

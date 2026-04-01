@@ -5,9 +5,13 @@
  * Advanced mode shows all items including settings sub-pages.
  * Active state uses cyan highlight bar + text.
  * Disabled state for pages not yet implemented (grayed, no click).
+ *
+ * Keyboard navigation: Arrow Up/Down to move between items, Home/End
+ * to jump to first/last. Focus ring visible for keyboard users.
+ * Responsive: uses parent's width; supports collapsed state via context.
  */
 
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import useModeGuard from '../hooks/useModeGuard';
 
@@ -77,6 +81,22 @@ function DiagnosticsIcon({ className }) {
   );
 }
 
+function NetworkIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+    </svg>
+  );
+}
+
+function ServiceHealthIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+    </svg>
+  );
+}
+
 function PrivacyIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -109,28 +129,64 @@ function OnboardingIcon({ className }) {
  * 'basic' items appear in both modes; 'advanced' items only in advanced mode.
  */
 const NAV_ITEMS = [
-  { to: '/overview',    label: 'Overview',        Icon: OverviewIcon,       disabled: false, mode: 'basic' },
-  { to: '/devices',     label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'advanced' },
-  { to: '/threats',     label: 'Threats',          Icon: ThreatsIcon,        disabled: false, mode: 'advanced' },
-  { to: '/firewall',    label: 'Firewall',         Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
-  { to: '/knowledge',   label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false, mode: 'advanced' },
-  { to: '/scheduler',   label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'advanced' },
-  { to: '/plugins',     label: 'Plugins',         Icon: PluginsIcon,        disabled: false, mode: 'advanced' },
-  { to: '/diagnostics', label: 'Diagnostics',     Icon: DiagnosticsIcon,    disabled: false, mode: 'advanced' },
-  { to: '/privacy',     label: 'Privacy',         Icon: PrivacyIcon,        disabled: false, mode: 'advanced' },
-  { to: '/settings',    label: 'Settings',        Icon: SettingsIcon,       disabled: false, mode: 'basic' },
-  { to: '/onboarding',  label: 'Setup',           Icon: OnboardingIcon,     disabled: false, mode: 'basic' },
+  { to: '/overview',              label: 'Overview',        Icon: OverviewIcon,       disabled: false, mode: 'basic' },
+  { to: '/network',               label: 'Network',         Icon: NetworkIcon,        disabled: false, mode: 'advanced' },
+  { to: '/devices',               label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'advanced' },
+  { to: '/threats',               label: 'Threats',          Icon: ThreatsIcon,        disabled: false, mode: 'advanced' },
+  { to: '/firewall',              label: 'Firewall',         Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
+  { to: '/knowledge',             label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false, mode: 'advanced' },
+  { to: '/scheduler',             label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'advanced' },
+  { to: '/plugins',               label: 'Plugins',         Icon: PluginsIcon,        disabled: false, mode: 'advanced' },
+  { to: '/diagnostics',           label: 'Diagnostics',     Icon: DiagnosticsIcon,    disabled: false, mode: 'advanced' },
+  { to: '/diagnostics/services',  label: 'Services',        Icon: ServiceHealthIcon,  disabled: false, mode: 'advanced' },
+  { to: '/privacy',               label: 'Privacy',         Icon: PrivacyIcon,        disabled: false, mode: 'advanced' },
+  { to: '/settings',              label: 'Settings',        Icon: SettingsIcon,       disabled: false, mode: 'basic' },
+  { to: '/onboarding',            label: 'Setup',           Icon: OnboardingIcon,     disabled: false, mode: 'basic' },
 ];
 
 /* ---------- component ---------- */
 
 export default function SidebarNav() {
   const { mode, isBasic } = useModeGuard();
+  const linkRefs = useRef([]);
 
   // Filter nav items based on mode
   const visibleItems = isBasic
     ? NAV_ITEMS.filter((item) => item.mode === 'basic')
     : NAV_ITEMS;
+
+  const enabledItems = visibleItems.filter((item) => !item.disabled);
+
+  // Keyboard navigation: ArrowUp/Down, Home, End
+  const handleKeyDown = useCallback(
+    (e, index) => {
+      let nextIndex = -1;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          nextIndex = (index + 1) % enabledItems.length;
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          nextIndex = (index - 1 + enabledItems.length) % enabledItems.length;
+          break;
+        case 'Home':
+          e.preventDefault();
+          nextIndex = 0;
+          break;
+        case 'End':
+          e.preventDefault();
+          nextIndex = enabledItems.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      linkRefs.current[nextIndex]?.focus();
+    },
+    [enabledItems.length],
+  );
 
   return (
     <nav
@@ -146,14 +202,19 @@ export default function SidebarNav() {
       </div>
 
       {/* Navigation links */}
-      <div className="flex-1 py-3 space-y-0.5 overflow-y-auto">
-        {visibleItems.map(({ to, label, Icon, disabled }) => {
+      <div className="flex-1 py-3 space-y-0.5 overflow-y-auto" role="list">
+        {visibleItems.map(({ to, label, Icon, disabled }, rawIndex) => {
+          // Track the index within enabled items for keyboard nav
+          const enabledIndex = enabledItems.findIndex((item) => item.to === to);
+
           if (disabled) {
             return (
               <div
                 key={to}
+                role="listitem"
                 className="flex items-center gap-3 px-4 py-2.5 text-rex-muted/40 cursor-not-allowed select-none"
                 title={`${label} (coming soon)`}
+                aria-disabled="true"
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-sm">{label}</span>
@@ -165,8 +226,13 @@ export default function SidebarNav() {
             <NavLink
               key={to}
               to={to}
+              ref={(el) => { linkRefs.current[enabledIndex] = el; }}
+              role="listitem"
+              onKeyDown={(e) => handleKeyDown(e, enabledIndex)}
               className={({ isActive }) =>
-                `relative flex items-center gap-3 px-4 py-2.5 transition-colors group ${
+                `relative flex items-center gap-3 px-4 py-2.5 transition-colors group
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-inset
+                 ${
                   isActive
                     ? 'text-cyan-400 bg-cyan-500/10'
                     : 'text-rex-muted hover:text-rex-text hover:bg-rex-card/30'

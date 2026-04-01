@@ -90,7 +90,7 @@ Teeth is the enforcement engine that executes the decisions made by Brain. It ma
 
 ### BARK (`rex/bark/`)
 
-Bark is the notification and alerting module. It formats threat alerts and system notifications and delivers them across multiple channels: Discord webhooks, Telegram bots, email (SMTP), Matrix rooms, Pushover, and the dashboard WebSocket. Bark respects quiet hours, configurable detail levels, and per-channel rate limits to prevent notification flooding.
+Bark is the notification and alerting module. It formats threat alerts and system notifications and delivers them across multiple channels: Discord webhooks, Telegram bots, email (SMTP), Matrix rooms, Web Push, and the dashboard WebSocket. Bark respects quiet hours, configurable detail levels, and per-channel rate limits to prevent notification flooding.
 
 ### MEMORY (`rex/memory/`)
 
@@ -102,7 +102,7 @@ Interview is the onboarding wizard that runs when REX is first deployed. It asks
 
 ### DASHBOARD (`rex/dashboard/`)
 
-Dashboard is the FastAPI web application and REST API that provides the operator interface. It includes 10 API routers (devices, threats, knowledge base, interview, config, plugins, firewall, notifications, schedule, health), WebSocket real-time updates with channel-based subscriptions, JWT authentication with rate-limited login, and security headers (CSP, X-Frame-Options, HSTS).
+Dashboard is the FastAPI web application and REST API that provides the operator interface. It includes 11 API routers (auth, config, devices, firewall, health, interview, knowledge base, notifications, plugins, schedule, threats), WebSocket real-time updates with channel-based subscriptions, JWT authentication with rate-limited login, and security headers (CSP, X-Frame-Options, HSTS).
 
 ### SCHEDULER (`rex/scheduler/`)
 

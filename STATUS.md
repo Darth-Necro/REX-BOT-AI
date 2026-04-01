@@ -19,7 +19,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Subprocess security boundary enforced**: safe environment stripping, private IP enforcement, audit logging
 - **Docker hardened**: pinned image tags, .dockerignore, explicit Redis password required, localhost URL validation
 
-## P0 Status (was 14 items, now 5 remain)
+## P0 Status (was 14 items, 3 remain)
 
 | # | Issue | Status |
 |---|-------|--------|
@@ -38,20 +38,23 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 | 13 | Credentials encryption | PARTIALLY FIXED — SecretsManager used with fallback |
 | 14 | Mode switch backend | OPEN — frontend toggle doesn't call backend |
 
-## What Works (Verified by 1018 Tests)
+## What Works (Verified by 2,979 Tests)
 
 - Pydantic v2 data models with full type validation
 - Redis event bus with WAL fallback and consumer group management
 - Linux PAL (2300 lines): raw sockets, nftables, systemd, package management
 - Threat classifier: 12 categories with MITRE ATT&CK alignment
-- LLM client: hardcoded localhost enforcement, data sanitizer, Brain 1/2 routing
+- LLM client: hardcoded localhost enforcement, data sanitizer, Brain L1-L4 routing
 - Command executor: whitelisted commands, parameter validation, zero shell=True
-- Prompt injection sanitizer: homoglyphs, leetspeak, Unicode normalization, filler stripping
+- Prompt injection sanitizer: 30+ patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
+- Network data sanitizer: control chars, truncation, injection detection on all event surfaces
+- Web content sanitizer: HTML stripping, injection patterns, untrusted content delimiters
 - Network scanner: ARP + nmap, device fingerprinting, DNS monitoring
 - Knowledge base: markdown parser/writer, git versioning, section CRUD
 - Firewall manager: safety invariants (gateway/self never blocked), rate limiting, auto-rollback
 - Auth: bcrypt hashing, PyJWT tokens, per-IP lockout, rate limiting
-- Dashboard API: 44 endpoints, honest responses (empty with notes, not fake success)
+- Dashboard API: 11 routers, 44 endpoints, honest responses (empty with notes, not fake success)
+- Orchestrator: service lifecycle, health monitoring, auto-restart (3 attempts)
 
 ## What Does NOT Work Yet
 
@@ -66,18 +69,26 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 
 | Metric | Value |
 |--------|-------|
-| Tests | 1,018 |
+| Tests | 2,979 |
 | Failures | 0 |
 | xfail (documented) | 10 |
-| Coverage | 52% |
-| Security pentest tests | 252 |
+| Coverage | 84% |
+| Security pentest tests | 306 |
+| Lines of code (rex/) | 12,040 |
 
 ## Alpha Release Checklist
 
 Before labeling this "alpha":
 
+- [x] All 13 modules implemented with real logic
+- [x] Security regression corpus: 306 tests, 0 failures, 10 xfail (documented VULNs)
+- [x] Overall test suite: 2,979 passed, 84% coverage
+- [x] Prompt injection defense: 30+ patterns, Unicode normalization, homoglyph detection
+- [x] Auth: bcrypt + PyJWT (not homemade SHA-256)
+- [x] Docker hardened: pinned images, read-only root, no-new-privileges
+- [x] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
 - [ ] `docker compose up -d` verified end-to-end with events flowing
-- [ ] First-boot password displayed to user
 - [ ] Mode switch calls backend ModeManager
 - [ ] Install script path alignment with Docker volumes
+- [ ] Credentials encryption fully resolved (SecretsManager fallback path)
 - [ ] At least one real integration test with live Redis (in CI)

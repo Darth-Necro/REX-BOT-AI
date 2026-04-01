@@ -9,9 +9,9 @@ import { create } from 'zustand';
 let toastIdCounter = 0;
 
 const TOAST_DEFAULTS = {
-  success: { duration: 4000, icon: 'check' },
-  warning: { duration: 6000, icon: 'warning' },
-  error: { duration: 8000, icon: 'error' },
+  success: { duration: 5000, icon: 'check' },
+  warning: { duration: 8000, icon: 'warning' },
+  error: { duration: 0, icon: 'error' }, // 0 = no auto-dismiss; errors stay visible
   pending: { duration: 0, icon: 'spinner' }, // 0 = no auto-dismiss
   unsupported: { duration: 6000, icon: 'unsupported' },
 };
