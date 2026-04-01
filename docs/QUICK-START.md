@@ -1,153 +1,252 @@
-# REX-BOT-AI Quick Start Guide
+# REX-BOT-AI Setup Guide
 
-Get REX-BOT-AI running in 5 minutes.
-
----
-
-## Prerequisites
-
-- **Python 3.11+** (check with `python3 --version`)
-- **Docker and Docker Compose v2** (check with `docker compose version`)
-- **Linux, macOS, or WSL2** (native Windows support is experimental)
-- **4 GB RAM minimum** (8 GB recommended for LLM features)
-- **10 GB free disk** (for Ollama models and data)
+A step-by-step guide to get REX running on your network.
 
 ---
 
-## Installation
+## Step 1: Check Prerequisites
 
-### One-Liner Install
+Before starting, verify you have:
 
 ```bash
-git clone https://github.com/Darth-Necro/REX-BOT-AI.git && cd REX-BOT-AI && make install
+python3 --version       # Must be 3.11+
+docker compose version  # Must be Docker Compose v2
 ```
 
-Or manually:
+**System requirements:**
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| RAM | 2 GB | 8 GB (for LLM features) |
+| Disk | 10 GB free | 20 GB free |
+| OS | Linux, macOS, WSL2 | Ubuntu 22.04+, Debian 12+ |
+| CPU | x86_64 or aarch64 | -- |
+
+> **Note:** Native Windows is not supported. Use WSL2 instead.
+
+---
+
+## Step 2: Clone the Repository
 
 ```bash
 git clone https://github.com/Darth-Necro/REX-BOT-AI.git
 cd REX-BOT-AI
-bash install.sh
 ```
 
-### Docker Install (Recommended for Production)
+---
+
+## Step 3: Configure Environment
+
+Copy the example config and set a Redis password:
 
 ```bash
-git clone https://github.com/Darth-Necro/REX-BOT-AI.git
-cd REX-BOT-AI
+cp .env.example .env
+```
+
+**You must change the Redis password before first run.** Generate a secure one:
+
+```bash
+# Generate a random password
+openssl rand -base64 32
+```
+
+Edit `.env` and replace `CHANGE_ME_BEFORE_FIRST_RUN` with your generated password:
+
+```bash
+# .env -- minimum required change
+REDIS_PASSWORD=your-generated-password-here
+```
+
+### Optional Configuration
+
+All settings in `.env` have sensible defaults. Adjust if needed:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `REX_MODE` | `basic` | `basic` (simplified UI) or `advanced` (full control) |
+| `REX_DASHBOARD_PORT` | `8443` | HTTPS port for the dashboard |
+| `REX_SCAN_INTERVAL` | `300` | Seconds between network scans (5 min) |
+| `OLLAMA_MODEL` | `auto` | LLM model, or `auto` to detect based on hardware |
+| `REX_NETWORK_INTERFACE` | `auto` | Network interface to monitor, or `auto` to detect |
+
+### Notification Channels (Optional)
+
+Configure any of these in `.env` to receive alerts outside the dashboard:
+
+- **Discord:** Set `DISCORD_WEBHOOK_URL`
+- **Telegram:** Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+- **Email:** Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `NOTIFICATION_EMAIL`
+- **Matrix:** Set `MATRIX_HOMESERVER`, `MATRIX_ROOM_ID`, `MATRIX_ACCESS_TOKEN`
+
+You can also configure notifications later from the dashboard Settings page.
+
+---
+
+## Step 4: Start REX
+
+Choose one of these installation methods:
+
+### Option A: Docker Compose (Recommended)
+
+```bash
 docker compose up -d
 ```
 
-This starts all services: REX core, Redis, Ollama, and ChromaDB.
+This starts 4 services:
 
-### Development Install
+| Service | Port | Purpose |
+|---------|------|---------|
+| **REX** | 8443 | Dashboard, API, network scanner |
+| **Redis** | 6379 (localhost) | Event bus and caching |
+| **Ollama** | 11434 (localhost) | Local LLM inference |
+| **ChromaDB** | 8000 (localhost) | Vector store for knowledge base |
+
+Verify all services are healthy:
 
 ```bash
-git clone https://github.com/Darth-Necro/REX-BOT-AI.git
-cd REX-BOT-AI
+docker compose ps
+```
+
+All services should show `healthy` status within 60 seconds.
+
+### Option B: Automated Installer
+
+```bash
+bash install.sh
+```
+
+This creates a systemd service, installs dependencies, generates TLS certificates, and starts REX automatically. After installation:
+
+```bash
+sudo systemctl status rex-bot-ai    # Check status
+sudo systemctl enable rex-bot-ai    # Enable auto-start on boot
+```
+
+### Option C: Development Install
+
+For contributors and developers:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 pip install -r requirements-dev.txt
+
+# Start infrastructure services
+docker compose up -d redis ollama chromadb
+
+# Run REX directly
+rex start
 ```
 
----
-
-## What Happens on First Boot
-
-When REX starts for the first time, it performs the following sequence:
-
-1. **Infrastructure check**: Verifies Redis, Ollama, and ChromaDB connectivity. Missing services trigger graceful degradation (see docs/ARCHITECTURE.md for details).
-
-2. **Hardware detection**: Detects CPU, RAM, GPU, and selects the appropriate LLM model tier:
-   - **Minimal** (< 4 GB RAM): Rules only, no LLM
-   - **Standard** (4-16 GB RAM): Small models (phi3:mini, gemma:2b)
-   - **Full** (16+ GB RAM or GPU): Larger models (llama3:8b, mistral:7b)
-
-3. **LLM model pull**: If Ollama is available and no models are present, REX recommends a model to pull. You can pull it manually:
-
-   ```bash
-   docker compose exec ollama ollama pull llama3:8b
-   ```
-
-4. **Credential generation**: Creates a random admin password and JWT secret. The initial password is displayed in the startup logs:
-
-   ```
-   ============================================
-   REX-BOT-AI Initial Admin Password:
-   Abc123-Xyz789-Qrs456-Def012
-   ============================================
-   Change this after your first login.
-   ```
-
-5. **Network detection**: Auto-detects your network interface, gateway, and subnet.
-
-6. **First scan**: Runs an initial ARP scan to discover devices on your network.
-
-7. **Interview starts**: The onboarding wizard begins, guiding you through initial configuration.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for full development setup.
 
 ---
 
-## Accessing the Dashboard
+## Step 5: Pull an LLM Model
 
-Open your browser and navigate to:
+REX uses a local LLM for threat analysis. If Ollama has no models yet, pull one:
+
+```bash
+# For machines with 8+ GB RAM (recommended)
+docker compose exec ollama ollama pull llama3:8b
+
+# For machines with 4-8 GB RAM
+docker compose exec ollama ollama pull phi3:mini
+
+# For machines with limited RAM (2-4 GB)
+docker compose exec ollama ollama pull gemma:2b
+```
+
+> **Tip:** If `OLLAMA_MODEL=auto` (the default), REX auto-selects the best model for your hardware. You can skip this step and REX will recommend a model on first boot.
+
+> **No GPU?** REX works fine on CPU-only machines. LLM responses will be slower but functional. With `< 4 GB RAM`, REX falls back to rules-only mode (no LLM) and still provides threat detection.
+
+---
+
+## Step 6: Access the Dashboard
+
+Open your browser:
 
 ```
 https://localhost:8443
 ```
 
-Accept the self-signed certificate warning (or add your own certificate in `/etc/rex-bot-ai/certs/`).
+**Accept the self-signed certificate warning.** REX generates a self-signed TLS cert at `/etc/rex-bot-ai/certs/`. You can replace it with your own certificate later.
+
+### Find Your Admin Password
+
+The initial admin password is displayed in the startup logs:
+
+```bash
+# Docker Compose
+docker compose logs rex | grep "Admin Password"
+
+# Direct install
+rex start   # Password shown in startup output
+```
+
+You'll see:
+
+```
+============================================
+REX-BOT-AI Initial Admin Password:
+Abc123-Xyz789-Qrs456-Def012
+============================================
+```
+
+**Save this password immediately.** It is shown once on first boot. Change it after your first login from Settings.
 
 Log in with:
-- **Username**: `admin`
-- **Password**: The password shown in the startup logs
+- **Username:** `admin`
+- **Password:** The password from the logs
 
 ---
 
-## The Onboarding Interview
+## Step 7: Complete the Onboarding Interview
 
-On first access, REX presents an onboarding interview with 6 questions. This takes about 2 minutes.
+On first login, REX presents a 6-question setup wizard (~2 minutes):
 
-### What to Expect
+1. **Network type** -- Home, small office, or lab?
+2. **Technical level** -- Basic (simplified) or Advanced (full control)?
+3. **Protection mode** -- How aggressive should REX be?
+   - `alert_only` -- Log threats, never auto-block
+   - `auto_block_critical` -- Auto-block critical/high severity only (recommended)
+   - `auto_block_all` -- Auto-block everything detected
+4. **Notifications** -- Which channels to send alerts to
+5. **Scan frequency** -- How often to scan (default: every 5 minutes)
+6. **Known devices** -- Pre-trust specific devices
 
-1. **Network type**: Is this a home network, small office, or lab?
-2. **Technical level**: Basic (simplified interface, conservative defaults) or Advanced (full control, detailed logs)?
-3. **Protection aggressiveness**: How should REX handle threats?
-   - Alert only (never block anything automatically)
-   - Auto-block critical (block only critical/high severity threats automatically)
-   - Auto-block all (block all detected threats automatically)
-4. **Notification preferences**: How should REX alert you? (Dashboard, Discord, Telegram, email, etc.)
-5. **Scan frequency**: How often should REX scan the network? (Default: every 5 minutes)
-6. **Known devices**: Do you want to pre-trust any devices?
-
-You can restart the interview at any time from Settings.
+You can restart the interview anytime from Settings, or via the API: `POST /api/interview/restart`.
 
 ---
 
-## First Scan Results
+## Step 8: Review Your First Scan
 
-After the onboarding interview completes, REX immediately runs a full network scan. Within 30-60 seconds you will see:
+After onboarding, REX runs a full network scan. Within 30-60 seconds the Devices page shows:
 
-- **Device inventory**: All devices found on your network with:
-  - IP and MAC addresses
-  - Hostname (if discoverable)
-  - Hardware vendor (from OUI lookup)
-  - Open ports
-  - OS fingerprint (best guess)
-  - Trust level (default: 50/100)
+- **IP and MAC addresses** of every discovered device
+- **Hostname** (if discoverable via DNS/mDNS)
+- **Hardware vendor** (from OUI/MAC lookup)
+- **Open ports** and running services
+- **OS fingerprint** (best guess)
+- **Trust level** (default: 50/100, adjustable)
 
-- **Initial risk assessment**: Any devices with concerning characteristics (unusual ports, known vulnerable services, missing hostnames) are flagged.
+Devices with concerning characteristics (unusual ports, known vulnerable services, missing hostnames) are flagged automatically.
 
-- **Network map**: Visual representation of your network topology.
+---
 
-### What REX Is Doing in the Background
+## What Happens Next
 
-After the first scan, REX begins:
+After the first scan, REX enters continuous monitoring mode:
 
-- **Learning baselines**: Watching each device's normal behavior (ports used, destinations contacted, traffic volume, active hours). This takes 24-48 hours to build reliable baselines.
-- **DNS monitoring**: Passively capturing DNS queries to detect suspicious domain access.
-- **Traffic analysis**: Monitoring traffic patterns for anomalies.
-- **Periodic scanning**: Re-scanning the network at your configured interval to detect new devices and changes.
+| Activity | Timing |
+|----------|--------|
+| **Baseline learning** | First 24-48 hours -- watches normal device behavior |
+| **DNS monitoring** | Continuous -- captures DNS queries for suspicious domains |
+| **Traffic analysis** | Continuous -- detects anomalies against baselines |
+| **Network rescans** | Every 5 min (configurable) -- detects new devices and changes |
+| **Threat classification** | Real-time -- 12 threat categories with 4-layer decision pipeline |
 
 ---
 
@@ -155,131 +254,144 @@ After the first scan, REX begins:
 
 REX categorizes threats by severity:
 
-| Severity   | Color  | Meaning                                        | Default Action          |
-|------------|--------|------------------------------------------------|-------------------------|
-| Critical   | Red    | Active attack or compromise detected           | Auto-block (if enabled) |
-| High       | Orange | Strong indicators of malicious activity        | Auto-block (if enabled) |
-| Medium     | Yellow | Suspicious behavior requiring investigation    | Alert only              |
-| Low        | Blue   | Minor anomaly, likely benign                   | Log only                |
-| Info       | Gray   | Informational event (new device, scan complete)| Log only                |
+| Severity | Color | Meaning | Default Action |
+|----------|-------|---------|----------------|
+| Critical | Red | Active attack or compromise | Auto-block (if enabled) |
+| High | Orange | Strong malicious indicators | Auto-block (if enabled) |
+| Medium | Yellow | Suspicious, needs investigation | Alert only |
+| Low | Blue | Minor anomaly, likely benign | Log only |
+| Info | Gray | Informational (new device, scan done) | Log only |
 
-Each alert includes:
+Each alert includes a description, reasoning (which pipeline layer decided), confidence score, action taken, and source device.
 
-- **Description**: What was detected.
-- **Reasoning**: Why REX made this decision (including which pipeline layer).
-- **Confidence**: How confident REX is in the detection (0-100%).
-- **Action taken**: What REX did (or recommends doing).
-- **Source device**: Which device triggered the alert.
-
-### Responding to Alerts
-
-- **Resolve**: Mark the alert as handled.
-- **False positive**: Tell REX this was a mistake. REX learns from false positives to reduce future noise.
-- **View details**: See the full event data, including raw network evidence.
-- **Take action**: Manually block, quarantine, or rate-limit a device.
+**Responding to alerts:**
+- **Resolve** -- Mark as handled
+- **False positive** -- Teach REX to reduce future noise
+- **View details** -- See raw network evidence
+- **Take action** -- Manually block, quarantine, or rate-limit a device
 
 ---
 
 ## Basic vs Advanced Mode
 
-### Basic Mode
+| Feature | Basic | Advanced |
+|---------|-------|----------|
+| Dashboard | Simplified, plain-language | Full technical detail |
+| Auto-blocking | Critical threats only | Configurable thresholds |
+| Knowledge base | Auto-managed | Direct Markdown editing |
+| Notifications | Summaries | Raw event data |
+| Plugins | Hidden | Full management |
+| Federation | Hidden | Configurable |
+| Custom firewall rules | No | Yes |
 
-Designed for non-technical users:
-
-- Simplified dashboard with clear, plain-language alerts
-- Conservative auto-blocking (critical threats only)
-- Fewer configuration options exposed
-- Knowledge base is auto-managed by REX
-- Summary notifications (not detailed technical logs)
-
-### Advanced Mode
-
-Designed for security professionals and power users:
-
-- Full dashboard with detailed technical data
-- Configurable auto-blocking thresholds
-- Direct knowledge base editing (Markdown)
-- Detailed notifications with raw event data
-- Access to all API endpoints
-- Plugin management
-- Federation configuration
-- Custom scan schedules and firewall rules
-
-You can switch between modes at any time from Settings.
+Switch modes anytime from Settings or via CLI: `PUT /api/config/mode`.
 
 ---
 
-## Getting Help
+## CLI Reference
 
-### Dashboard Help
-
-Click the help icon in the dashboard header for contextual help on any page.
-
-### CLI Commands
+All commands available via `rex` (or `python -m rex.core.cli`):
 
 ```bash
-# Check REX status
-rex status
-
-# Run a manual scan
-rex scan
-
-# Start all services
-rex start
-
-# Stop all services
-rex stop
-
-# Put REX into sleep mode
-rex sleep
-
-# Wake REX to full monitoring
-rex wake
-
-# Run diagnostics
-rex diag
-
-# Create a data backup
-rex backup
-
-# Run a privacy audit
-rex privacy
-
-# Print version
-rex version
+rex start                  # Start all services (blocks until Ctrl+C)
+rex start --log-level debug # Start with verbose logging
+rex stop                   # Stop running instance gracefully
+rex status                 # Show service health, device count, threat count
+rex scan                   # Trigger immediate network scan
+rex scan --quick false     # Deep scan (all ports, slower)
+rex scan --target 192.168.1.50  # Scan specific IP only
+rex sleep                  # Enter low-power mode (lightweight monitoring)
+rex wake                   # Return to full monitoring
+rex diag                   # Diagnostic dump (OS, CPU, RAM, GPU, Docker)
+rex backup                 # Backup data to /etc/rex-bot-ai/backups/
+rex privacy                # Run privacy audit
+rex version                # Print version
 ```
 
-### Documentation
+---
 
-- [Architecture](./ARCHITECTURE.md) -- System design and data flows
-- [Security Model](./SECURITY.md) -- How REX protects itself and your network
-- [Plugin SDK](./PLUGIN-SDK.md) -- Build custom plugins
-- [API Reference](./API-REFERENCE.md) -- REST API documentation
-- [Contributing](./CONTRIBUTING.md) -- Development setup and contribution guide
+## Key Directories and Ports
 
-### Community
+| Path | Purpose |
+|------|---------|
+| `/etc/rex-bot-ai/` | Data root (knowledge base, config, WAL) |
+| `/etc/rex-bot-ai/certs/` | TLS certificate and key |
+| `/etc/rex-bot-ai/knowledge/` | Knowledge base Markdown files |
+| `/etc/rex-bot-ai/plugins/` | Third-party plugins |
+| `/etc/rex-bot-ai/backups/` | Backup archives |
+| `/var/log/rex-bot-ai/` | Log files |
 
-- **GitHub Issues**: Report bugs and request features
-- **GitHub Discussions**: Ask questions and share configurations
-- **Discord**: Real-time community support (link in repository README)
+| Port | Service | Exposed To |
+|------|---------|------------|
+| 8443 | Dashboard / API | All interfaces |
+| 6379 | Redis | Localhost only |
+| 11434 | Ollama | Localhost only |
+| 8000 | ChromaDB | Localhost only |
 
-### Troubleshooting
+---
 
-**REX cannot detect devices:**
-- Ensure REX has CAP_NET_RAW capability or is running as root.
-- Check that the network interface is correctly detected (`rex status`).
-- Some managed switches block ARP scanning.
+## GPU Acceleration (Optional)
+
+For NVIDIA GPU support with Ollama, uncomment the GPU section in `docker-compose.yml`:
+
+```yaml
+# In the ollama service, uncomment:
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+```
+
+Then restart: `docker compose down && docker compose up -d`
+
+---
+
+## Troubleshooting
+
+**Services not starting:**
+```bash
+docker compose ps          # Check service status
+docker compose logs rex    # Check REX logs
+docker compose logs redis  # Check Redis logs
+```
+
+**Cannot detect network devices:**
+- REX needs `CAP_NET_RAW` and `CAP_NET_ADMIN` (granted automatically in Docker)
+- Without Docker, run with `sudo` or set capabilities: `sudo setcap cap_net_raw,cap_net_admin+eip $(which python3)`
+- Some managed switches block ARP scanning
 
 **LLM features not working:**
-- Check that Ollama is running: `docker compose ps ollama`
+- Check Ollama: `docker compose ps ollama` (should be `healthy`)
 - Pull a model: `docker compose exec ollama ollama pull llama3:8b`
-- REX falls back to rules-only mode when Ollama is unavailable.
+- REX works without LLM -- falls back to rule-based detection only
 
 **Dashboard not loading:**
-- Check the port (default 8443): `curl -k https://localhost:8443/api/health`
+- Verify the service is up: `curl -k https://localhost:8443/api/health`
+- Check port conflicts: `ss -tlnp | grep 8443`
 - Check logs: `docker compose logs rex`
 
+**Redis connection refused:**
+- Ensure `REDIS_PASSWORD` in `.env` matches what Redis expects
+- Reset Redis: `docker compose down && docker volume rm rex-bot-ai_redis-data && docker compose up -d`
+
 **High CPU usage:**
-- Reduce scan frequency in Settings.
-- Use a smaller LLM model.
-- Enable sleep mode during low-activity hours.
+- Reduce scan frequency in Settings or `.env` (`REX_SCAN_INTERVAL=600`)
+- Use a smaller LLM model (`OLLAMA_MODEL=phi3:mini`)
+- Enable sleep mode: `rex sleep`
+
+**Forgot admin password:**
+- Delete the password file and restart to regenerate: `rm /etc/rex-bot-ai/.admin_password && docker compose restart rex`
+
+---
+
+## Further Reading
+
+- [Architecture](./ARCHITECTURE.md) -- System design, module descriptions, data flows
+- [Security Model](./SECURITY.md) -- Threat model, prompt injection defense, privacy guarantees
+- [API Reference](./API-REFERENCE.md) -- All 43 REST endpoints and WebSocket spec
+- [Plugin SDK](./PLUGIN-SDK.md) -- Build custom security plugins
+- [Contributing](./CONTRIBUTING.md) -- Development setup, code style, PR process
+- [Dev Testing](./DEV-TESTING.md) -- Running tests with Ollama integration
