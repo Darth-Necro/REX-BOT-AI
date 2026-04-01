@@ -1,15 +1,15 @@
 /**
  * Schedule API module.
- * Wraps /api/scheduler endpoints for REX power schedule & job management.
+ * Wraps /api/schedule endpoints for REX power schedule & job management.
  */
 import api from './client';
 
 /**
- * GET /api/scheduler
+ * GET /api/schedule
  * @returns {Promise<{ powerState: string, mode: string, jobs: Array, capabilities: Object }>}
  */
 export async function getSchedule() {
-  const res = await api.get('/scheduler');
+  const res = await api.get('/schedule');
   const data = res.data ?? {};
   const jobs = data.jobs ?? data.schedule ?? [];
   return {
@@ -21,12 +21,12 @@ export async function getSchedule() {
 }
 
 /**
- * PUT /api/scheduler
+ * PUT /api/schedule
  * @param {Object} schedule  { mode, jobs, power_state }
  * @returns {Promise<Object>}
  */
 export async function updateSchedule(schedule) {
   if (!schedule || typeof schedule !== 'object') throw new Error('Schedule payload is required');
-  const res = await api.put('/scheduler', schedule);
+  const res = await api.put('/schedule', schedule);
   return res.data;
 }

@@ -5,7 +5,12 @@
  * - Exponential backoff with jitter on disconnect.
  * - Clean disconnect on logout (no reconnect loop).
  * - Connection state exposed via handler callbacks.
+ * - Reconnect always reads the *current* auth token from stores
+ *   so a relogin during a backoff window is picked up automatically.
  */
+
+import useAuthStore from '../stores/useAuthStore';
+import useSystemStore from '../stores/useSystemStore';
 
 let ws = null;
 let reconnectTimer = null;
@@ -93,7 +98,11 @@ export function connect(token, url) {
       const jitter = Math.random() * 1000;
       reconnectTimer = setTimeout(() => {
         reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
-        connect(token, url);
+        // Read the *current* token from stores so a relogin during
+        // the backoff window is picked up (avoids stale closure capture).
+        const currentToken =
+          useAuthStore.getState().token || useSystemStore.getState().token;
+        connect(currentToken, url);
       }, reconnectDelay + jitter);
     }
   };

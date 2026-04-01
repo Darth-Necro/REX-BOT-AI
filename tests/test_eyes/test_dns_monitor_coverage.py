@@ -1,12 +1,14 @@
-"""Extended tests for rex.eyes.dns_monitor -- targeting 75%+ coverage.
+"""Extended tests for rex.eyes.dns_monitor -- targeting 90%+ coverage.
 
 Covers: load_threat_feeds (bundled file, online feeds), analyze_query with
 malicious/clean/DGA/tunnelling/suspicious-TLD domains, _is_domain_malicious,
-get_dns_stats, stop, _fetch_threat_feed, _safe_env.
+get_dns_stats, stop, _fetch_threat_feed, _safe_env, start_capture,
+and _process_dns_packet.
 """
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -155,6 +157,31 @@ class TestFetchThreatFeed:
         assert "new-malware-domain.com" in monitor._malicious_domains
 
     @pytest.mark.asyncio
+    async def test_plain_domain_list_format(self, dns_config: RexConfig) -> None:
+        """Feed in plain domain-per-line format (not hosts file)."""
+        monitor = _make_monitor(dns_config)
+
+        feed_text = (
+            "# Plain list\n"
+            "bad-domain-one.com\n"
+            "bad-domain-two.net\n"
+            "\n"
+            "# Comment\n"
+        )
+
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+
+        with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc), \
+             patch("rex.eyes.dns_monitor.asyncio.wait_for", new_callable=AsyncMock, return_value=(feed_text.encode(), b"")):
+            count = await monitor._fetch_threat_feed("http://example.com/feed")
+
+        assert count >= 2
+        assert "bad-domain-one.com" in monitor._malicious_domains
+        assert "bad-domain-two.net" in monitor._malicious_domains
+
+    @pytest.mark.asyncio
     async def test_no_curl(self, dns_config: RexConfig) -> None:
         """If curl is not available, should return 0."""
         monitor = _make_monitor(dns_config)
@@ -190,6 +217,236 @@ class TestFetchThreatFeed:
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_empty_stdout(self, dns_config: RexConfig) -> None:
+        """Empty stdout with zero exit should return 0."""
+        monitor = _make_monitor(dns_config)
+
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+
+        with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc), \
+             patch("rex.eyes.dns_monitor.asyncio.wait_for", new_callable=AsyncMock, return_value=(b"", b"")):
+            count = await monitor._fetch_threat_feed("http://example.com/feed")
+
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_duplicate_domain_not_double_counted(self, dns_config: RexConfig) -> None:
+        """Domains already in the set should not increment count."""
+        monitor = _make_monitor(dns_config)
+
+        # Pre-add a domain
+        monitor._malicious_domains.add("already-known.com")
+
+        feed_text = "already-known.com\nnew-one.com\n"
+
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+
+        with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc), \
+             patch("rex.eyes.dns_monitor.asyncio.wait_for", new_callable=AsyncMock, return_value=(feed_text.encode(), b"")):
+            count = await monitor._fetch_threat_feed("http://example.com/feed")
+
+        assert count == 1  # only new-one.com
+
+
+# ===================================================================
+# start_capture (lines 211-240)
+# ===================================================================
+
+class TestStartCapture:
+    """Tests for the DNS packet capture loop."""
+
+    @pytest.mark.asyncio
+    async def test_capture_processes_packets(self, dns_config: RexConfig) -> None:
+        """Packets yielded by PAL should be processed."""
+        monitor = _make_monitor(dns_config)
+
+        packets = [
+            {"src_ip": "192.168.1.10", "dst_ip": "8.8.8.8", "src_port": 12345, "dst_port": 53, "timestamp": "2026-01-01T00:00:00Z"},
+            {"src_ip": "192.168.1.20", "dst_ip": "8.8.4.4", "src_port": 54321, "dst_port": 53, "timestamp": "2026-01-01T00:00:01Z"},
+        ]
+        packet_iter = iter(packets)
+
+        monitor.pal.capture_packets = MagicMock(return_value=packet_iter)
+
+        # After all packets are consumed, StopIteration stops the loop
+        await monitor.start_capture("eth0")
+
+        assert monitor._total_queries == 2
+
+    @pytest.mark.asyncio
+    async def test_capture_handles_timeout(self, dns_config: RexConfig) -> None:
+        """TimeoutError from wait_for should be retried, not crash."""
+        monitor = _make_monitor(dns_config)
+
+        call_count = 0
+
+        def _gen() -> Any:
+            nonlocal call_count
+            while True:
+                call_count += 1
+                if call_count <= 2:
+                    yield {"src_ip": "192.168.1.10", "dst_port": 53, "src_port": 12345}
+                else:
+                    return
+
+        monitor.pal.capture_packets = MagicMock(return_value=_gen())
+
+        # Use real executor but let it timeout sometimes
+        await monitor.start_capture("eth0")
+
+        assert monitor._total_queries >= 1
+
+    @pytest.mark.asyncio
+    async def test_capture_error_while_running(self, dns_config: RexConfig) -> None:
+        """Unexpected error during capture should be logged."""
+        monitor = _make_monitor(dns_config)
+        monitor._running = True
+
+        monitor.pal.capture_packets = MagicMock(side_effect=RuntimeError("capture broken"))
+
+        await monitor.start_capture("eth0")  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_capture_stops_on_flag(self, dns_config: RexConfig) -> None:
+        """Setting _running=False should exit the capture loop."""
+        monitor = _make_monitor(dns_config)
+
+        async def _stop_soon() -> None:
+            await asyncio.sleep(0.05)
+            monitor.stop()
+
+        def _gen() -> Any:
+            import time
+            while True:
+                time.sleep(0.1)
+                yield {"src_ip": "192.168.1.10", "dst_port": 53, "src_port": 12345}
+
+        monitor.pal.capture_packets = MagicMock(return_value=_gen())
+
+        task = asyncio.create_task(monitor.start_capture("eth0"))
+        stop_task = asyncio.create_task(_stop_soon())
+
+        await asyncio.wait([task, stop_task], timeout=2.0)
+
+        assert not monitor._running
+
+
+# ===================================================================
+# _process_dns_packet (lines 250-279)
+# ===================================================================
+
+class TestProcessDnsPacket:
+    """Tests for _process_dns_packet."""
+
+    @pytest.mark.asyncio
+    async def test_records_dns_query(self, dns_config: RexConfig) -> None:
+        """A packet to port 53 from a private IP should be recorded."""
+        monitor = _make_monitor(dns_config)
+
+        packet = {
+            "src_ip": "192.168.1.10",
+            "dst_ip": "8.8.8.8",
+            "src_port": 54321,
+            "dst_port": 53,
+            "timestamp": "2026-01-01T00:00:00Z",
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        assert monitor._total_queries == 1
+        assert "192.168.1.10" in monitor._query_log
+        assert len(monitor._query_log["192.168.1.10"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_response_from_port_53(self, dns_config: RexConfig) -> None:
+        """A packet FROM port 53 (DNS response) should also be recorded."""
+        monitor = _make_monitor(dns_config)
+
+        packet = {
+            "src_ip": "8.8.8.8",
+            "dst_ip": "192.168.1.10",
+            "src_port": 53,
+            "dst_port": 54321,
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        # Source IP is not private, so no per-device log
+        assert monitor._total_queries == 1
+
+    @pytest.mark.asyncio
+    async def test_non_dns_packet_ignored(self, dns_config: RexConfig) -> None:
+        """Packet not involving port 53 should be ignored."""
+        monitor = _make_monitor(dns_config)
+
+        packet = {
+            "src_ip": "192.168.1.10",
+            "dst_ip": "192.168.1.20",
+            "src_port": 8080,
+            "dst_port": 443,
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        assert monitor._total_queries == 0
+
+    @pytest.mark.asyncio
+    async def test_query_log_trimming_in_process(self, dns_config: RexConfig) -> None:
+        """Per-device log should be trimmed at _MAX_QUERY_LOG_SIZE."""
+        monitor = _make_monitor(dns_config)
+
+        # Manually fill the log near capacity
+        monitor._query_log["192.168.1.10"] = [{"t": i} for i in range(500)]
+
+        packet = {
+            "src_ip": "192.168.1.10",
+            "dst_ip": "8.8.8.8",
+            "src_port": 54321,
+            "dst_port": 53,
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        assert len(monitor._query_log["192.168.1.10"]) <= 500
+
+    @pytest.mark.asyncio
+    async def test_non_private_src_not_logged_per_device(self, dns_config: RexConfig) -> None:
+        """Non-private source IP should still count but not be logged per-device."""
+        monitor = _make_monitor(dns_config)
+
+        packet = {
+            "src_ip": "203.0.113.5",
+            "dst_ip": "8.8.8.8",
+            "src_port": 54321,
+            "dst_port": 53,
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        assert monitor._total_queries == 1
+        assert "203.0.113.5" not in monitor._query_log
+
+    @pytest.mark.asyncio
+    async def test_empty_src_ip(self, dns_config: RexConfig) -> None:
+        """Packet with empty src_ip should still count."""
+        monitor = _make_monitor(dns_config)
+
+        packet = {
+            "src_ip": "",
+            "dst_ip": "8.8.8.8",
+            "src_port": 54321,
+            "dst_port": 53,
+        }
+
+        await monitor._process_dns_packet(packet)
+
+        assert monitor._total_queries == 1
 
 
 # ===================================================================

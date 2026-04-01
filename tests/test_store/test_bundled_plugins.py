@@ -131,6 +131,26 @@ class TestDeviceWatchPlugin:
         assert "ip_changed" in result["description"]
 
     @pytest.mark.asyncio
+    async def test_device_update_hostname_changed(self, plugin: DeviceWatchPlugin) -> None:
+        result = await plugin.on_event(
+            "device_update",
+            {"mac_address": "aa:bb:cc:dd:ee:ff", "change_type": "hostname_changed"},
+        )
+        assert result is not None
+        assert result["severity"] == "info"
+        assert "hostname_changed" in result["description"]
+
+    @pytest.mark.asyncio
+    async def test_device_update_vendor_changed(self, plugin: DeviceWatchPlugin) -> None:
+        result = await plugin.on_event(
+            "device_update",
+            {"mac_address": "aa:bb:cc:dd:ee:ff", "change_type": "vendor_changed"},
+        )
+        assert result is not None
+        assert result["severity"] == "info"
+        assert "vendor_changed" in result["description"]
+
+    @pytest.mark.asyncio
     async def test_device_update_irrelevant_change(self, plugin: DeviceWatchPlugin) -> None:
         result = await plugin.on_event(
             "device_update",
@@ -157,6 +177,10 @@ class TestDeviceWatchPlugin:
     @pytest.mark.asyncio
     async def test_on_schedule_returns_none(self, plugin: DeviceWatchPlugin) -> None:
         assert await plugin.on_schedule() is None
+
+    @pytest.mark.asyncio
+    async def test_on_configure(self, plugin: DeviceWatchPlugin) -> None:
+        await plugin.on_configure({"sensitivity": "high"})
 
 
 # ------------------------------------------------------------------

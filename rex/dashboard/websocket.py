@@ -27,10 +27,18 @@ logger = logging.getLogger(__name__)
 MAX_CONNECTIONS = 100
 
 # Default channels every client subscribes to on connect.
-_DEFAULT_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete"}
+_DEFAULT_CHANNELS = {
+    "status.update", "threat.new", "threat.resolved",
+    "device.new", "device.update", "device.departed",
+    "scan.complete",
+}
 
 # Allowed channel names -- subscribe requests for unknown channels are silently dropped.
-_ALLOWED_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete", "log.entry"}
+_ALLOWED_CHANNELS = {
+    "status.update", "threat.new", "threat.resolved",
+    "device.new", "device.update", "device.departed",
+    "scan.complete", "log.entry",
+}
 
 
 class WebSocketManager:

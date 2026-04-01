@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { on, off } from '../../ws/socket';
-import api from '../../api/client';
 
 const LEVEL_COLORS = {
   debug: 'text-gray-500',
@@ -80,15 +79,7 @@ export default function LogViewer() {
   const shouldAutoScroll = useRef(true);
   const maxLogs = 1000;
 
-  // Fetch initial logs
-  useEffect(() => {
-    api.get('/logs/', { params: { limit: 200 } })
-      .then((res) => {
-        const list = res.data?.logs || res.data || [];
-        setLogs(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {/* No logs available yet */});
-  }, []);
+  // Logs are streamed via WebSocket only — no REST endpoint for historical logs yet
 
   // Subscribe to real-time log events
   useEffect(() => {

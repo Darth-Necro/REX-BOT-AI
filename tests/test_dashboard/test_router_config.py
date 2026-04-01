@@ -168,8 +168,8 @@ class TestSetMode:
 class TestUpdateConfig:
     """Tests for PUT /api/config/ (stub endpoint)."""
 
-    def test_update_config_returns_not_available(self) -> None:
-        """Update config returns not_available status with echo of requested values."""
+    def test_update_config_applies_allowed_fields(self) -> None:
+        """Update config applies allowed runtime fields and returns updated status."""
         app = _make_app()
         app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
@@ -177,8 +177,8 @@ class TestUpdateConfig:
         response = client.put("/api/config/", json={"scan_interval": 120})
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "not_available"
-        assert data["requested"]["scan_interval"] == 120
+        assert data["status"] == "updated"
+        assert "scan_interval" in data.get("applied", [])
 
     def test_update_config_requires_auth(self) -> None:
         """Unauthenticated update returns 401."""

@@ -1,31 +1,44 @@
-"""Notifications router -- manage notification settings and test alerts."""
+"""Notifications router -- manage notification settings and test alerts.
+
+Settings are persisted to ``notification_settings.json`` under
+``config.data_dir``.  Both GET and PUT operate on the same file.
+"""
 
 from __future__ import annotations
 
+import json
+import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
+
+# -- Helpers -----------------------------------------------------------------
+
+def _settings_path() -> Path:
+    from rex.shared.config import get_config
+    return get_config().data_dir / "notification_settings.json"
+
+
+# -- Endpoints ---------------------------------------------------------------
 
 @router.get("/settings")
 async def get_settings(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Return current notification channel settings from config."""
-    from rex.shared.config import get_config
-
-    config = get_config()
-    settings_file = config.data_dir / "notification_settings.json"
+    settings_file = _settings_path()
     if settings_file.exists():
-        import json
-
         try:
             data = json.loads(settings_file.read_text())
             return data
         except Exception:
-            pass
+            logger.warning("Corrupt notification_settings.json -- returning defaults")
 
     return {
         "channels": {},
@@ -39,12 +52,16 @@ async def get_settings(user: dict = Depends(get_current_user)) -> dict[str, Any]
 async def update_settings(
     settings: dict = Body(...), user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Update notification settings. Persistence not yet implemented."""
-    return {
-        "status": "not_available",
-        "note": "Notification settings persistence not yet implemented",
-        "requested": settings,
-    }
+    """Persist notification settings to ``notification_settings.json``."""
+    settings_file = _settings_path()
+    try:
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(json.dumps(settings, indent=2))
+        logger.info("Notification settings saved (%d bytes)", settings_file.stat().st_size)
+        return settings
+    except Exception as e:
+        logger.exception("Failed to save notification settings")
+        return {"status": "error", "detail": str(e)}
 
 
 @router.post("/test/{channel}")

@@ -1,23 +1,22 @@
 import { useEffect, useRef } from 'react';
 import useSystemStore from '../stores/useSystemStore';
-import { connect, on, off, disconnect } from '../ws/socket';
+import useDeviceStore from '../stores/useDeviceStore';
+import useThreatStore from '../stores/useThreatStore';
 
 /**
  * useBootstrap — called once at app root.
  *
- * 1. Fires hydrateSystem() to fetch /health + /status on mount.
- * 2. Opens the WebSocket and wires real-time event handlers.
- * 3. Cleans up on unmount.
+ * Fires hydrateSystem() to fetch /health + /status on mount, then
+ * pre-populates the core data stores (devices, threats) in parallel
+ * so tab switches are instant.
+ *
+ * Does NOT open WebSocket — that is owned by useRealtimeSync.
  *
  * Does NOT run if there is no auth token.
  */
 export default function useBootstrap() {
   const token = useSystemStore((s) => s.token);
   const hydrateSystem = useSystemStore((s) => s.hydrateSystem);
-  const setWsConnection = useSystemStore((s) => s.setWsConnection);
-  const setConnected = useSystemStore((s) => s.setConnected);
-  const updateFromStatus = useSystemStore((s) => s.updateFromStatus);
-  const pushAlert = useSystemStore((s) => s.pushAlert);
   const didRun = useRef(false);
 
   useEffect(() => {
@@ -27,43 +26,21 @@ export default function useBootstrap() {
     if (didRun.current) return;
     didRun.current = true;
 
-    // 1. API hydration
-    hydrateSystem();
-
-    // 2. WebSocket
-    setWsConnection('connecting');
-    connect();
-
-    on('__open', () => {
-      setWsConnection('connected');
-      setConnected(true);
-    });
-
-    on('__close', () => {
-      setWsConnection('disconnected');
-      setConnected(false);
-    });
-
-    on('status.update', (data) => {
-      updateFromStatus(data.payload || data);
-    });
-
-    on('threat.new', (data) => {
-      const payload = data.payload || data;
-      pushAlert(payload);
-      // Also update the dedicated threat store if it exists
-      import('../stores/useThreatStore').then(({ default: store }) => {
-        store.getState().addThreat(payload);
+    // API hydration only — WS lifecycle is handled by useRealtimeSync
+    hydrateSystem().then(() => {
+      // Pre-populate the two most-visited stores in parallel so
+      // switching to the Devices or Threats tab is instant.
+      Promise.all([
+        useDeviceStore.getState().fetchDevices(),
+        useThreatStore.getState().fetchThreats(),
+      ]).catch(() => {
+        // Individual stores already set their own error state;
+        // swallow here so an unhandled rejection doesn't bubble up.
       });
     });
 
     return () => {
-      off('__open');
-      off('__close');
-      off('status.update');
-      off('threat.new');
-      disconnect();
       didRun.current = false;
     };
-  }, [token, hydrateSystem, setWsConnection, setConnected, updateFromStatus, pushAlert]);
+  }, [token, hydrateSystem]);
 }

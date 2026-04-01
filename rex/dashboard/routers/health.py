@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import time
 from typing import Any
 
 import psutil
@@ -38,6 +39,23 @@ async def _get_active_threats() -> int:
         try:
             threats = await threat_log.get_recent(limit=100)
             return len([t for t in threats if not t.get("resolved", False)])
+        except Exception:
+            pass
+    return 0
+
+
+async def _get_threats_blocked_24h() -> int:
+    """Count threats with an action taken in the last 24 hours."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is not None:
+        try:
+            threats = await threat_log.get_since(hours=24)
+            return len([
+                t for t in threats
+                if t.get("action") and t["action"] != "pending"
+            ])
         except Exception:
             pass
     return 0
@@ -99,10 +117,31 @@ async def get_status() -> dict[str, Any]:
     else:
         status = "error"
 
+    # Uptime
+    uptime_seconds = 0
+    try:
+        uptime_seconds = int(time.monotonic())
+    except Exception:
+        pass
+
+    # LLM status
+    llm_status = "ready" if ollama_ok else "offline"
+
+    # Power state from config
+    power_state = config.power_state.value if hasattr(config.power_state, "value") else str(config.power_state)
+
+    # Mode from config
+    mode = config.mode.value if hasattr(config.mode, "value") else str(config.mode)
+
     return {
         "status": status,
         "version": VERSION,
         "timestamp": utc_now().isoformat(),
+        "mode": mode,
+        "power_state": power_state,
+        "llm_status": llm_status,
+        "uptime_seconds": uptime_seconds,
+        "threats_blocked_24h": await _get_threats_blocked_24h(),
         "services": {
             "redis": {"healthy": redis_ok},
             "ollama": {"healthy": ollama_ok, "degraded": not ollama_ok},

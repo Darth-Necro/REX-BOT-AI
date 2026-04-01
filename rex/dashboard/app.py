@@ -150,13 +150,26 @@ def create_app() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS — read allowed origins from config
+    # CORS — read allowed origins from config.
+    # SECURITY: allow_credentials=True must NEVER be combined with a wildcard
+    # origin ("*"), as that would allow any site to make credentialed cross-origin
+    # requests (a CSRF vector).  We strip wildcards and fall back to the safe
+    # default if no explicit origins remain.
     from rex.shared.config import get_config
     rex_cfg = get_config()
-    origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
+    _raw_origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
+    # Reject wildcard origins -- they are incompatible with allow_credentials
+    origins = [o for o in _raw_origins if o != "*"]
+    if len(origins) != len(_raw_origins):
+        logger.warning(
+            "CORS wildcard origin '*' removed — incompatible with "
+            "allow_credentials=True.  Set explicit origins via REX_CORS_ORIGINS."
+        )
+    if not origins:
+        origins = ["http://localhost:3000"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins or ["http://localhost:3000"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],

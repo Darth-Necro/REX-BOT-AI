@@ -94,8 +94,8 @@ class TestUpdateSchedule:
         response = client.put("/api/schedule/", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "not_available"
-        assert data["requested"]["scan_interval"] == 60
+        assert data["status"] == "updated"
+        assert data["scan_interval"] == 60
 
     def test_update_schedule_requires_auth(self) -> None:
         """Unauthenticated update returns 401."""

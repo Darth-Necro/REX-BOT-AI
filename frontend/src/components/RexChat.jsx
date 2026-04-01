@@ -80,15 +80,18 @@ export default function RexChat({ compact = false }) {
     setIsTyping(true);
 
     try {
-      const res = await api.post('/chat', { message: text });
+      const res = await api.post('/interview/chat', { message: text });
       const reply = res.data?.reply || res.data?.message || res.data?.response || "Hmm, I couldn't process that. Try asking differently!";
       setMessages((prev) => [
         ...prev,
         { role: 'rex', text: reply, timestamp: new Date().toISOString() },
       ]);
     } catch (err) {
+      // Chat/LLM endpoint may not be available yet — give honest feedback
       const errorMsg =
-        err.response?.status === 503
+        err.response?.status === 404
+          ? "Woof! My chat brain isn't connected yet. The LLM chat feature will be available once Ollama is running and the chat endpoint is configured."
+          : err.response?.status === 503
           ? "My brain is still warming up... give me a moment and try again!"
           : "Woof! Something went wrong. My connection might be down. I'll keep trying!";
       setMessages((prev) => [

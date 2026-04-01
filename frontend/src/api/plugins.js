@@ -30,23 +30,23 @@ export async function getAvailablePlugins() {
 }
 
 /**
- * POST /api/plugins/install
+ * POST /api/plugins/install/{pluginId}
  * @param {string} pluginId  Plugin identifier.
  * @returns {Promise<Object>}
  */
 export async function installPlugin(pluginId) {
   if (!pluginId) throw new Error('Plugin ID is required');
-  const res = await api.post('/plugins/install', { plugin_id: pluginId });
+  const res = await api.post(`/plugins/install/${encodeURIComponent(pluginId)}`);
   return res.data;
 }
 
 /**
- * POST /api/plugins/remove
+ * DELETE /api/plugins/{pluginId}
  * @param {string} pluginId  Plugin identifier.
  * @returns {Promise<Object>}
  */
 export async function removePlugin(pluginId) {
   if (!pluginId) throw new Error('Plugin ID is required');
-  const res = await api.post('/plugins/remove', { plugin_id: pluginId });
+  const res = await api.delete(`/plugins/${encodeURIComponent(pluginId)}`);
   return res.data;
 }

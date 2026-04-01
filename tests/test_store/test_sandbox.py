@@ -121,6 +121,13 @@ class TestPluginSandbox:
         assert sandbox.enforce_permissions("nonexistent", "anything") is False
 
     @pytest.mark.asyncio
+    async def test_stop_nonexistent_container(self) -> None:
+        """stop_container should return False for unknown plugin."""
+        sandbox = PluginSandbox()
+        result = await sandbox.stop_container("nonexistent")
+        assert result is False
+
+    @pytest.mark.asyncio
     async def test_container_security_settings(self) -> None:
         """Created containers should have security settings."""
         sandbox = PluginSandbox()

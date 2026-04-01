@@ -155,14 +155,13 @@ class TestDevicesRouter:
         response = client.get("/api/devices/aa:bb:cc:dd:ee:ff")
         assert response.status_code == 404
 
-    def test_update_trust_returns_not_applied(self, client: TestClient) -> None:
-        """PUT /api/devices/{mac}/trust should return applied=False (stub)."""
-        response = client.put("/api/devices/aa:bb:cc:dd:ee:ff/trust?level=80")
+    def test_trust_device_via_bus(self, client: TestClient) -> None:
+        """POST /api/devices/{mac}/trust should publish trust command."""
+        response = client.post("/api/devices/aa:bb:cc:dd:ee:ff/trust")
         assert response.status_code == 200
         data = response.json()
-        assert data["applied"] is False
         assert data["mac"] == "aa:bb:cc:dd:ee:ff"
-        assert data["trust_level"] == 80
+        assert data["action"] == "trust"
 
     def test_trigger_scan_without_bus(self, client: TestClient) -> None:
         """POST /api/devices/scan should handle missing bus gracefully."""

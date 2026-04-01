@@ -1,16 +1,16 @@
 /**
  * Privacy API module.
- * Thin wrappers for privacy summary and audit endpoints.
+ * Thin wrappers for privacy status and audit endpoints.
  * Returns honest defaults when the backend provides nothing.
  */
 import api from './client';
 
 /**
- * GET /api/privacy/summary — high-level privacy signals.
+ * GET /api/privacy/status — high-level privacy signals.
  * @returns {Promise<{ signals: Array, retention: Object, capabilities: Object }>}
  */
 export async function getPrivacySummary() {
-  const res = await api.get('/privacy/summary');
+  const res = await api.get('/privacy/status');
   const raw = res.data;
 
   if (!raw || typeof raw !== 'object') {
@@ -27,16 +27,19 @@ export async function getPrivacySummary() {
       policy: typeof raw.retention?.policy === 'string' ? raw.retention.policy : 'unknown',
       days: typeof raw.retention?.days === 'number' ? raw.retention.days : null,
     },
+    dataLocalOnly: raw.data_local_only ?? true,
+    encryptionAtRest: raw.encryption_at_rest ?? false,
+    telemetryEnabled: raw.telemetry_enabled ?? false,
     capabilities: raw.capabilities ?? {},
   };
 }
 
 /**
- * POST /api/privacy/audit — trigger a privacy audit.
+ * GET /api/privacy/audit — run a full privacy audit.
  * @returns {Promise<{ findings: Array, score: number|null, ranAt: string }>}
  */
 export async function runPrivacyAudit() {
-  const res = await api.post('/privacy/audit');
+  const res = await api.get('/privacy/audit');
   const raw = res.data;
 
   if (!raw || typeof raw !== 'object') {

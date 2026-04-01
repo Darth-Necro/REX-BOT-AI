@@ -76,7 +76,7 @@ class ScopeEnforcer:
             r"\b(?:email|calendar|contact|appointment|meeting|schedule\s+meeting)\b",
             r"\b(?:dating|tinder|bumble|match\.com|relationship|romance)\b",
             r"\b(?:music|spotify|playlist|song|album|concert|lyrics)\b",
-            r"\b(?:movie|film|netflix|hulu|stream(?:ing)?|watch(?:ing)?|show|series)\b",
+            r"\b(?:movie|film|netflix|hulu|stream(?:ing)?|watch(?:ing)?|tv\s+show|series)\b",
             r"\b(?:recipe|cook(?:ing)?|bake|baking|food|restaurant|menu|ingredients)\b",
             r"\b(?:weather|forecast|temperature|rain|snow|sunny|cloudy)\b",
             r"\b(?:stock|invest(?:ment|ing)?|crypto|bitcoin|ethereum|trading|portfolio)\b",
@@ -147,18 +147,23 @@ class ScopeEnforcer:
 
         text_lower = text.lower()
 
-        # Check for out-of-scope patterns first. These are strong negative
-        # signals that override keyword matches.
-        for pattern in self.OUT_OF_SCOPE_PATTERNS:
-            if pattern.search(text_lower) and not self._has_security_keyword(text_lower):
-                    logger.info(
-                        "Out-of-scope request rejected (pattern match): %s",
-                        text[:100],
-                    )
-                    return False, self._REJECTION_TEMPLATE
+        has_security = self._has_security_keyword(text_lower)
 
-        # If the message has security keywords, it's in scope.
-        if self._has_security_keyword(text_lower):
+        # Check for out-of-scope patterns.  These are strong negative signals
+        # that override keyword matches -- a message containing BOTH a
+        # security keyword AND an out-of-scope pattern is still rejected
+        # (prevents disguised-request bypass: VULN-001/002/003).
+        for pattern in self.OUT_OF_SCOPE_PATTERNS:
+            if pattern.search(text_lower):
+                logger.info(
+                    "Out-of-scope request rejected (pattern match): %s",
+                    text[:100],
+                )
+                return False, self._REJECTION_TEMPLATE
+
+        # If the message has security keywords (and no out-of-scope patterns
+        # matched above), it's in scope.
+        if has_security:
             return True, ""
 
         # Messages with no security keywords and no out-of-scope patterns

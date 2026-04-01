@@ -79,6 +79,23 @@ class RexConfig(BaseSettings):
     chroma_url: str = "http://localhost:8000"
     """Base URL for the ChromaDB HTTP API."""
 
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, v: str) -> str:
+        """Warn if CORS origins contain a wildcard (incompatible with credentials)."""
+        import logging as _logging
+        import warnings
+        origins = [o.strip() for o in v.split(",") if o.strip()]
+        if "*" in origins:
+            msg = (
+                "REX_CORS_ORIGINS contains '*' which is incompatible with "
+                "allow_credentials=True and will be stripped at runtime. "
+                "Set explicit origins instead (e.g. 'http://localhost:3000')."
+            )
+            warnings.warn(msg, stacklevel=2)
+            _logging.getLogger(__name__).warning(msg)
+        return v
+
     @field_validator("redis_url", "chroma_url")
     @classmethod
     def validate_local_url(cls, v: str) -> str:

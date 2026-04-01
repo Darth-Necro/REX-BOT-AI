@@ -1,12 +1,18 @@
-"""Extended tests for rex.core.orchestrator -- raise coverage from ~53% to >=80%.
+"""Extended tests for rex.core.orchestrator -- raise coverage to >=80%.
 
 Covers: _create_services (mock importlib), start_all ordering, stop_all
 reverse order, restart_service, _auto_restart, get_status, and the
 health aggregator integration.
+
+Additional coverage targets for lines 69-80 (initialize / _create_services),
+199-219 (run method: signal handling, stop_event), 223-257 (_health_monitor
+loop with unhealthy, exception, and failed-state branches).
 """
 
 from __future__ import annotations
 
+import asyncio
+import signal
 import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -68,7 +74,7 @@ def _make_orchestrator_with_bus() -> ServiceOrchestrator:
 
 
 # ------------------------------------------------------------------
-# _create_services
+# _create_services (lines 69-80 via initialize)
 # ------------------------------------------------------------------
 
 class TestCreateServices:
@@ -84,8 +90,6 @@ class TestCreateServices:
         fake_svc.service_name = ServiceName.MEMORY
 
         # Build a fake module whose getattr returns a class that returns fake_svc
-        fake_module = types.ModuleType("fake_service_module")
-        # For every class_name lookup, return a callable producing fake_svc
         fake_cls = MagicMock(return_value=fake_svc)
 
         def _import_success(module_path: str) -> types.ModuleType:
@@ -152,6 +156,38 @@ class TestCreateServices:
             orch._create_services()
 
         assert len(orch._services) == 0
+
+
+# ------------------------------------------------------------------
+# initialize (lines 69-80)
+# ------------------------------------------------------------------
+
+class TestInitialize:
+    """Test the full initialize() method that calls _create_services."""
+
+    @pytest.mark.asyncio
+    async def test_initialize_creates_config_bus_and_services(self) -> None:
+        """initialize() should set up config, bus, and call _create_services."""
+        mock_config = MagicMock()
+        mock_config.data_dir = MagicMock()
+        mock_config.redis_url = "redis://localhost:6379"
+
+        with (
+            patch("rex.core.orchestrator.get_config", return_value=mock_config),
+            patch("rex.core.orchestrator.EventBus") as mock_bus_cls,
+            patch.object(ServiceOrchestrator, "_create_services") as mock_create,
+        ):
+            mock_bus_cls.return_value = MagicMock()
+            orch = ServiceOrchestrator()
+            await orch.initialize()
+
+        assert orch._config is mock_config
+        mock_config.data_dir.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        mock_bus_cls.assert_called_once_with(
+            redis_url=mock_config.redis_url,
+            service_name=ServiceName.CORE,
+        )
+        mock_create.assert_called_once()
 
 
 # ------------------------------------------------------------------
@@ -270,8 +306,6 @@ class TestStopAllOrder:
     @pytest.mark.asyncio
     async def test_stop_all_timeout_force_stops(self) -> None:
         """A service that exceeds the stop timeout should be force_stopped."""
-        import asyncio
-
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.EYES)
         orch.register(svc)
@@ -456,6 +490,282 @@ class TestAutoRestart:
 
         assert orch._restart_counts[ServiceName.SCHEDULER] == 1
         assert orch._status[ServiceName.SCHEDULER] == "failed"
+
+
+# ------------------------------------------------------------------
+# run() method -- signal handling (lines 199-219)
+# ------------------------------------------------------------------
+
+class TestRunMethod:
+    """Lines 199-219: run() sets up signal handlers and blocks until shutdown."""
+
+    @pytest.mark.asyncio
+    async def test_run_starts_services_and_blocks(self) -> None:
+        """run() should start all services, then wait for a shutdown signal."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.MEMORY)
+        orch.register(svc)
+
+        # Simulate: when stop_event.wait() is called, immediately set the event
+        # by having start_all set a flag and then patching Event.wait to return
+        original_start_all = orch.start_all
+
+        async def _start_all_and_set() -> None:
+            await original_start_all()
+
+        orch.start_all = _start_all_and_set
+
+        # Patch the asyncio.Event so that wait() returns immediately
+        mock_event = MagicMock()
+        mock_event.wait = AsyncMock()
+        mock_event.set = MagicMock()
+
+        with (
+            patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
+            patch("rex.core.orchestrator.asyncio.create_task") as mock_create_task,
+            patch.object(orch, "stop_all", new_callable=AsyncMock) as mock_stop,
+        ):
+            mock_create_task.return_value = MagicMock()
+            await orch.run()
+
+        # Should have called start_all, created health task, waited, then stopped
+        assert orch._running is True
+        mock_event.wait.assert_awaited_once()
+        mock_stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_run_registers_signal_handlers(self) -> None:
+        """run() should register signal handlers for SIGINT and SIGTERM."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.MEMORY)
+        orch.register(svc)
+
+        mock_event = MagicMock()
+        mock_event.wait = AsyncMock()
+
+        signal_handlers = {}
+        mock_loop = MagicMock()
+
+        def _capture_signal_handler(sig, handler):
+            signal_handlers[sig] = handler
+
+        mock_loop.add_signal_handler = _capture_signal_handler
+
+        with (
+            patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
+            patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
+            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch.object(orch, "stop_all", new_callable=AsyncMock),
+        ):
+            await orch.run()
+
+        assert signal.SIGINT in signal_handlers
+        assert signal.SIGTERM in signal_handlers
+
+    @pytest.mark.asyncio
+    async def test_signal_handler_sets_stop_event(self) -> None:
+        """The signal handler closure should call stop_event.set()."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.MEMORY)
+        orch.register(svc)
+
+        mock_event = MagicMock()
+        mock_event.wait = AsyncMock()
+
+        signal_handlers = {}
+        mock_loop = MagicMock()
+
+        def _capture_signal_handler(sig, handler):
+            signal_handlers[sig] = handler
+
+        mock_loop.add_signal_handler = _capture_signal_handler
+
+        with (
+            patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
+            patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
+            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch.object(orch, "stop_all", new_callable=AsyncMock),
+        ):
+            await orch.run()
+
+        # Invoke the SIGINT handler
+        signal_handlers[signal.SIGINT]()
+        mock_event.set.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_creates_health_monitor_task(self) -> None:
+        """run() should create a health monitor background task."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.MEMORY)
+        orch.register(svc)
+
+        mock_event = MagicMock()
+        mock_event.wait = AsyncMock()
+        mock_task = MagicMock()
+
+        with (
+            patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
+            patch("rex.core.orchestrator.asyncio.create_task", return_value=mock_task) as mock_ct,
+            patch.object(orch, "stop_all", new_callable=AsyncMock),
+        ):
+            await orch.run()
+
+        # create_task should have been called (for health monitor)
+        mock_ct.assert_called_once()
+        assert orch._health_task is mock_task
+
+
+# ------------------------------------------------------------------
+# _health_monitor (lines 223-257)
+# ------------------------------------------------------------------
+
+class TestHealthMonitor:
+    """Lines 223-257: periodic health checks, auto-restart on unhealthy/exception/failed."""
+
+    @pytest.mark.asyncio
+    async def test_healthy_service_updates_aggregator(self) -> None:
+        """A healthy service should be recorded in the aggregator."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.EYES, healthy=True)
+        orch.register(svc)
+        orch._status[ServiceName.EYES] = "running"
+        orch._running = True
+
+        # Run one iteration of the health monitor
+        iteration = 0
+
+        async def _patched_sleep(seconds: float) -> None:
+            nonlocal iteration
+            iteration += 1
+            if iteration >= 1:
+                orch._running = False
+
+        with patch("rex.core.orchestrator.asyncio.sleep", side_effect=_patched_sleep):
+            await orch._health_monitor()
+
+        # Aggregator should have been updated
+        agg_health = orch._health_agg.get_aggregate_health()
+        assert ServiceName.EYES in agg_health
+        assert agg_health[ServiceName.EYES]["healthy"] is True
+
+    @pytest.mark.asyncio
+    async def test_unhealthy_service_triggers_auto_restart(self) -> None:
+        """An unhealthy service should trigger _auto_restart."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.BRAIN, healthy=False)
+        orch.register(svc)
+        orch._status[ServiceName.BRAIN] = "running"
+        orch._running = True
+
+        iteration = 0
+
+        async def _patched_sleep(seconds: float) -> None:
+            nonlocal iteration
+            iteration += 1
+            if iteration >= 1:
+                orch._running = False
+
+        with (
+            patch("rex.core.orchestrator.asyncio.sleep", side_effect=_patched_sleep),
+            patch.object(orch, "_auto_restart", new_callable=AsyncMock) as mock_restart,
+        ):
+            await orch._health_monitor()
+
+        mock_restart.assert_awaited_once_with(ServiceName.BRAIN)
+
+    @pytest.mark.asyncio
+    async def test_health_check_exception_triggers_auto_restart(self) -> None:
+        """If health() raises, the service should be auto-restarted."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.TEETH, healthy=True)
+        svc.health = AsyncMock(side_effect=RuntimeError("health check boom"))
+        orch.register(svc)
+        orch._status[ServiceName.TEETH] = "running"
+        orch._running = True
+
+        iteration = 0
+
+        async def _patched_sleep(seconds: float) -> None:
+            nonlocal iteration
+            iteration += 1
+            if iteration >= 1:
+                orch._running = False
+
+        with (
+            patch("rex.core.orchestrator.asyncio.sleep", side_effect=_patched_sleep),
+            patch.object(orch, "_auto_restart", new_callable=AsyncMock) as mock_restart,
+        ):
+            await orch._health_monitor()
+
+        mock_restart.assert_awaited_once_with(ServiceName.TEETH)
+        # Aggregator should reflect the failure
+        agg_health = orch._health_agg.get_aggregate_health()
+        assert ServiceName.TEETH in agg_health
+        assert agg_health[ServiceName.TEETH]["healthy"] is False
+
+    @pytest.mark.asyncio
+    async def test_failed_service_triggers_auto_restart(self) -> None:
+        """A service in 'failed' status should trigger auto-restart."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.SCHEDULER)
+        orch.register(svc)
+        orch._status[ServiceName.SCHEDULER] = "failed"
+        orch._running = True
+
+        iteration = 0
+
+        async def _patched_sleep(seconds: float) -> None:
+            nonlocal iteration
+            iteration += 1
+            if iteration >= 1:
+                orch._running = False
+
+        with (
+            patch("rex.core.orchestrator.asyncio.sleep", side_effect=_patched_sleep),
+            patch.object(orch, "_auto_restart", new_callable=AsyncMock) as mock_restart,
+        ):
+            await orch._health_monitor()
+
+        mock_restart.assert_awaited_once_with(ServiceName.SCHEDULER)
+        # Aggregator should reflect the failed state
+        agg_health = orch._health_agg.get_aggregate_health()
+        assert ServiceName.SCHEDULER in agg_health
+        assert agg_health[ServiceName.SCHEDULER]["healthy"] is False
+        assert agg_health[ServiceName.SCHEDULER]["details"] == "service failed to start"
+
+    @pytest.mark.asyncio
+    async def test_degraded_service_recorded_in_aggregator(self) -> None:
+        """A degraded service should have degraded=True in the aggregator."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.BARK, healthy=True, degraded=True)
+        orch.register(svc)
+        orch._status[ServiceName.BARK] = "running"
+        orch._running = True
+
+        iteration = 0
+
+        async def _patched_sleep(seconds: float) -> None:
+            nonlocal iteration
+            iteration += 1
+            if iteration >= 1:
+                orch._running = False
+
+        with patch("rex.core.orchestrator.asyncio.sleep", side_effect=_patched_sleep):
+            await orch._health_monitor()
+
+        agg_health = orch._health_agg.get_aggregate_health()
+        assert ServiceName.BARK in agg_health
+        # The degraded flag should be fed through from the health response
+        assert agg_health[ServiceName.BARK]["degraded"] is True
+
+    @pytest.mark.asyncio
+    async def test_health_monitor_stops_when_running_false(self) -> None:
+        """The monitor loop should exit when _running becomes False."""
+        orch = _make_orchestrator_with_bus()
+        orch._running = False
+
+        # Should return immediately without doing anything
+        await orch._health_monitor()
 
 
 # ------------------------------------------------------------------

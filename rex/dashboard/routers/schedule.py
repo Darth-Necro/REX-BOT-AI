@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends
@@ -9,11 +12,45 @@ from fastapi import APIRouter, Body, Depends
 from rex.dashboard.deps import get_current_user
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
+log = logging.getLogger(__name__)
 
 
-@router.get("/")
-async def get_schedule(user: dict = Depends(get_current_user)) -> dict[str, Any]:
-    """Return current scan schedule and power state from actual config."""
+def _schedule_path() -> Path:
+    """Return the path to the persisted schedule config file."""
+    from rex.shared.config import get_config
+
+    return get_config().data_dir / "schedule_config.json"
+
+
+def _read_saved_schedule() -> dict[str, Any] | None:
+    """Read schedule from disk, returning None if absent or corrupt."""
+    path = _schedule_path()
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        log.warning("Failed to read schedule config at %s: %s", path, exc)
+        return None
+
+
+def _write_schedule(data: dict[str, Any]) -> bool:
+    """Persist schedule dict to disk, creating parent dirs if needed.
+
+    Returns True on success, False on failure.
+    """
+    path = _schedule_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        return True
+    except OSError as exc:
+        log.error("Failed to write schedule config: %s", exc)
+        return False
+
+
+def _default_schedule() -> dict[str, Any]:
+    """Build a default schedule dict from live config values."""
     from rex.shared.config import get_config
 
     config = get_config()
@@ -25,20 +62,31 @@ async def get_schedule(user: dict = Depends(get_current_user)) -> dict[str, Any]
             "next_wake": None,
             "next_sleep": None,
         },
-        "note": "Custom scan schedules not yet implemented; using scan_interval from config",
     }
+
+
+@router.get("/")
+async def get_schedule(user: dict = Depends(get_current_user)) -> dict[str, Any]:
+    """Return current scan schedule and power state.
+
+    Reads from the persisted schedule file if it exists, otherwise falls
+    back to defaults derived from the live config.
+    """
+    saved = _read_saved_schedule()
+    if saved is not None:
+        return saved
+    return _default_schedule()
 
 
 @router.put("/")
 async def update_schedule(
     schedule: dict = Body(...), user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Update scan and power schedule. Not yet implemented."""
-    return {
-        "status": "not_available",
-        "note": "Schedule updates not yet implemented",
-        "requested": schedule,
-    }
+    """Persist an updated scan / power schedule and return it."""
+    persisted = _write_schedule(schedule)
+    if persisted:
+        log.info("Schedule config saved to %s", _schedule_path())
+    return {**schedule, "status": "updated", "persisted": persisted}
 
 
 @router.post("/sleep")

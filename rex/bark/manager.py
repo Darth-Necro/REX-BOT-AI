@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from rex.bark.formatter import MessageFormatter
@@ -153,7 +153,6 @@ class NotificationManager:
     def _in_quiet_hours(self) -> bool:
         if not self._quiet_hours:
             return False
-        from datetime import datetime
         hour = datetime.now(UTC).hour
         start, end = self._quiet_hours
         if start <= end:

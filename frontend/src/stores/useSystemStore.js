@@ -27,6 +27,9 @@ const useSystemStore = create((set, get) => ({
   uptimeSeconds: 0,
   version: null,
 
+  // Freshness gate — prevents stale HTTP responses from overwriting newer WS data
+  _lastStatusTimestamp: 0,
+
   // --- UI mode ---
   mode: 'advanced',
   toggleMode: () => set((s) => ({ mode: s.mode === 'basic' ? 'advanced' : 'basic' })),
@@ -59,6 +62,8 @@ const useSystemStore = create((set, get) => ({
   /**
    * Hydrate store from API on bootstrap.
    * Sets bootstrapState through the lifecycle so the UI can show loading / error.
+   * Respects _lastStatusTimestamp so a slow HTTP response never overwrites
+   * fresher WebSocket data that arrived while the request was in flight.
    */
   hydrateSystem: async () => {
     const { bootstrapState } = get();
@@ -69,12 +74,28 @@ const useSystemStore = create((set, get) => ({
     try {
       const data = await hydrateSystemState();
       const posture = derivePosture(data);
-      set({
-        ...data,
-        threatPosture: posture,
-        connected: data.apiConnection === 'connected',
-        bootstrapState: 'ready',
-      });
+
+      const incomingTs = new Date(data._timestamp || 0).getTime() || 0;
+      const currentTs = get()._lastStatusTimestamp;
+
+      if (incomingTs && currentTs && incomingTs < currentTs) {
+        // HTTP response is older than what WS already applied — keep WS data,
+        // but still mark bootstrap as ready and update non-status fields.
+        set({
+          apiConnection: data.apiConnection,
+          health: data.health,
+          connected: data.apiConnection === 'connected',
+          bootstrapState: 'ready',
+        });
+      } else {
+        set({
+          ...data,
+          threatPosture: posture,
+          connected: data.apiConnection === 'connected',
+          bootstrapState: 'ready',
+          _lastStatusTimestamp: incomingTs || currentTs,
+        });
+      }
     } catch {
       set({
         bootstrapState: 'error',
@@ -87,13 +108,22 @@ const useSystemStore = create((set, get) => ({
   /**
    * Incremental update from WebSocket status.update events.
    * Normalises the payload — never trusts raw values blindly.
+   * Respects _lastStatusTimestamp so out-of-order messages are discarded.
    */
   updateFromStatus: (raw) => {
     const data = normalizeStatus(raw);
     const posture = derivePosture(data);
+
+    const incomingTs = new Date(data._timestamp || 0).getTime() || 0;
+    const currentTs = get()._lastStatusTimestamp;
+
+    // Drop the update if it carries a timestamp older than what we already have
+    if (incomingTs && currentTs && incomingTs < currentTs) return;
+
     set({
       ...data,
       threatPosture: posture,
+      _lastStatusTimestamp: incomingTs || currentTs,
     });
   },
 }));

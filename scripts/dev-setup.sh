@@ -14,6 +14,9 @@ pip install -r requirements.txt -r requirements-dev.txt
 pip install -e .
 
 # Install frontend dependencies
+# NOTE: The SSD uses exFAT which does not support symlinks.
+# frontend/.npmrc sets bin-links=false to work around this.
+# Without it, npm install fails when creating node_modules/.bin symlinks.
 if command -v npm &> /dev/null; then
     cd frontend && npm install && cd ..
     echo "Frontend dependencies installed"

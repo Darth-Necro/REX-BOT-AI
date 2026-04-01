@@ -1,22 +1,47 @@
-"""Extended tests for rex.brain.decision -- DecisionEngine pipeline and helpers."""
+"""Extended coverage tests for rex.brain.decision -- DecisionEngine pipeline and helpers.
+
+Targets uncovered lines:
+  146, 149       -- _pipeline L1/L2 returning decisions
+  151-154        -- _pipeline L3 LLM path + layer4 background task
+  201-248        -- _layer3_llm full path: KB context, sanitization, prompt, parse
+  252            -- _layer4_federated (pass stub)
+  290-292        -- _parse_llm exception handler
+"""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+import asyncio
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from rex.brain.decision import DecisionEngine
 from rex.shared.enums import DecisionAction, ThreatCategory, ThreatSeverity
-from rex.shared.models import ThreatEvent
+from rex.shared.models import Decision, ThreatEvent
 from rex.shared.utils import generate_id, utc_now
 
 
-def _make_engine(llm=None, bus=None):
-    """Create a DecisionEngine with mocked dependencies."""
-    from rex.brain.decision import DecisionEngine
+def _make_threat(**overrides) -> ThreatEvent:
+    defaults = dict(
+        event_id=generate_id(),
+        timestamp=utc_now(),
+        source_ip="10.0.0.50",
+        destination_ip="185.0.0.1",
+        destination_port=443,
+        protocol="tcp",
+        threat_type=ThreatCategory.UNKNOWN,
+        severity=ThreatSeverity.MEDIUM,
+        description="test event",
+        confidence=0.5,
+        raw_data={"source_mac": "aa:bb:cc:dd:ee:ff"},
+    )
+    defaults.update(overrides)
+    return ThreatEvent(**defaults)
 
+
+def _make_engine(llm=None, kb=None, bus=None):
     classifier = MagicMock()
-    # Default: return LOW severity with low confidence
     classifier.classify.return_value = (ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.3)
 
     baseline = MagicMock()
@@ -26,261 +51,235 @@ def _make_engine(llm=None, bus=None):
         llm_router=llm,
         classifier=classifier,
         baseline=baseline,
-        knowledge_base=None,
+        knowledge_base=kb,
         bus=bus,
     )
 
 
-def _make_threat(severity="medium", threat_type="port_scan", confidence=0.5, **kwargs):
-    return ThreatEvent(
-        event_id=generate_id(),
-        timestamp=utc_now(),
-        source_ip="10.0.0.5",
-        threat_type=threat_type,
-        severity=severity,
-        description="Test threat",
-        confidence=confidence,
-        raw_data=kwargs.get("raw_data", {}),
-    )
-
-
 # ------------------------------------------------------------------
-# DecisionEngine construction
+# _pipeline: L1 returns early (line 146)
 # ------------------------------------------------------------------
 
-
-class TestDecisionEngineInit:
-    def test_init_no_llm(self) -> None:
-        engine = _make_engine(llm=None)
-        assert engine._llm_available is False
-
-    def test_init_with_llm(self) -> None:
-        engine = _make_engine(llm=MagicMock())
-        assert engine._llm_available is True
-
-    def test_get_metrics(self) -> None:
-        engine = _make_engine()
-        metrics = engine.get_metrics()
-        assert metrics["decisions_made"] == 0
-        assert metrics["llm_calls"] == 0
-        assert metrics["llm_timeouts"] == 0
-        assert metrics["llm_available"] is False
-
-
-# ------------------------------------------------------------------
-# Layer 1 -- signature
-# ------------------------------------------------------------------
-
-
-class TestLayer1:
+class TestPipelineL1Return:
     @pytest.mark.asyncio
-    async def test_layer1_returns_decision_for_critical_high_confidence(self) -> None:
+    async def test_pipeline_returns_l1_decision(self) -> None:
+        """Pipeline short-circuits at L1 when signature match is strong."""
         engine = _make_engine()
         engine._classifier.classify.return_value = (
-            ThreatCategory.C2_COMMUNICATION, ThreatSeverity.CRITICAL, 0.95
+            ThreatCategory.C2_COMMUNICATION, ThreatSeverity.CRITICAL, 0.95,
         )
         threat = _make_threat()
-        decision = await engine._layer1_signature(threat)
-        assert decision is not None
+        decision = await engine.evaluate_event(threat)
         assert decision.layer == 1
         assert decision.action == DecisionAction.BLOCK
-        assert decision.confidence == 0.95
-
-    @pytest.mark.asyncio
-    async def test_layer1_returns_none_for_low_confidence(self) -> None:
-        engine = _make_engine()
-        engine._classifier.classify.return_value = (
-            ThreatCategory.PORT_SCAN, ThreatSeverity.MEDIUM, 0.5
-        )
-        threat = _make_threat()
-        decision = await engine._layer1_signature(threat)
-        assert decision is None
 
 
 # ------------------------------------------------------------------
-# Layer 2 -- statistical
+# _pipeline: L2 returns (line 149)
 # ------------------------------------------------------------------
 
-
-class TestLayer2:
+class TestPipelineL2Return:
     @pytest.mark.asyncio
-    async def test_layer2_with_deviation(self) -> None:
+    async def test_pipeline_returns_l2_when_l1_misses(self) -> None:
+        """Pipeline returns L2 decision when L1 doesn't trigger but L2 does."""
         engine = _make_engine()
-        engine._classifier.classify.return_value = (
-            ThreatCategory.PORT_SCAN, ThreatSeverity.HIGH, 0.8
-        )
-        engine._baseline.get_deviation_score.return_value = 0.9
+        # First call (L1): low confidence -> misses
+        # Second call (L2): high combined score -> triggers
+        engine._classifier.classify.side_effect = [
+            (ThreatCategory.PORT_SCAN, ThreatSeverity.MEDIUM, 0.5),
+            (ThreatCategory.PORT_SCAN, ThreatSeverity.HIGH, 0.9),
+        ]
+        engine._baseline.get_deviation_score.return_value = 0.8
 
         threat = _make_threat(raw_data={"source_mac": "aa:bb:cc:dd:ee:ff"})
-        decision = await engine._layer2_statistical(threat)
-        assert decision is not None
+        decision = await engine.evaluate_event(threat)
         assert decision.layer == 2
 
+
+# ------------------------------------------------------------------
+# _pipeline: L3 LLM path (lines 151-154, 201-248)
+# ------------------------------------------------------------------
+
+class TestPipelineL3:
     @pytest.mark.asyncio
-    async def test_layer2_returns_none_when_below_threshold(self) -> None:
-        engine = _make_engine()
+    async def test_pipeline_reaches_l3_with_llm(self) -> None:
+        """Pipeline calls L3 when L1/L2 don't match and LLM is available."""
+        mock_llm = AsyncMock()
+        mock_llm.security_query = AsyncMock(return_value={
+            "content": json.dumps({
+                "severity": "high",
+                "action": "alert",
+                "confidence": 0.8,
+                "reasoning": "LLM analysis",
+            })
+        })
+
+        engine = _make_engine(llm=mock_llm)
+        # L1 and L2 don't trigger
         engine._classifier.classify.return_value = (
-            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.3
+            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.2,
         )
         threat = _make_threat()
-        decision = await engine._layer2_statistical(threat)
-        assert decision is None
-
-
-# ------------------------------------------------------------------
-# evaluate_event
-# ------------------------------------------------------------------
-
-
-class TestEvaluateEvent:
-    @pytest.mark.asyncio
-    async def test_evaluate_produces_decision(self) -> None:
-        """evaluate_event always returns a Decision."""
-        engine = _make_engine()
-        threat = _make_threat()
         decision = await engine.evaluate_event(threat)
-        assert decision is not None
-        assert decision.threat_event_id == threat.event_id
-        assert engine._decisions_made == 1
+
+        assert decision.layer == 3
+        assert decision.action == DecisionAction.ALERT
+        assert engine._llm_calls == 1
 
     @pytest.mark.asyncio
-    async def test_evaluate_publishes_to_bus(self) -> None:
-        """evaluate_event publishes decision to bus when available."""
-        mock_bus = AsyncMock()
-        mock_bus.publish = AsyncMock(return_value="msg-id")
-        engine = _make_engine(bus=mock_bus)
-        threat = _make_threat()
-        await engine.evaluate_event(threat)
-        mock_bus.publish.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_evaluate_handles_bus_failure(self) -> None:
-        """evaluate_event handles bus publish failure gracefully."""
-        mock_bus = AsyncMock()
-        mock_bus.publish = AsyncMock(side_effect=RuntimeError("bus down"))
-        engine = _make_engine(bus=mock_bus)
-        threat = _make_threat()
-        # Should not raise
-        decision = await engine.evaluate_event(threat)
-        assert decision is not None
-
-
-# ------------------------------------------------------------------
-# _parse_llm
-# ------------------------------------------------------------------
-
-
-class TestParseLlm:
-    def test_parse_valid_json(self) -> None:
-        import json
-
-        engine = _make_engine()
-        threat = _make_threat()
-        response = {
+    async def test_l3_with_kb_context(self) -> None:
+        """L3 uses KB context when available."""
+        mock_llm = AsyncMock()
+        mock_llm.security_query = AsyncMock(return_value={
             "content": json.dumps({
-                "action": "block",
-                "severity": "high",
-                "confidence": 0.9,
-                "reasoning": "Suspicious C2 traffic",
+                "severity": "medium",
+                "action": "monitor",
+                "confidence": 0.6,
+                "reasoning": "Reviewed KB context",
             })
-        }
-        decision = engine._parse_llm(threat, response)
-        assert decision is not None
-        assert decision.action == DecisionAction.BLOCK
-        assert decision.severity == ThreatSeverity.HIGH
+        })
+
+        mock_kb = AsyncMock()
+        mock_kb.get_context_for_llm = AsyncMock(return_value="## THREAT LOG\nSome threats here")
+
+        engine = _make_engine(llm=mock_llm, kb=mock_kb)
+        engine._classifier.classify.return_value = (
+            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.2,
+        )
+        threat = _make_threat()
+        decision = await engine.evaluate_event(threat)
+
+        assert decision.layer == 3
+        mock_kb.get_context_for_llm.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_l3_kb_exception_suppressed(self) -> None:
+        """L3 suppresses KB context exceptions and continues."""
+        mock_llm = AsyncMock()
+        mock_llm.security_query = AsyncMock(return_value={
+            "content": json.dumps({
+                "severity": "low",
+                "action": "log",
+                "confidence": 0.4,
+                "reasoning": "fallback",
+            })
+        })
+
+        mock_kb = AsyncMock()
+        mock_kb.get_context_for_llm = AsyncMock(side_effect=RuntimeError("KB read failed"))
+
+        engine = _make_engine(llm=mock_llm, kb=mock_kb)
+        engine._classifier.classify.return_value = (
+            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.2,
+        )
+        threat = _make_threat()
+        decision = await engine.evaluate_event(threat)
+
         assert decision.layer == 3
 
-    def test_parse_invalid_json(self) -> None:
-        engine = _make_engine()
-        threat = _make_threat()
-        response = {"content": "This is not JSON at all"}
-        decision = engine._parse_llm(threat, response)
-        assert decision is None
+    @pytest.mark.asyncio
+    async def test_l3_timeout_increments_counter(self) -> None:
+        """L3 LLM TimeoutError increments timeout counter and returns None."""
+        mock_llm = AsyncMock()
+        mock_llm.security_query = AsyncMock(side_effect=TimeoutError("LLM too slow"))
 
-    def test_parse_embedded_json(self) -> None:
-        import json
-
-        engine = _make_engine()
-        threat = _make_threat()
-        inner = json.dumps({"action": "alert", "severity": "medium", "confidence": 0.7})
-        response = {"content": f"Here is my analysis: {inner}. Hope it helps."}
-        decision = engine._parse_llm(threat, response)
-        assert decision is not None
-        assert decision.action == DecisionAction.ALERT
-
-    def test_parse_unknown_action_defaults_to_alert(self) -> None:
-        import json
-
-        engine = _make_engine()
-        threat = _make_threat()
-        response = {"content": json.dumps({
-            "action": "unknown_action",
-            "severity": "medium",
-            "confidence": 0.5,
-        })}
-        decision = engine._parse_llm(threat, response)
-        assert decision is not None
-        assert decision.action == DecisionAction.ALERT
-
-
-# ------------------------------------------------------------------
-# _fallback_decision and _default_decision
-# ------------------------------------------------------------------
-
-
-class TestFallbackDecision:
-    def test_fallback_uses_classifier(self) -> None:
-        engine = _make_engine()
+        engine = _make_engine(llm=mock_llm)
         engine._classifier.classify.return_value = (
-            ThreatCategory.PORT_SCAN, ThreatSeverity.MEDIUM, 0.7
+            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.2,
         )
         threat = _make_threat()
-        decision = engine._fallback_decision(threat)
-        assert decision.layer == 2
-        assert "[rules-only]" in decision.reasoning
+        decision = await engine.evaluate_event(threat)
 
-    def test_default_decision_is_monitor(self) -> None:
+        # L3 timeout returns None, pipeline falls to _default_decision
+        assert decision.action == DecisionAction.MONITOR
+        assert engine._llm_timeouts == 1
+
+    @pytest.mark.asyncio
+    async def test_l3_generic_exception_returns_none(self) -> None:
+        """L3 generic exception logs and returns None."""
+        mock_llm = AsyncMock()
+        mock_llm.security_query = AsyncMock(side_effect=RuntimeError("LLM crashed"))
+
+        engine = _make_engine(llm=mock_llm)
+        engine._classifier.classify.return_value = (
+            ThreatCategory.UNKNOWN, ThreatSeverity.LOW, 0.2,
+        )
+        threat = _make_threat()
+        decision = await engine.evaluate_event(threat)
+
+        # Falls to _default_decision
+        assert decision.action == DecisionAction.MONITOR
+
+
+# ------------------------------------------------------------------
+# _layer4_federated (line 252 -- just a pass stub)
+# ------------------------------------------------------------------
+
+class TestLayer4Federated:
+    @pytest.mark.asyncio
+    async def test_layer4_is_noop(self) -> None:
+        """_layer4_federated is a placeholder that does nothing."""
         engine = _make_engine()
         threat = _make_threat()
-        decision = engine._default_decision(threat)
-        assert decision.action == DecisionAction.MONITOR
-        assert decision.confidence == 0.3
+        decision = Decision(
+            decision_id="d-1", timestamp=utc_now(),
+            threat_event_id=threat.event_id,
+            action=DecisionAction.ALERT,
+            severity=ThreatSeverity.HIGH,
+            reasoning="test", confidence=0.8, layer=3,
+        )
+        # Should not raise
+        await engine._layer4_federated(threat, decision)
 
 
 # ------------------------------------------------------------------
-# execute_decision
+# _parse_llm exception path (lines 290-292)
 # ------------------------------------------------------------------
 
+class TestParseLlmException:
+    def test_parse_llm_with_corrupt_data(self) -> None:
+        """_parse_llm returns None when data raises unexpected exception."""
+        engine = _make_engine()
+        threat = _make_threat()
+        # Provide a response with content that passes JSON parsing
+        # but has a confidence value that is not convertible to float
+        response = {"content": json.dumps({
+            "severity": "high",
+            "action": "block",
+            "confidence": "not-a-number",
+            "reasoning": "test",
+        })}
+        result = engine._parse_llm(threat, response)
+        assert result is None
 
-class TestExecuteDecision:
+    def test_parse_llm_with_none_response(self) -> None:
+        """_parse_llm handles None dict gracefully."""
+        engine = _make_engine()
+        threat = _make_threat()
+        # response is a dict but content is None
+        response = {"content": None}
+        result = engine._parse_llm(threat, response)
+        assert result is None
+
+
+# ------------------------------------------------------------------
+# _update_metrics first vs subsequent call
+# ------------------------------------------------------------------
+
+class TestUpdateMetrics:
     @pytest.mark.asyncio
-    async def test_execute_decision_publishes(self) -> None:
-        from rex.shared.models import Decision
-
-        mock_bus = AsyncMock()
-        mock_bus.publish = AsyncMock(return_value="msg-id")
-        engine = _make_engine(bus=mock_bus)
-
-        decision = Decision(
-            threat_event_id="t-123",
-            action=DecisionAction.BLOCK,
-            severity=ThreatSeverity.HIGH,
-            reasoning="test",
-        )
-        result = await engine.execute_decision(decision)
-        assert result["status"] == "dispatched"
-        mock_bus.publish.assert_awaited_once()
+    async def test_first_call_sets_latency(self) -> None:
+        """First evaluation sets avg_latency_ms directly."""
+        engine = _make_engine()
+        threat = _make_threat()
+        await engine.evaluate_event(threat)
+        assert engine._avg_latency_ms > 0
 
     @pytest.mark.asyncio
-    async def test_execute_decision_no_bus(self) -> None:
-        from rex.shared.models import Decision
-
-        engine = _make_engine(bus=None)
-        decision = Decision(
-            threat_event_id="t-123",
-            action=DecisionAction.BLOCK,
-            severity=ThreatSeverity.HIGH,
-            reasoning="test",
-        )
-        result = await engine.execute_decision(decision)
-        assert result["status"] == "dispatched"
+    async def test_subsequent_calls_ema_latency(self) -> None:
+        """Subsequent evaluations use EMA for latency."""
+        engine = _make_engine()
+        for _ in range(3):
+            await engine.evaluate_event(_make_threat())
+        assert engine._avg_latency_ms > 0
+        assert engine._decisions_made == 3

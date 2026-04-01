@@ -89,3 +89,19 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+@router.post("/panic/restore")
+async def panic_restore(user: dict = Depends(get_current_user)) -> dict[str, Any]:
+    """Restore normal firewall operation after a panic button press."""
+    try:
+        from rex.pal import get_adapter
+
+        pal = get_adapter()
+        success = pal.panic_restore()
+        return {
+            "status": "restored" if success else "failed",
+            "action": "panic_restore",
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}

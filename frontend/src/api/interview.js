@@ -16,7 +16,7 @@ const ALLOWED_INTERVIEW_STATES = new Set([
  * @returns {Promise<{ state: string, currentStep: number, totalSteps: number, completedAt: string|null }>}
  */
 export async function getInterviewStatus() {
-  const res = await api.get('/onboarding/status');
+  const res = await api.get('/interview/status');
   const raw = res.data;
 
   if (!raw || typeof raw !== 'object') {
@@ -43,7 +43,7 @@ export async function getInterviewStatus() {
  * @returns {Promise<{ id: string|null, prompt: string, options: Array, type: string }>}
  */
 export async function getCurrentQuestion() {
-  const res = await api.get('/onboarding/question');
+  const res = await api.get('/interview/question');
   const raw = res.data;
 
   if (!raw || typeof raw !== 'object') {
@@ -65,7 +65,7 @@ export async function getCurrentQuestion() {
  * @returns {Promise<{ accepted: boolean, nextStep: number|null }>}
  */
 export async function submitInterviewAnswer(questionId, answer) {
-  const res = await api.post('/onboarding/answer', {
+  const res = await api.post('/interview/answer', {
     question_id: questionId,
     answer,
   });

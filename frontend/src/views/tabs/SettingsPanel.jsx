@@ -102,6 +102,7 @@ function NotificationChannel({ name, type, configured, onTest }) {
 
 export default function SettingsPanel() {
   const { mode, toggleMode, version, uptimeSeconds } = useSystemStore();
+  const [modeLoading, setModeLoading] = useState(false);
 
   const [settings, setSettings] = useState({
     protection_mode: 'auto_block_critical',
@@ -121,7 +122,7 @@ export default function SettingsPanel() {
 
   // Fetch settings on mount
   useEffect(() => {
-    api.get('/config/')
+    api.get('/config')
       .then((res) => {
         const cfg = res.data?.config || res.data || {};
         setSettings((prev) => ({
@@ -152,7 +153,7 @@ export default function SettingsPanel() {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await api.put('/config/', settings);
+      await api.put('/config', settings);
     } catch (err) {
       console.error('Failed to save settings:', err);
     } finally {
@@ -162,7 +163,7 @@ export default function SettingsPanel() {
 
   const handleTestNotification = useCallback(async (type) => {
     try {
-      await api.post(`/config/notifications/${type}/test`);
+      await api.post(`/notifications/test/${type}`);
     } catch (err) {
       console.error('Notification test failed:', err);
     }
@@ -194,10 +195,25 @@ export default function SettingsPanel() {
             </p>
           </div>
           <button
-            onClick={toggleMode}
-            className="px-4 py-2 bg-rex-accent text-white rounded-lg hover:bg-rex-accent/80 transition-colors text-sm font-medium"
+            onClick={async () => {
+              setModeLoading(true);
+              try {
+                const newMode = mode === 'basic' ? 'advanced' : 'basic';
+                const res = await api.put('/config/mode', { mode: newMode });
+                if (res.data?.status === 'updated') {
+                  toggleMode(); // Update local state to match
+                }
+              } catch (err) {
+                console.error('Failed to switch mode:', err);
+                toggleMode(); // Fall back to local toggle on error
+              } finally {
+                setModeLoading(false);
+              }
+            }}
+            disabled={modeLoading}
+            className="px-4 py-2 bg-rex-accent text-white rounded-lg hover:bg-rex-accent/80 disabled:opacity-50 transition-colors text-sm font-medium"
           >
-            Switch to {mode === 'basic' ? 'Advanced' : 'Basic'}
+            {modeLoading ? 'Switching...' : `Switch to ${mode === 'basic' ? 'Advanced' : 'Basic'}`}
           </button>
         </div>
       </Section>

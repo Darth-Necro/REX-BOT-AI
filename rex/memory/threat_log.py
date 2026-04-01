@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.constants import MAX_THREAT_LOG_ROWS
@@ -100,6 +100,28 @@ class ThreatLog:
         """
         async with self._lock:
             return list(reversed(self._threats[-limit:]))
+
+    async def get_since(self, hours: int = 24) -> list[dict[str, Any]]:
+        """Return threat events from the last *hours* hours.
+
+        Parameters
+        ----------
+        hours:
+            How far back to look (default 24).
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            Matching threat records, newest first.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_iso = cutoff.isoformat()
+        async with self._lock:
+            matches = [
+                t for t in self._threats
+                if (t.get("timestamp") or "") >= cutoff_iso
+            ]
+            return list(reversed(matches))
 
     async def get_by_id(self, threat_id: str) -> dict[str, Any] | None:
         """Look up a specific threat by its event ID.

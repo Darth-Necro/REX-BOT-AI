@@ -24,6 +24,8 @@ export default function DiagnosticsPage() {
 
   useEffect(() => {
     fetchDiagnostics();
+    const interval = setInterval(fetchDiagnostics, 30_000);
+    return () => clearInterval(interval);
   }, [fetchDiagnostics]);
 
   const status = snapshot?.status ?? {};

@@ -47,7 +47,7 @@ typecheck: ## Run mypy type checking
 dev: ## Start in development mode with hot reload
 	$(PYTHON) -m uvicorn rex.dashboard.app:create_app --factory --reload --host 0.0.0.0 --port 8443
 
-dev-frontend: ## Start frontend dev server
+dev-frontend: ## Start frontend dev server (NOTE: exFAT SSD requires bin-links=false in frontend/.npmrc)
 	cd frontend && npm run dev
 
 clean: ## Remove all build artifacts and containers

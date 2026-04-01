@@ -17,6 +17,7 @@ Checks performed (in order):
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import time
 from collections import defaultdict
@@ -240,16 +241,62 @@ class ActionValidator:
         if not self.PROTECTED_IPS:
             return None
 
+        # Pre-normalize the protected IPs for comparison so that
+        # zero-padded octets (192.168.001.001) and other equivalent
+        # representations are correctly matched (fixes VULN-006).
+        normalized_protected: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
+        for ip_str in self.PROTECTED_IPS:
+            try:
+                normalized_protected.add(ipaddress.ip_address(ip_str))
+            except ValueError:
+                # Keep raw string comparison as fallback for non-IP values
+                pass
+
         for param_name in self._TARGET_PARAMS:
             target_value = request.params.get(param_name)
-            if isinstance(target_value, str) and target_value in self.PROTECTED_IPS:
-                return ValidationResult(
-                    allowed=False,
-                    reason=f"Cannot target protected IP {target_value} with "
-                           f"action '{request.action_type}'. The gateway and "
-                           f"REX's own IP are never valid targets for blocking actions.",
+            if not isinstance(target_value, str):
+                continue
+
+            # Try normalized IP comparison first
+            try:
+                target_ip = ipaddress.ip_address(
+                    self._normalize_ip_string(target_value)
                 )
+                if target_ip in normalized_protected:
+                    return ValidationResult(
+                        allowed=False,
+                        reason=f"Cannot target protected IP {target_value} with "
+                               f"action '{request.action_type}'. The gateway and "
+                               f"REX's own IP are never valid targets for blocking actions.",
+                    )
+            except ValueError:
+                # Not a valid IP -- fall back to raw string comparison
+                if target_value in self.PROTECTED_IPS:
+                    return ValidationResult(
+                        allowed=False,
+                        reason=f"Cannot target protected IP {target_value} with "
+                               f"action '{request.action_type}'. The gateway and "
+                               f"REX's own IP are never valid targets for blocking actions.",
+                    )
         return None
+
+    @staticmethod
+    def _normalize_ip_string(ip_str: str) -> str:
+        """Strip leading zeros from IPv4 octets so ``ipaddress`` accepts them.
+
+        Python's ``ipaddress.ip_address`` rejects zero-padded octets
+        (e.g. ``"192.168.001.001"``) because of historical octal ambiguity.
+        This helper converts them to plain decimal before parsing.
+
+        Non-IPv4 strings are returned unchanged (IPv6, hostnames, etc.).
+        """
+        parts = ip_str.split(".")
+        if len(parts) == 4:
+            try:
+                return ".".join(str(int(p)) for p in parts)
+            except ValueError:
+                pass
+        return ip_str
 
     def _needs_confirmation(
         self, request: ActionRequest, spec: ActionRegistry

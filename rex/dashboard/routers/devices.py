@@ -59,17 +59,40 @@ async def get_device(
     raise HTTPException(status_code=404, detail=f"Device {mac} not found")
 
 
-@router.put("/{mac}/trust")
-async def update_trust(
-    mac: str, level: int = 50, user: dict = Depends(get_current_user)
+@router.post("/{mac}/trust")
+async def trust_device(
+    mac: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Update trust level for a device. Currently a no-op until DeviceStore is wired."""
-    return {
-        "mac": mac,
-        "trust_level": level,
-        "applied": False,
-        "note": "Trust update stored when DeviceStore is active",
-    }
+    """Mark a device as trusted. Publishes via event bus."""
+    try:
+        from rex.dashboard.deps import get_bus
+
+        bus = await get_bus()
+        await bus.publish(
+            "rex:core:commands",
+            {"command": "set_device_trust", "mac": mac, "trust_level": "trusted"},
+        )
+        return {"mac": mac, "action": "trust", "status": "requested", "delivered": True}
+    except Exception as e:
+        return {"mac": mac, "action": "trust", "status": "not_available", "delivered": False, "detail": str(e)}
+
+
+@router.post("/{mac}/block")
+async def block_device(
+    mac: str, user: dict = Depends(get_current_user)
+) -> dict[str, Any]:
+    """Block/quarantine a device. Publishes via event bus."""
+    try:
+        from rex.dashboard.deps import get_bus
+
+        bus = await get_bus()
+        await bus.publish(
+            "rex:core:commands",
+            {"command": "isolate_device", "mac": mac},
+        )
+        return {"mac": mac, "action": "block", "status": "requested", "delivered": True}
+    except Exception as e:
+        return {"mac": mac, "action": "block", "status": "not_available", "delivered": False, "detail": str(e)}
 
 
 @router.post("/scan")

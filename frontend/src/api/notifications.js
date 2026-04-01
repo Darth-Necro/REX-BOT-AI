@@ -59,10 +59,21 @@ export async function updateNotificationSettings(settings) {
 }
 
 /**
- * POST /api/notifications/test — fire a test notification on all enabled channels.
+ * POST /api/notifications/test/{channel} — fire a test notification on a specific channel.
+ * @param {string} channel  Channel name (discord, email, telegram, etc).
  * @returns {Promise<{ results: Object }>}
  */
-export async function testNotifications() {
-  const res = await api.post('/notifications/test');
+export async function testNotification(channel) {
+  if (!channel) throw new Error('Channel is required');
+  const res = await api.post(`/notifications/test/${encodeURIComponent(channel)}`);
   return res.data;
+}
+
+/**
+ * POST /api/notifications/test/{channel} — alias for backward compat.
+ * @param {string} [channel='all']  Channel name.
+ * @returns {Promise<{ results: Object }>}
+ */
+export async function testNotifications(channel = 'all') {
+  return testNotification(channel);
 }
