@@ -117,7 +117,7 @@ async def test_initialize_generates_password(tmp_path):
 @pytest.mark.asyncio
 async def test_initialize_loads_existing(tmp_path):
     """Second initialize call loads existing credentials and returns None."""
-    with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
+    with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager", return_value=False):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
         initial_pw = await manager.initialize()

@@ -21,7 +21,12 @@ from rex.shared.service import BaseService
 from rex.shared.utils import utc_now
 
 if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
     from rex.shared.events import RexEvent
+
+from rex.brain.classifier import ThreatClassifier
+from rex.brain.llm import LLMRouter
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +38,16 @@ class BrainService(BaseService):
     baseline, and decision engine.  If Ollama is unavailable the service
     enters *degraded mode* — Layer 1 + 2 only, no LLM reasoning.
     """
+
+    def __init__(self, config: RexConfig, bus: EventBus) -> None:
+        super().__init__(config, bus)
+        # Lifecycle attributes — initialised defensively so recovery loops
+        # and tests never hit AttributeError on partial init.
+        self._degraded: bool = False
+        self._classifier: ThreatClassifier | None = None
+        self._baseline: Any = None
+        self._llm_router: LLMRouter | None = None
+        self._engine: Any = None
 
     @property
     def service_name(self) -> ServiceName:
@@ -119,7 +134,8 @@ class BrainService(BaseService):
         cancel self._tasks here to avoid double-cancel race conditions.
         """
         try:
-            await self._baseline.save()
+            if self._baseline is not None:
+                await self._baseline.save()
         except Exception:
             logger.exception("Failed to save baseline on shutdown")
         logger.info("BrainService stopped")
@@ -175,7 +191,8 @@ class BrainService(BaseService):
         while self._running:
             await asyncio.sleep(30)
             # Prune stale sliding-window keys to prevent unbounded growth
-            self._classifier.prune_stale_keys()
+            if self._classifier is not None:
+                self._classifier.prune_stale_keys()
             if self._degraded and self._llm_router is None:
                 try:
                     from rex.brain.llm import DataSanitizer, LLMRouter, OllamaClient
@@ -196,7 +213,7 @@ class BrainService(BaseService):
                         self._degraded = False
                         logger.info("Ollama recovered — exiting degraded mode")
                 except Exception:
-                    pass  # Still degraded, try again in 30s
+                    logger.debug("Ollama recovery attempt failed, retrying in 30s", exc_info=True)
 
     async def _check_prerequisites(self) -> None:
         """Brain has no hard prerequisites — degrades gracefully without LLM."""

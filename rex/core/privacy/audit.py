@@ -689,10 +689,30 @@ class PrivacyAuditor:
             "0.0.0.0",
         }
         try:
-            hostname = urlparse(url).hostname or ""
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ""
         except Exception:
             hostname = ""
-        return hostname in local_hosts
+
+        if hostname in local_hosts:
+            return True
+
+        # Handle unbracketed IPv6 that urlparse fails to parse
+        # (e.g. "http://::1:6379" — urlparse returns hostname=None)
+        if not hostname:
+            import re
+            # Extract host portion between :// and the next /
+            m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
+            if m:
+                host_port = m.group(1)
+                # Strip trailing port if present (last :N segment)
+                # For ::1:6379, the host is ::1
+                if host_port.startswith("::"):
+                    # IPv6 shorthand like ::1:port or just ::1
+                    for local in ("::1",):
+                        if host_port == local or host_port.startswith(local + ":"):
+                            return True
+        return False
 
     @staticmethod
     def _is_local_ip(ip: str) -> bool:

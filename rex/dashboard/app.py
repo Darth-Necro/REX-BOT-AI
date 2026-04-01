@@ -130,10 +130,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     auth_mgr = AuthManager(data_dir=config.data_dir)
     initial_password = await auth_mgr.initialize()
     if initial_password:
-        logger.warning("=" * 50)
-        logger.warning("  INITIAL ADMIN PASSWORD: %s", initial_password)
-        logger.warning("  Write this down. It will not be shown again.")
-        logger.warning("=" * 50)
+        # Password is displayed only via CLI's typer.echo (stderr/tty),
+        # NOT through the logger, to avoid leaking secrets to log sinks.
+        logger.info("First-boot admin password generated (shown via CLI only).")
 
     deps.set_auth_manager(auth_mgr)
     deps.set_ws_manager(_ws_manager)

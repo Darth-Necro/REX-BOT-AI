@@ -58,22 +58,39 @@ def get_adapter() -> PlatformAdapter:
     instance.  The concrete backend is determined at first call via
     :func:`platform.system`.
     """
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
     system = platform.system()
     if system == "Linux":
         from rex.pal.linux import LinuxAdapter
         return LinuxAdapter()
     elif system == "Windows":
+        _log.warning(
+            "Windows support is experimental (alpha target is Linux). "
+            "Firewall, packet capture, and some monitoring features are unavailable."
+        )
         from rex.pal.windows import WindowsAdapter
         return WindowsAdapter()
     elif system == "Darwin":
+        _log.warning(
+            "macOS support is experimental (alpha target is Linux). "
+            "Firewall, packet capture, and some monitoring features are unavailable."
+        )
         from rex.pal.macos import MacOSAdapter
         return MacOSAdapter()
     elif system == "FreeBSD":
+        _log.warning(
+            "FreeBSD support is experimental (alpha target is Linux). "
+            "Some features may be unavailable."
+        )
         from rex.pal.bsd import BSDAdapter
         return BSDAdapter()
     else:
-        # Best-effort fallback -- most UNIX-like hosts behave similarly
-        # to Linux from a /proc / subprocess perspective.
+        _log.warning(
+            "Unsupported platform '%s' — falling back to Linux adapter. "
+            "Alpha target is Linux only.", system,
+        )
         from rex.pal.linux import LinuxAdapter
         return LinuxAdapter()
 

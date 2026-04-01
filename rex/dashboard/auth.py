@@ -136,28 +136,35 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)
         self._password_hash = hash_password(initial_password)
 
-        # Store encrypted if possible, plaintext as fallback
-        self._store_to_secrets_manager()
-        self._creds_file.write_text(json.dumps({
-            "password_hash": self._password_hash,
-            "jwt_secret": self._jwt_secret,
-        }))
-        # Restrict permissions
-        with contextlib.suppress(OSError):
-            self._creds_file.chmod(0o600)
+        # Store encrypted if possible, plaintext only as fallback
+        stored_encrypted = self._store_to_secrets_manager()
+        if not stored_encrypted:
+            # No encrypted storage available — fall back to plaintext file
+            self._creds_file.write_text(json.dumps({
+                "password_hash": self._password_hash,
+                "jwt_secret": self._jwt_secret,
+            }))
+            # Restrict permissions
+            with contextlib.suppress(OSError):
+                self._creds_file.chmod(0o600)
 
         self._initialized = True
         return initial_password
 
-    def _store_to_secrets_manager(self) -> None:
-        """Persist credentials via SecretsManager if available."""
+    def _store_to_secrets_manager(self) -> bool:
+        """Persist credentials via SecretsManager if available.
+
+        Returns True if secrets were stored encrypted, False otherwise.
+        """
         if self._secrets_manager is None:
-            return
+            return False
         try:
             self._secrets_manager.store_secret("jwt_secret", self._jwt_secret)
             self._secrets_manager.store_secret("password_hash", self._password_hash)
+            return True
         except Exception:
             logger.warning("Failed to store credentials in SecretsManager")
+            return False
 
     async def login(self, username: str, password: str, client_ip: str = "unknown") -> dict[str, Any]:
         """Authenticate and return a JWT token.
@@ -235,13 +242,14 @@ class AuthManager:
         self._password_hash = hash_password(new_password)
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
-        self._store_to_secrets_manager()
-        self._creds_file.write_text(json.dumps({
-            "password_hash": self._password_hash,
-            "jwt_secret": self._jwt_secret,
-        }))
-        with contextlib.suppress(OSError):
-            self._creds_file.chmod(0o600)
+        stored_encrypted = self._store_to_secrets_manager()
+        if not stored_encrypted:
+            self._creds_file.write_text(json.dumps({
+                "password_hash": self._password_hash,
+                "jwt_secret": self._jwt_secret,
+            }))
+            with contextlib.suppress(OSError):
+                self._creds_file.chmod(0o600)
 
         logger.info("Password changed for user %s", username)
         return True

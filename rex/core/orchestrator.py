@@ -291,10 +291,7 @@ class ServiceOrchestrator:
         if svc and self._status.get(name) == "running":
             with contextlib.suppress(Exception):
                 await svc.stop()
-        success = await self._start_service(name)
-        if success:
-            # Reset restart count on successful restart
-            self._restart_counts[name] = 0
+        await self._start_service(name)
 
     @property
     def health_aggregator(self) -> HealthAggregator:

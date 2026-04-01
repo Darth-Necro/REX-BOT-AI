@@ -131,7 +131,10 @@ async def test_handle_client_no_token_closes(ws_manager) -> None:
 @pytest.mark.asyncio
 async def test_handle_client_invalid_token_closes(ws_manager) -> None:
     """handle_client closes with 4003 if the token is invalid."""
-    ws = _make_mock_ws(query_params={"token": "bad.token.here"})
+    ws = _make_mock_ws()
+    ws.receive_text = AsyncMock(
+        return_value=json.dumps({"type": "auth", "token": "bad.token.here"})
+    )
     mock_auth = MagicMock()
     mock_auth.verify_token.return_value = None
 
@@ -144,7 +147,7 @@ async def test_handle_client_invalid_token_closes(ws_manager) -> None:
 @pytest.mark.asyncio
 async def test_handle_client_auth_unavailable_closes(ws_manager) -> None:
     """handle_client closes with 4003 if auth service is not available."""
-    ws = _make_mock_ws(query_params={"token": "some-token"})
+    ws = _make_mock_ws()
 
     with patch("rex.dashboard.deps.get_auth", side_effect=RuntimeError("not init")):
         await ws_manager.handle_client(ws)
@@ -157,13 +160,14 @@ async def test_handle_client_valid_token_accepts_and_loops(ws_manager) -> None:
     """handle_client accepts connection with valid token, then processes messages."""
     from fastapi import WebSocketDisconnect
 
-    ws = _make_mock_ws(query_params={"token": "valid-token"})
+    ws = _make_mock_ws()
     mock_auth = MagicMock()
     mock_auth.verify_token.return_value = {"sub": "admin"}
 
-    # Simulate one ping then disconnect
+    # First message is auth, then ping, then disconnect
     ws.receive_text = AsyncMock(
         side_effect=[
+            json.dumps({"type": "auth", "token": "valid-token"}),
             json.dumps({"type": "ping"}),
             WebSocketDisconnect(code=1000),
         ]
@@ -182,12 +186,13 @@ async def test_handle_client_subscribe_message(ws_manager) -> None:
     """handle_client processes subscribe messages."""
     from fastapi import WebSocketDisconnect
 
-    ws = _make_mock_ws(query_params={"token": "valid-token"})
+    ws = _make_mock_ws()
     mock_auth = MagicMock()
     mock_auth.verify_token.return_value = {"sub": "admin"}
 
     ws.receive_text = AsyncMock(
         side_effect=[
+            json.dumps({"type": "auth", "token": "valid-token"}),
             json.dumps({"type": "subscribe", "channels": ["log.entry"]}),
             WebSocketDisconnect(code=1000),
         ]
@@ -196,8 +201,6 @@ async def test_handle_client_subscribe_message(ws_manager) -> None:
     with patch("rex.dashboard.deps.get_auth", return_value=mock_auth):
         await ws_manager.handle_client(ws)
 
-    # log.entry should now be in the subscriptions
-    # (connection was removed on disconnect, so we verify it was accepted)
     ws.accept.assert_awaited_once()
 
 
@@ -206,12 +209,13 @@ async def test_handle_client_invalid_json_sends_error(ws_manager) -> None:
     """handle_client sends error on invalid JSON."""
     from fastapi import WebSocketDisconnect
 
-    ws = _make_mock_ws(query_params={"token": "valid-token"})
+    ws = _make_mock_ws()
     mock_auth = MagicMock()
     mock_auth.verify_token.return_value = {"sub": "admin"}
 
     ws.receive_text = AsyncMock(
         side_effect=[
+            json.dumps({"type": "auth", "token": "valid-token"}),
             "not valid json {{{",
             WebSocketDisconnect(code=1000),
         ]

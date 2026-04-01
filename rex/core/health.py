@@ -28,10 +28,11 @@ class HealthAggregator:
         to avoid false negatives during startup.
         """
         critical = {ServiceName.EYES, ServiceName.BRAIN, ServiceName.TEETH, ServiceName.MEMORY}
-        reported = [svc for svc in critical if svc in self._health]
-        if not reported:
-            return True  # No critical services have reported yet
-        for svc in reported:
+        # Fail closed: ALL critical services must have reported healthy.
+        # If any critical service has not reported at all, the system is not healthy.
+        for svc in critical:
+            if svc not in self._health:
+                return False
             if not self._health[svc].get("healthy", False):
                 return False
         return True

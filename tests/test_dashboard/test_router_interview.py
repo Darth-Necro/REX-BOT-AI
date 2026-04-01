@@ -165,9 +165,21 @@ class TestGetQuestion:
 class TestSubmitAnswer:
     """Tests for POST /api/interview/answer."""
 
-    def test_submit_answer_returns_stub(self) -> None:
-        """Returns stub response with accepted=False."""
+    def test_submit_answer_requires_auth(self) -> None:
+        """Answer endpoint requires authentication (state-changing)."""
         app = _make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/api/interview/answer",
+            json={"question_id": "q1", "answer": "yes"},
+        )
+        assert response.status_code == 401
+
+    def test_submit_answer_returns_stub(self) -> None:
+        """Authenticated answer returns stub response with accepted=False."""
+        app = _make_app()
+        app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.post(
@@ -183,6 +195,7 @@ class TestSubmitAnswer:
     def test_submit_answer_missing_fields_returns_422(self) -> None:
         """Missing required fields returns 422."""
         app = _make_app()
+        app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.post("/api/interview/answer", json={})

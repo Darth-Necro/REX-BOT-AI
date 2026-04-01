@@ -167,12 +167,13 @@ class TestHandleSubscribeMessage:
         """handle_client processes a subscribe JSON message."""
         from fastapi import WebSocketDisconnect
 
-        ws = _mock_ws(query_params={"token": "tok"})
+        ws = _mock_ws()
         mock_auth = MagicMock()
         mock_auth.verify_token.return_value = {"sub": "admin"}
 
         ws.receive_text = AsyncMock(
             side_effect=[
+                json.dumps({"type": "auth", "token": "tok"}),
                 json.dumps({"type": "subscribe", "channels": ["log.entry"]}),
                 WebSocketDisconnect(code=1000),
             ]
@@ -215,12 +216,13 @@ class TestHandleUnsubscribeMessage:
         """handle_client processes an unsubscribe JSON message."""
         from fastapi import WebSocketDisconnect
 
-        ws = _mock_ws(query_params={"token": "tok"})
+        ws = _mock_ws()
         mock_auth = MagicMock()
         mock_auth.verify_token.return_value = {"sub": "admin"}
 
         ws.receive_text = AsyncMock(
             side_effect=[
+                json.dumps({"type": "auth", "token": "tok"}),
                 json.dumps({"type": "unsubscribe", "channels": ["status.update"]}),
                 WebSocketDisconnect(code=1000),
             ]
@@ -255,14 +257,14 @@ class TestDisconnectAndSendPersonal:
         await mgr.connect(ws)
         assert mgr.active_count == 1
 
-        mgr.disconnect(ws)
+        await mgr.disconnect(ws)
         assert mgr.active_count == 0
 
     @pytest.mark.asyncio
     async def test_disconnect_unknown_ws_noop(self, mgr) -> None:
         """disconnect() does not raise for unknown websockets."""
         ws = _mock_ws()
-        mgr.disconnect(ws)
+        await mgr.disconnect(ws)
         assert mgr.active_count == 0
 
     @pytest.mark.asyncio

@@ -46,6 +46,11 @@ class TestHealthAggregator:
             ha.update(svc, {"healthy": True})
         assert ha.is_system_healthy() is True
 
+    def test_is_system_healthy_no_reports(self) -> None:
+        """is_system_healthy should return False when no critical services have reported."""
+        ha = HealthAggregator()
+        assert ha.is_system_healthy() is False
+
     def test_is_system_healthy_missing_critical_service(self) -> None:
         """is_system_healthy should return False when a critical service is missing."""
         ha = HealthAggregator()

@@ -49,7 +49,7 @@ async def test_active_count_after_disconnect(ws_manager):
     """active_count decreases after disconnecting a client."""
     ws = _make_mock_ws()
     await ws_manager.connect(ws)
-    ws_manager.disconnect(ws)
+    await ws_manager.disconnect(ws)
     assert ws_manager.active_count == 0
 
 
@@ -125,7 +125,7 @@ async def test_connect_assigns_default_channels(ws_manager):
 async def test_disconnect_unknown_ws_is_safe(ws_manager):
     """Disconnecting a websocket that is not tracked does nothing."""
     ws = _make_mock_ws()
-    ws_manager.disconnect(ws)  # should not raise
+    await ws_manager.disconnect(ws)  # should not raise
     assert ws_manager.active_count == 0
 
 

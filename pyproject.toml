@@ -22,7 +22,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Security",
     "Topic :: System :: Networking :: Monitoring",
     "Typing :: Typed",
@@ -36,7 +35,7 @@ dependencies = [
     "redis>=5.2.0,<6.0",
     "httpx>=0.28.0,<1.0",
     "scapy>=2.6.0,<3.0",
-    "python-nmap>=0.7.1,<1.0",
+    "python-nmap>=0.7.1,<1.0;python_version<'3.13'",
     "ollama>=0.4.0,<1.0",
     "chromadb-client>=0.6.0,<1.0",
     "gitpython>=3.1.43,<4.0",
@@ -76,6 +75,7 @@ include = ["rex*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra -q --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

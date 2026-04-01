@@ -304,7 +304,7 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 ### Authorization Model
 
-REX uses a single admin user model. All authenticated API endpoints require a valid JWT token passed in the `Authorization: Bearer <token>` header. The Interview endpoints (`/api/interview/status`, `/api/interview/question`, `/api/interview/answer`) do not require authentication because they are used during initial onboarding before credentials are set up.
+REX uses a single admin user model. All authenticated API endpoints require a valid JWT token passed in the `Authorization: Bearer <token>` header. The read-only interview endpoints (`/api/interview/status`, `/api/interview/question`) do not require authentication because they are used during initial onboarding and expose no sensitive state. State-changing interview endpoints (`/api/interview/answer`, `/api/interview/chat`, `/api/interview/restart`) require authentication.
 
 ---
 

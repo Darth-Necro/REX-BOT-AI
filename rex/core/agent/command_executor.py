@@ -830,7 +830,11 @@ class CommandExecutor:
                     proc.communicate(), timeout=timeout_seconds
                 )
             except TimeoutError:
-                proc.kill()
+                # proc.kill() is synchronous for real processes but may
+                # return a coroutine under async mocks — handle both.
+                kill_result = proc.kill()
+                if kill_result is not None and hasattr(kill_result, '__await__'):
+                    await kill_result
                 await proc.wait()
                 elapsed = time.monotonic() - start
                 return CommandResult(

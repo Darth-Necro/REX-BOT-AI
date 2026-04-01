@@ -47,13 +47,24 @@ export function connect(token, url) {
   reconnectDelay = BASE_DELAY;
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = url || `${protocol}//${window.location.host}/ws${token ? `?token=${token}` : ''}`;
+  // Connect WITHOUT token in URL to avoid leaking JWT in server/proxy logs.
+  // Auth is sent as the first message after the connection opens.
+  const wsUrl = url || `${protocol}//${window.location.host}/ws`;
 
   emit('__state', WS_STATES.CONNECTING);
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
     reconnectDelay = BASE_DELAY;
+
+    // Send auth as first message (preferred method — no JWT in URL)
+    const authToken = token
+      || useAuthStore.getState().token
+      || useSystemStore.getState().token;
+    if (authToken) {
+      ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+    }
+
     emit('__state', WS_STATES.OPEN);
     emit('__open');
 

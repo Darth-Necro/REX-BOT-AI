@@ -14,14 +14,17 @@ from datetime import UTC
 
 import typer
 
-# Suppress InsecureRequestWarning for self-signed TLS certs used by the dashboard.
-try:
-    import urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-except ImportError:
-    pass
-# httpx equivalent
-warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+# NOTE: TLS verification is enabled by default. For local development with
+# self-signed certs, set REX_DEV_INSECURE=1 in the environment.
+import os as _os
+_DEV_INSECURE = _os.environ.get("REX_DEV_INSECURE", "").strip() in ("1", "true", "yes")
+if _DEV_INSECURE:
+    try:
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    except ImportError:
+        pass
+    warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 from rex.shared.constants import VERSION
 
@@ -70,10 +73,7 @@ def start(
     from rex.dashboard.auth import AuthManager
     auth_mgr = AuthManager(data_dir=config.data_dir)
 
-    async def _init_and_show_password() -> str | None:
-        return await auth_mgr.initialize()
-
-    initial_pw = asyncio.run(_init_and_show_password())
+    initial_pw = asyncio.run(auth_mgr.initialize())
     if initial_pw:
         typer.echo("  " + "=" * 46)
         typer.echo(f"  ADMIN PASSWORD: {initial_pw}")
@@ -116,7 +116,7 @@ def status() -> None:
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("")
     try:
-        resp = httpx.get("https://localhost:8443/api/status", timeout=5, verify=False)
+        resp = httpx.get("https://localhost:8443/api/status", timeout=5, verify=not _DEV_INSECURE)
         data = resp.json()
         typer.echo(f"  Status:     {data.get('status', 'unknown')}")
         typer.echo(f"  Devices:    {data.get('device_count', 0)}")
@@ -157,8 +157,8 @@ def scan(
         body: dict[str, str] = {"scan_type": scan_type}
         if target:
             body["target"] = target
-        resp = httpx.post("http://localhost:8443/api/devices/scan", timeout=10,
-                          json=body,
+        resp = httpx.post("https://localhost:8443/api/devices/scan", timeout=10,
+                          json=body, verify=not _DEV_INSECURE,
                           headers={"Authorization": f"Bearer {_get_token()}"})
         typer.echo(f"  {resp.json().get('status', 'unknown')}")
     except Exception:
@@ -170,7 +170,8 @@ def sleep() -> None:
     """Put REX into ALERT_SLEEP mode (lightweight watchdog only)."""
     try:
         import httpx
-        httpx.post("http://localhost:8443/api/schedule/sleep", timeout=5,
+        httpx.post("https://localhost:8443/api/schedule/sleep", timeout=5,
+                    verify=not _DEV_INSECURE,
                     headers={"Authorization": f"Bearer {_get_token()}"})
         typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
     except Exception:
@@ -182,7 +183,8 @@ def wake() -> None:
     """Wake REX to full AWAKE mode."""
     try:
         import httpx
-        httpx.post("http://localhost:8443/api/schedule/wake", timeout=5,
+        httpx.post("https://localhost:8443/api/schedule/wake", timeout=5,
+                    verify=not _DEV_INSECURE,
                     headers={"Authorization": f"Bearer {_get_token()}"})
         typer.echo("REX is awake. Full monitoring and protection active.")
     except Exception:

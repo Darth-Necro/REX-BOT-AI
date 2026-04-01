@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import time
 from typing import Any
@@ -13,6 +14,8 @@ from fastapi import APIRouter, Depends, Header
 from rex.dashboard.deps import get_current_user
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -26,7 +29,7 @@ async def _get_device_count() -> int:
         try:
             return await device_store.count()
         except Exception:
-            pass
+            logger.debug("Failed to get device count", exc_info=True)
     return 0
 
 
@@ -40,7 +43,7 @@ async def _get_active_threats() -> int:
             threats = await threat_log.get_recent(limit=100)
             return len([t for t in threats if not t.get("resolved", False)])
         except Exception:
-            pass
+            logger.debug("Failed to get active threats", exc_info=True)
     return 0
 
 
@@ -57,7 +60,7 @@ async def _get_threats_blocked_24h() -> int:
                 if t.get("action") and t["action"] != "pending"
             ])
         except Exception:
-            pass
+            logger.debug("Failed to get threats blocked 24h", exc_info=True)
     return 0
 
 
@@ -84,7 +87,7 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
         finally:
             r.close()
     except Exception:
-        pass
+        logger.debug("Redis health check failed", exc_info=True)
 
     # Check Ollama
     ollama_ok = False
@@ -94,7 +97,7 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
         resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
         ollama_ok = resp.status_code == 200
     except Exception:
-        pass
+        logger.debug("Ollama health check failed", exc_info=True)
 
     # Check disk space
     disk_ok = True
@@ -141,17 +144,13 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
             if auth.verify_token(authorization[7:]):
                 authed = True
         except Exception:
-            pass
+            logger.debug("Auth check failed in health endpoint", exc_info=True)
 
     if not authed:
         return result
 
     # Uptime
-    uptime_seconds = 0
-    try:
-        uptime_seconds = int(time.monotonic())
-    except Exception:
-        pass
+    uptime_seconds = int(time.monotonic())
 
     # LLM status
     llm_status = "ready" if ollama_ok else "offline"

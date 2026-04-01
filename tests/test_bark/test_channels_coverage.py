@@ -49,7 +49,9 @@ class TestMatrixChannelSend:
         call_args = mock_urlopen.call_args
         req = call_args[0][0]
         assert "/_matrix/client/r0/rooms/" in req.full_url
-        assert "access_token=syt_test_token" in req.full_url
+        # Auth uses secure Authorization header, NOT query-string access_token
+        assert req.get_header("Authorization") == "Bearer syt_test_token"
+        assert "access_token=" not in req.full_url
 
         body = json.loads(req.data.decode())
         assert body["msgtype"] == "m.text"

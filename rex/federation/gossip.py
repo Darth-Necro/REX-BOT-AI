@@ -92,7 +92,10 @@ class GossipProtocol:
         msg_id = message.get("id", "")
         if msg_id in self._seen_messages:
             return  # Dedup
-        self._seen_messages.add(msg_id)
+        self._seen_messages[msg_id] = None
+        # Trim to prevent unbounded growth — evict oldest entries first
+        while len(self._seen_messages) > 50000:
+            self._seen_messages.popitem(last=False)
         try:
             self._message_queue.put_nowait(message)
         except asyncio.QueueFull:

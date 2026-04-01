@@ -139,7 +139,7 @@ class BaseService(ABC):
             A snapshot including uptime, bus connectivity, and any
             degraded status.
         """
-        uptime = time.monotonic() - self._start_time if self._start_time else 0.0
+        uptime = max(0.0, time.monotonic() - self._start_time) if self._start_time else 0.0
         bus_ok = await self.bus.health_check()
 
         degraded = not bus_ok

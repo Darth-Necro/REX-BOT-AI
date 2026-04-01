@@ -56,7 +56,7 @@ class ScopeEnforcer:
         "credential", "exfiltration", "c2", "backdoor", "rootkit",
         "keylogger", "adware", "spyware", "worm", "zero-day", "zeroday",
         # Security operations
-        "cve", "cvss", "ioc", "indicator", "signature", "hash",
+        "cve", "cvss", "ioc", "indicator", "signature", "hash", "reputation",
         "encryption", "certificate", "tls", "ssl", "auth", "2fa",
         "mfa", "token", "session", "permission", "privilege", "audit",
         "compliance", "policy", "rule", "acl", "log", "siem", "ids",
@@ -139,20 +139,14 @@ class ScopeEnforcer:
         if text.startswith(("!", "/")):
             return True, ""
 
-        # Very short messages (fewer than 3 words) are likely greetings
-        # or simple queries -- let them through to the LLM.
         word_count = len(text.split())
-        if word_count < 3:
-            return True, ""
-
         text_lower = text.lower()
 
-        has_security = self._has_security_keyword(text_lower)
-
-        # Check for out-of-scope patterns.  These are strong negative signals
-        # that override keyword matches -- a message containing BOTH a
-        # security keyword AND an out-of-scope pattern is still rejected
-        # (prevents disguised-request bypass: VULN-001/002/003).
+        # Check for out-of-scope patterns FIRST.  These are strong negative
+        # signals that override keyword matches and word-count leniency --
+        # a message containing BOTH a security keyword AND an out-of-scope
+        # pattern is still rejected (prevents disguised-request bypass and
+        # short-message bypass: VULN-001/002/003/004).
         for pattern in self.OUT_OF_SCOPE_PATTERNS:
             if pattern.search(text_lower):
                 logger.info(
@@ -161,15 +155,23 @@ class ScopeEnforcer:
                 )
                 return False, self._REJECTION_TEMPLATE
 
+        # Very short messages (1 word) are likely greetings -- let them
+        # through unless they matched an out-of-scope pattern above.
+        if word_count < 2:
+            return True, ""
+
+        has_security = self._has_security_keyword(text_lower)
+
         # If the message has security keywords (and no out-of-scope patterns
         # matched above), it's in scope.
         if has_security:
             return True, ""
 
         # Messages with no security keywords and no out-of-scope patterns
-        # are ambiguous. For longer messages (5+ words), reject them.
-        # Short ambiguous messages get a pass (could be "how are you" etc.).
-        if word_count >= 5:
+        # are ambiguous.  Reject messages of 3+ words that lack security
+        # context (VULN-005 fix).  Two-word messages are borderline -- let
+        # them through only if they could be greetings/simple queries.
+        if word_count >= 3:
             logger.info(
                 "Out-of-scope request rejected (no security keywords): %s",
                 text[:100],
