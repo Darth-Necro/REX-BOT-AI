@@ -75,6 +75,7 @@ class ServiceOrchestrator:
         self._bus = EventBus(
             redis_url=self._config.redis_url,
             service_name=ServiceName.CORE,
+            data_dir=self._config.data_dir,
         )
 
         # Import and create all services
@@ -117,6 +118,7 @@ class ServiceOrchestrator:
                 svc_bus = EventBus(
                     redis_url=config.redis_url,
                     service_name=svc_name,
+                    data_dir=config.data_dir,
                 )
                 instance = cls(config=config, bus=svc_bus)
                 self.register(instance)

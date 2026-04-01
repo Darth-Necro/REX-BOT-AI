@@ -110,7 +110,9 @@ async def set_mode(
 ) -> dict[str, Any]:
     """Switch between basic and advanced mode.
 
-    This is a runtime control, not just a frontend toggle.
+    This is a runtime control, not just a frontend toggle.  The new mode is
+    persisted to ``user_settings.json`` so it survives restarts, and a
+    ``mode_change`` event is published so other services can react.
     """
     from rex.shared.enums import OperatingMode
 
@@ -121,7 +123,29 @@ async def set_mode(
     from rex.shared.config import get_config as _get_config
 
     config = _get_config()
+    old_mode = config.mode.value
     config.mode = OperatingMode(mode)
+
+    # Persist so the mode survives restarts
+    user_settings = _load_user_settings()
+    user_settings["mode"] = mode
+    _save_user_settings(user_settings)
+
+    # Publish event so other services can react
+    try:
+        from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
+
+        bus = await get_bus()
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="mode_change",
+            payload={"old_mode": old_mode, "new_mode": mode},
+        )
+        await bus.publish("rex:core:commands", event)
+    except Exception:
+        logger.warning("Could not publish mode_change event (bus unavailable)")
 
     return {"status": "updated", "mode": config.mode.value}
 

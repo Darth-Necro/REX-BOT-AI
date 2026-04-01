@@ -186,6 +186,7 @@ class TestInitialize:
         mock_bus_cls.assert_called_once_with(
             redis_url=mock_config.redis_url,
             service_name=ServiceName.CORE,
+            data_dir=mock_config.data_dir,
         )
         mock_create.assert_called_once()
 

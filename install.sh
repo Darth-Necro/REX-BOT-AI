@@ -198,7 +198,7 @@ install_rex() {
     mkdir -p "${REX_DATA_DIR}/certs"
     openssl req -x509 -newkey rsa:2048 -keyout "${REX_DATA_DIR}/certs/key.pem" \
         -out "${REX_DATA_DIR}/certs/cert.pem" -days 365 -nodes \
-        -subj "/CN=rex.local/O=REX-BOT-AI" 2>/dev/null
+        -subj "/CN=rex.local/O=REX-BOT-AI" || warn "TLS certificate generation failed — HTTPS will not work"
 
     # Clone the full repo -- Docker needs the complete build context
     # (Dockerfile, rex/, requirements.txt, pyproject.toml, frontend/).
@@ -232,7 +232,11 @@ ENVEOF
     # Set permissions
     chown -R "${REX_USER}:${REX_USER}" "${REX_DATA_DIR}" "${REX_LOG_DIR}"
     chmod 700 "${REX_DATA_DIR}"
-    chmod 600 "${REX_DATA_DIR}/certs"/*.pem
+    if compgen -G "${REX_DATA_DIR}/certs/*.pem" > /dev/null; then
+        chmod 600 "${REX_DATA_DIR}/certs"/*.pem
+    else
+        warn "No .pem files found in ${REX_DATA_DIR}/certs — skipping chmod"
+    fi
 
     # Pull and start services
     info "Starting REX services..."
