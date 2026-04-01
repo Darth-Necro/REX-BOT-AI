@@ -1,91 +1,65 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import useSystemStore from './stores/useSystemStore';
-import { connect, on, off, disconnect } from './ws/socket';
-import api from './api/client';
-import BasicView from './views/BasicView';
-import AdvancedView from './views/AdvancedView';
+import useBootstrap from './hooks/useBootstrap';
+import AppShell from './layouts/AppShell';
+import AdvancedOverviewPage from './pages/overview/AdvancedOverviewPage';
 import LoginView from './views/LoginView';
 
-function ModeToggle() {
-  const { mode, toggleMode } = useSystemStore();
-  const handleToggle = async () => {
-    const newMode = mode === 'basic' ? 'advanced' : 'basic';
-    try {
-      await api.put('/config/mode', { mode: newMode });
-    } catch { /* Backend may not be reachable; toggle locally anyway */ }
-    toggleMode();
+/* ------------------------------------------------------------------ */
+/*  Legacy views (keep imports alive for sub-routes)                  */
+/* ------------------------------------------------------------------ */
+import AdvancedView from './views/AdvancedView';
+
+/* ------------------------------------------------------------------ */
+/*  Page ID <-> route mapping                                         */
+/* ------------------------------------------------------------------ */
+
+const PAGE_ROUTES = {
+  overview: '/',
+  threats: '/threats',
+  devices: '/devices',
+  chat: '/chat',
+};
+
+/* ------------------------------------------------------------------ */
+/*  Inner shell that owns routing (needs to be inside BrowserRouter)  */
+/* ------------------------------------------------------------------ */
+
+function ShellWithRoutes() {
+  const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState('overview');
+
+  const handleNavigate = (id) => {
+    setCurrentPage(id);
+    const route = PAGE_ROUTES[id];
+    if (route) navigate(route);
   };
+
   return (
-    <button
-      onClick={handleToggle}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-rex-card hover:border-rex-accent transition-colors text-sm"
-      aria-label={`Switch to ${mode === 'basic' ? 'Advanced' : 'Basic'} mode`}
-    >
-      <span className={mode === 'basic' ? 'text-rex-accent font-semibold' : 'text-rex-muted'}>Basic</span>
-      <span className="text-rex-muted">|</span>
-      <span className={mode === 'advanced' ? 'text-rex-accent font-semibold' : 'text-rex-muted'}>Advanced</span>
-    </button>
+    <AppShell currentPage={currentPage} onNavigate={handleNavigate}>
+      <Routes>
+        <Route path="/" element={<AdvancedOverviewPage />} />
+        {/* Legacy routes still work */}
+        <Route path="/threats" element={<AdvancedView />} />
+        <Route path="/devices" element={<AdvancedView />} />
+        <Route path="/chat" element={<AdvancedView />} />
+        {/* Catch-all falls back to overview */}
+        <Route path="*" element={<AdvancedOverviewPage />} />
+      </Routes>
+    </AppShell>
   );
 }
 
-function TopBar() {
-  const { connected, powerState, logout } = useSystemStore();
-  return (
-    <header className="h-16 bg-rex-surface border-b border-rex-card flex items-center justify-between px-4">
-      <div className="flex items-center gap-3">
-        <span className="font-bold text-lg text-rex-accent">REX</span>
-        <span className={`w-2 h-2 rounded-full ${connected ? 'bg-rex-safe' : 'bg-rex-threat'}`}
-              title={connected ? 'Connected' : 'Disconnected'} />
-        <span className="text-xs text-rex-muted capitalize">{powerState}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <ModeToggle />
-        <button
-          onClick={logout}
-          className="px-3 py-1.5 rounded-lg border border-rex-card hover:border-rex-threat text-rex-muted hover:text-rex-threat transition-colors text-sm"
-          title="Log out"
-        >
-          Logout
-        </button>
-      </div>
-    </header>
-  );
-}
+/* ------------------------------------------------------------------ */
+/*  Root App                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function App() {
-  const { mode, token, setConnected, updateFromStatus } = useSystemStore();
+  const token = useSystemStore((s) => s.token);
 
-  useEffect(() => {
-    if (!token) return;
-
-    // Fetch real state from API on mount — do NOT rely solely on WebSocket
-    api.get('/status').then((res) => {
-      updateFromStatus(res.data);
-      setConnected(true);
-    }).catch(() => {
-      // Backend unreachable — state stays "unknown" (honest default)
-      setConnected(false);
-    });
-
-    // WebSocket for real-time updates
-    connect();
-    on('__open', () => setConnected(true));
-    on('__close', () => setConnected(false));
-    on('status.update', (data) => updateFromStatus(data.payload || data));
-    on('threat.new', (data) => {
-      import('./stores/useThreatStore').then(({ default: store }) => {
-        store.getState().addThreat(data.payload || data);
-      });
-    });
-    return () => {
-      off('__open');
-      off('__close');
-      off('status.update');
-      off('threat.new');
-      disconnect();
-    };
-  }, [token]);
+  // Bootstrap fires hydration + WebSocket setup when token is present
+  useBootstrap();
 
   if (!token) {
     return <LoginView />;
@@ -93,17 +67,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-rex-bg">
-        <TopBar />
-        <main>
-          <Routes>
-            <Route path="/*" element={mode === 'basic' ? <BasicView /> : <AdvancedView />} />
-          </Routes>
-        </main>
-        <footer className="text-center text-xs text-rex-muted py-4 border-t border-rex-card">
-          Network monitoring active | REX-BOT-AI v0.1.0-alpha | MIT License
-        </footer>
-      </div>
+      <ShellWithRoutes />
     </BrowserRouter>
   );
 }
