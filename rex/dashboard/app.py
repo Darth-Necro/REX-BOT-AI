@@ -18,15 +18,18 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 from rex.dashboard import deps
 from rex.dashboard.routers import (
+    agent,
     auth,
     config,
     devices,
+    federation,
     firewall,
     health,
     interview,
     knowledge_base,
     notifications,
     plugins,
+    privacy,
     schedule,
     threats,
 )
@@ -106,6 +109,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning("  Write this down. It will not be shown again.")
         logger.warning("=" * 50)
 
+        # Write password to a one-time-read file for the frontend first-boot flow
+        first_boot_file = config.data_dir / ".first-boot-password"
+        try:
+            config.data_dir.mkdir(parents=True, exist_ok=True)
+            first_boot_file.write_text(initial_password, encoding="utf-8")
+            first_boot_file.chmod(0o600)
+        except OSError:
+            logger.warning("Could not write first-boot password file")
+
     deps.set_auth_manager(auth_mgr)
     deps.set_ws_manager(_ws_manager)
 
@@ -180,6 +192,9 @@ def create_app() -> FastAPI:
     app.include_router(firewall.router)
     app.include_router(notifications.router)
     app.include_router(schedule.router)
+    app.include_router(privacy.router)
+    app.include_router(agent.router)
+    app.include_router(federation.router)
 
     # Static frontend files (served if the build exists)
     import os
@@ -194,16 +209,5 @@ def create_app() -> FastAPI:
     async def websocket_endpoint(websocket: WebSocket) -> None:
         """Real-time event stream for dashboard clients."""
         await _ws_manager.handle_client(websocket)
-
-    # Privacy audit endpoint (no auth, limited info)
-    @app.get("/api/privacy/status")
-    async def privacy_status() -> dict:
-        """Public privacy status endpoint."""
-        return {
-            "data_local_only": True,
-            "external_connections": 0,
-            "encryption_at_rest": True,
-            "telemetry_enabled": False,
-        }
 
     return app

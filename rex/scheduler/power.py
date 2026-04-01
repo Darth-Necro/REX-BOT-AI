@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.constants import STREAM_CORE_COMMANDS
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
     from rex.shared.bus import EventBus
 
 logger = logging.getLogger(__name__)
+
+PowerTransitionCallback = Callable[[PowerState, PowerState], Coroutine[Any, Any, None]]
 
 _VALID_TRANSITIONS = {
     PowerState.AWAKE: {PowerState.ALERT_SLEEP, PowerState.DEEP_SLEEP, PowerState.OFF},
@@ -41,6 +44,11 @@ class PowerManager:
         self._scheduled_sleep: datetime | None = None
         self._idle_since: float = time.monotonic()
         self._eco_threshold_minutes = 60
+        self._on_transition: PowerTransitionCallback | None = None
+
+    def set_on_transition(self, callback: PowerTransitionCallback) -> None:
+        """Register a callback invoked on every power state transition."""
+        self._on_transition = callback
 
     async def transition(self, target_state: PowerState) -> None:
         """Transition to a new power state. Validates transition is legal."""
@@ -71,6 +79,12 @@ class PowerManager:
             await self._bus.publish(STREAM_CORE_COMMANDS, event)
         except Exception:
             logger.exception("Failed to publish power state change")
+
+        if self._on_transition is not None:
+            try:
+                await self._on_transition(old, target_state)
+            except Exception:
+                logger.exception("Power transition callback error")
 
     def get_state(self) -> PowerState:
         """Return the current power state."""

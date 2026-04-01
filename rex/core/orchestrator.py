@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from rex.shared.bus import EventBus
 from rex.shared.config import RexConfig, get_config
-from rex.shared.enums import ServiceName
+from rex.shared.enums import PowerState, ServiceName
 
 if TYPE_CHECKING:
     from rex.shared.service import BaseService
@@ -132,6 +132,12 @@ class ServiceOrchestrator:
         for name in _START_ORDER:
             if name in self._services:
                 await self._start_service(name)
+
+        # Register power transition callback with the SchedulerService
+        scheduler = self._services.get(ServiceName.SCHEDULER)
+        if scheduler and hasattr(scheduler, "_power"):
+            scheduler._power.set_on_transition(self._handle_power_transition)
+            logger.info("Power transition callback registered")
 
         running = sum(1 for s in self._status.values() if s == "running")
         failed = sum(1 for s in self._status.values() if s == "failed")
@@ -275,3 +281,38 @@ class ServiceOrchestrator:
     def get_service(self, name: ServiceName) -> BaseService | None:
         """Get a service instance by name."""
         return self._services.get(name)
+
+    async def _handle_power_transition(
+        self, old_state: PowerState, new_state: PowerState
+    ) -> None:
+        """Respond to power state changes from the SchedulerService.
+
+        On ALERT_SLEEP: notify Eyes to reduce scan frequency, pause Federation.
+        On AWAKE: restore normal operation.
+        """
+        logger.info("Orchestrator handling power transition: %s -> %s", old_state, new_state)
+
+        if self._bus is None:
+            return
+
+        if new_state == PowerState.ALERT_SLEEP:
+            # Pause non-essential services
+            for name in (ServiceName.FEDERATION, ServiceName.STORE):
+                svc = self._services.get(name)
+                if svc and self._status.get(name) == "running":
+                    try:
+                        await svc.stop()
+                        self._status[name] = "paused"
+                        logger.info("Paused %s for ALERT_SLEEP", name.value)
+                    except Exception:
+                        logger.warning("Failed to pause %s", name.value)
+
+        elif new_state == PowerState.AWAKE and old_state in (
+            PowerState.ALERT_SLEEP,
+            PowerState.DEEP_SLEEP,
+        ):
+            # Resume paused services
+            for name in (ServiceName.FEDERATION, ServiceName.STORE):
+                if self._status.get(name) == "paused":
+                    await self._start_service(name)
+                    logger.info("Resumed %s after wake", name.value)

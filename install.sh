@@ -12,14 +12,14 @@ cat << 'BANNER'
  ( o.o )  REX-BOT-AI Installer
   > ^ <   Autonomous Security Agent
  /|   |\
-(_|   |_) v1.0.0
+(_|   |_) v0.1.0-alpha
 
 BANNER
 
 # ============================================================
 # Configuration
 # ============================================================
-REX_VERSION="1.0.0"
+REX_VERSION="0.1.0-alpha"
 REX_INSTALL_DIR="/opt/rex-bot-ai"
 REX_DATA_DIR="/etc/rex-bot-ai"
 REX_LOG_DIR="/var/log/rex-bot-ai"
@@ -215,14 +215,16 @@ install_rex() {
         fi
     fi
 
-    # Write .env — REX_ADMIN_PASSWORD is picked up by the auth system on first boot
+    # Write .env -- only runtime settings, NOT paths.
+    # Paths are handled by Docker volumes (rex-data -> /etc/rex-bot-ai).
+    REDIS_PASS=$(openssl rand -hex 16)
     cat > "${REX_INSTALL_DIR}/.env" << ENVEOF
 REX_MODE=basic
 REX_LOG_LEVEL=info
 REX_DASHBOARD_PORT=${REX_PORT}
 REX_NETWORK_INTERFACE=auto
 REX_SCAN_INTERVAL=300
-REDIS_PASSWORD=$(openssl rand -hex 16)
+REDIS_PASSWORD=${REDIS_PASS}
 REX_FEDERATION_ENABLED=false
 REX_ADMIN_PASSWORD=${ADMIN_PASSWORD}
 ENVEOF
