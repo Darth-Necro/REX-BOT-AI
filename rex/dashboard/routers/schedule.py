@@ -100,8 +100,8 @@ async def trigger_sleep(user: dict = Depends(get_current_user)) -> dict[str, Any
         bus = await get_bus()
         event = RexEvent(
             source=ServiceName.DASHBOARD,
-            event_type="command",
-            payload={"command": "set_power_state", "state": "alert_sleep"},
+            event_type="schedule_sleep",
+            payload={"state": "alert_sleep"},
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "sleep_requested", "delivered": True, "mode": "alert_sleep"}
@@ -124,8 +124,8 @@ async def trigger_wake(user: dict = Depends(get_current_user)) -> dict[str, Any]
         bus = await get_bus()
         event = RexEvent(
             source=ServiceName.DASHBOARD,
-            event_type="command",
-            payload={"command": "set_power_state", "state": "awake"},
+            event_type="schedule_wake",
+            payload={"state": "awake"},
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "wake_requested", "delivered": True, "mode": "awake"}

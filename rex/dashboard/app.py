@@ -108,12 +108,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     deps.set_auth_manager(auth_mgr)
     deps.set_ws_manager(_ws_manager)
 
+    # Restore persisted mode (survives restarts)
+    try:
+        from rex.dashboard.routers.config import _load_user_settings
+        from rex.shared.enums import OperatingMode
+
+        saved = _load_user_settings()
+        if "mode" in saved:
+            config.mode = OperatingMode(saved["mode"])
+            logger.info("Restored persisted mode: %s", config.mode.value)
+    except Exception:
+        logger.debug("Could not restore persisted mode, using default")
+
     # Try to connect event bus (non-fatal if Redis unavailable)
     try:
         from rex.shared.bus import EventBus
         from rex.shared.enums import ServiceName
 
-        bus = EventBus(redis_url=config.redis_url, service_name=ServiceName.DASHBOARD)
+        bus = EventBus(
+            redis_url=config.redis_url,
+            service_name=ServiceName.DASHBOARD,
+            data_dir=config.data_dir,
+        )
         await bus.connect()
         deps.set_bus(bus)
         logger.info("Event bus connected")

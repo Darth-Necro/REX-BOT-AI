@@ -114,8 +114,8 @@ async def trigger_scan(user: dict = Depends(get_current_user)) -> dict[str, Any]
         bus = await get_bus()
         event = RexEvent(
             source=ServiceName.DASHBOARD,
-            event_type="command",
-            payload={"command": "scan_now"},
+            event_type="scan_now",
+            payload={"scan_type": "quick"},
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "scan_requested", "delivered": True}

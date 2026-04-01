@@ -51,7 +51,7 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
 | Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test suite | 3000+ tests, 3 xfail (known edge cases), 0 failures |
+| Test suite | 2,979 tests, 10 xfail (known edge cases), 0 failures |
 
 ## Architecture
 

@@ -36,7 +36,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 | 11 | Plugin sandbox is a dict | DOCUMENTED — not real Docker isolation |
 | 12 | Dead runtime modules | DOCUMENTED — privacy/agent/federation not wired to dashboard |
 | 13 | Credentials encryption | PARTIALLY FIXED — SecretsManager used with fallback |
-| 14 | Mode switch backend | OPEN — frontend toggle doesn't call backend |
+| 14 | Mode switch backend | **FIXED** (persists to user_settings.json, publishes mode_change event) |
 
 ## What Works (Verified by 2,979 Tests)
 
@@ -88,7 +88,7 @@ Before labeling this "alpha":
 - [x] Docker hardened: pinned images, read-only root, no-new-privileges
 - [x] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
 - [ ] `docker compose up -d` verified end-to-end with events flowing
-- [ ] Mode switch calls backend ModeManager
+- [x] Mode switch calls backend ModeManager
 - [ ] Install script path alignment with Docker volumes
 - [ ] Credentials encryption fully resolved (SecretsManager fallback path)
 - [ ] At least one real integration test with live Redis (in CI)
