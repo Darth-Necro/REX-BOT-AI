@@ -1122,6 +1122,23 @@ class ThreatClassifier:
     # State management
     # ------------------------------------------------------------------
 
+    def prune_stale_keys(self) -> None:
+        """Remove tracker keys whose time-series lists are empty.
+
+        Should be called periodically (e.g. every few minutes) to prevent
+        unbounded dictionary growth from many unique source IPs.
+        """
+        for tracker in (
+            self._syn_tracker,
+            self._auth_tracker,
+            self._lateral_tracker,
+            self._beacon_tracker,
+            self._exfil_tracker,
+        ):
+            stale = [k for k, v in tracker.items() if not v]
+            for k in stale:
+                del tracker[k]
+
     def reset_trackers(self) -> None:
         """Clear all sliding-window tracking state."""
         self._syn_tracker.clear()

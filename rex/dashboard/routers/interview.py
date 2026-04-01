@@ -34,7 +34,9 @@ async def get_status() -> dict[str, Any]:
 
 
 @router.get("/question")
-async def get_current_question() -> dict[str, Any]:
+async def get_current_question(
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
     """Return the current question to display."""
     return {
         "question": None,
@@ -45,7 +47,9 @@ async def get_current_question() -> dict[str, Any]:
 
 @router.post("/answer")
 async def submit_answer(
-    question_id: str = Body(...), answer: Any = Body(...)
+    question_id: str = Body(...),
+    answer: Any = Body(...),
+    user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Submit an answer. Interview service must be running to process."""
     return {

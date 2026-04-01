@@ -24,7 +24,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from rex.core.agent.action_registry import ActionRegistry, RiskLevel
+from rex.core.agent.action_registry import ActionRegistry, ActionSpec, RiskLevel
 from rex.shared.enums import OperatingMode, ThreatSeverity
 
 if TYPE_CHECKING:
@@ -329,7 +329,7 @@ class ActionValidator:
         return ip_str
 
     def _needs_confirmation(
-        self, request: ActionRequest, spec: ActionRegistry
+        self, request: ActionRequest, spec: ActionSpec
     ) -> bool:
         """Determine whether user confirmation is required.
 

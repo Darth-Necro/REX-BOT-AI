@@ -196,8 +196,27 @@ async def revert(
     ``commit_hash`` is the timestamp stem of a history file
     (e.g. ``20260401T123456_789012``).
     """
+    import re
+
     hist_dir = _history_dir()
+
+    # Validate commit_hash format to prevent path traversal
+    if not re.match(r'^[\w\-]+$', commit_hash):
+        return {
+            "status": "invalid",
+            "commit": commit_hash,
+            "note": "Invalid commit hash format.",
+        }
+
     target = hist_dir / f"{commit_hash}.md"
+
+    # Ensure resolved path is within hist_dir
+    if not target.resolve().is_relative_to(hist_dir.resolve()):
+        return {
+            "status": "invalid",
+            "commit": commit_hash,
+            "note": "Invalid commit hash.",
+        }
 
     if not target.exists():
         return {

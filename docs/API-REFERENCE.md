@@ -41,7 +41,7 @@ Interactive API documentation is available at:
 Authenticate and receive a JWT token.
 
 ```
-POST /api/config/auth/login
+POST /api/auth/login
 ```
 
 **Auth required:** No
@@ -82,7 +82,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Change Password
 
 ```
-POST /api/config/auth/change-password
+POST /api/auth/change-password
 ```
 
 **Auth required:** Yes
@@ -253,7 +253,7 @@ GET /api/devices/{mac}
 ### Update Device Trust Level
 
 ```
-PUT /api/devices/{mac}/trust
+POST /api/devices/{mac}/trust
 ```
 
 **Auth required:** Yes
@@ -272,6 +272,31 @@ PUT /api/devices/{mac}/trust
   "mac": "aa:bb:cc:dd:ee:ff",
   "trust_level": 80,
   "updated": true
+}
+```
+
+### Block/Quarantine Device
+
+```
+POST /api/devices/{mac}/block
+```
+
+**Auth required:** Yes
+
+**Parameters:**
+
+| Name | In   | Type   | Description |
+|------|------|--------|-------------|
+| mac  | path | string | MAC address |
+
+**Response (200):**
+
+```json
+{
+  "mac": "aa:bb:cc:dd:ee:ff",
+  "action": "block",
+  "status": "requested",
+  "delivered": true
 }
 ```
 
@@ -619,6 +644,49 @@ POST /api/interview/answer
 }
 ```
 
+### Chat with REX
+
+```
+POST /api/interview/chat
+```
+
+**Auth required:** Yes
+
+**Request body:**
+
+```json
+{
+  "message": "What devices are on my network?"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "reply": "Based on recent scans, I see 12 devices on your network...",
+  "source": "llm"
+}
+```
+
+When Ollama is not available, returns a fallback response with `"source": "fallback"`.
+
+### Restart Interview
+
+```
+POST /api/interview/restart
+```
+
+**Auth required:** Yes
+
+**Response (200):**
+
+```json
+{
+  "status": "restarted"
+}
+```
+
 ---
 
 ## Configuration
@@ -669,6 +737,33 @@ PUT /api/config/
   }
 }
 ```
+
+### Set Operating Mode
+
+```
+PUT /api/config/mode
+```
+
+**Auth required:** Yes
+
+**Request body:**
+
+```json
+{
+  "mode": "advanced"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "status": "updated",
+  "mode": "advanced"
+}
+```
+
+Valid modes: `basic`, `advanced`.
 
 ---
 
@@ -882,6 +977,25 @@ POST /api/firewall/panic
 ```
 
 **Use this when:** REX's firewall rules are causing legitimate connectivity problems and you need to restore access immediately.
+
+### Restore After Panic
+
+Restore normal firewall operation after a panic button press.
+
+```
+POST /api/firewall/panic/restore
+```
+
+**Auth required:** Yes
+
+**Response (200):**
+
+```json
+{
+  "status": "restored",
+  "note": "Normal firewall operation resumed"
+}
+```
 
 ---
 
@@ -1242,6 +1356,27 @@ GET /api/privacy/status
 | `encryption_at_rest`  | boolean | Data is encrypted at rest                             |
 | `telemetry_enabled`   | boolean | Whether any telemetry is being sent                   |
 
+### Privacy Audit
+
+Run a full privacy audit and return a structured report. Requires authentication.
+
+```
+GET /api/privacy/audit
+```
+
+**Auth required:** Yes
+
+**Response (200):**
+
+```json
+{
+  "ollama_localhost_only": true,
+  "no_external_connections": true,
+  "encryption_configured": true,
+  "findings": []
+}
+```
+
 ---
 
 ## Common Error Codes
@@ -1265,7 +1400,7 @@ GET /api/privacy/status
 
 | Endpoint                        | Limit                                    |
 |---------------------------------|------------------------------------------|
-| `POST /api/config/auth/login`   | 5 attempts per 30 minutes (then lockout) |
+| `POST /api/auth/login`   | 5 attempts per 30 minutes (then lockout) |
 | `POST /api/devices/scan`        | 1 per 60 seconds                         |
 | `POST /api/firewall/panic`      | 1 per 60 seconds                         |
 | `POST /api/notifications/test/*`| 1 per channel per 60 seconds             |

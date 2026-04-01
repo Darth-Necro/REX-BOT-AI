@@ -76,7 +76,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Multi-AI provider system: K9-Engine (built-in offline), Ollama, OpenAI, Anthropic, Google, OpenAI-compat
 - LLM Router: Brain 1 (security, always local) / Brain 2 (assistant, configurable) with data sanitization
 - Command executor: whitelisted commands, parameter validation, zero shell=True
-- Prompt injection sanitizer: 30+ patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
+- Prompt injection sanitizer: 44 patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
 - Network data sanitizer: control chars, truncation, injection detection on all event surfaces
 - Web content sanitizer: HTML stripping, injection patterns, untrusted content delimiters
 - Network scanner: ARP + nmap, device fingerprinting, DNS monitoring
@@ -107,17 +107,17 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 | Coverage | 84% |
 | Security pentest tests | 306 |
 | Integration tests (Redis) | 3 |
-| Lines of code (rex/) | 12,040 |
+| Lines of code (rex/) | 35,953 |
 
 ## Alpha Release Checklist
 
 - [x] All 13 modules implemented with real logic
 - [x] Security regression corpus: 306 tests, 0 failures, 3 xfail (VULN-004/005/010 edge cases)
 - [x] Overall test suite: 2,979 passed, 84% coverage
-- [x] Prompt injection defense: 30+ patterns, Unicode normalization, homoglyph detection
+- [x] Prompt injection defense: 44 patterns, Unicode normalization, homoglyph detection
 - [x] Auth: bcrypt + PyJWT (not homemade SHA-256)
 - [x] Docker hardened: pinned images, read-only root, no-new-privileges
-- [x] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
+- [ ] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
 - [x] `docker compose up -d` verified end-to-end (smoke test script)
 - [x] First-boot password displayed to user
 - [x] Mode switch calls backend ModeManager

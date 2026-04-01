@@ -143,7 +143,7 @@ export default function FirewallPanel() {
   const handleDeleteRule = useCallback(async (id) => {
     setDeletingId(id);
     try {
-      await api.delete(`/firewall/rules/${id}`);
+      await api.delete(`/firewall/rules/${encodeURIComponent(id)}`);
       setRules((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
       console.error('Failed to delete rule:', err);

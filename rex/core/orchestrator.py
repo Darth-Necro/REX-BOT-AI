@@ -75,6 +75,7 @@ class ServiceOrchestrator:
         self._bus = EventBus(
             redis_url=self._config.redis_url,
             service_name=ServiceName.CORE,
+            data_dir=self._config.data_dir,
         )
 
         # Import and create all services
@@ -117,6 +118,7 @@ class ServiceOrchestrator:
                 svc_bus = EventBus(
                     redis_url=config.redis_url,
                     service_name=svc_name,
+                    data_dir=config.data_dir,
                 )
                 instance = cls(config=config, bus=svc_bus)
                 self.register(instance)
@@ -284,7 +286,15 @@ class ServiceOrchestrator:
             "Auto-restarting %s (attempt %d/%d)",
             name.value, count + 1, _MAX_RESTART_ATTEMPTS,
         )
-        await self._start_service(name)
+        # Stop the service first to avoid duplicate tasks / port conflicts
+        svc = self._services.get(name)
+        if svc and self._status.get(name) == "running":
+            with contextlib.suppress(Exception):
+                await svc.stop()
+        success = await self._start_service(name)
+        if success:
+            # Reset restart count on successful restart
+            self._restart_counts[name] = 0
 
     @property
     def health_aggregator(self) -> HealthAggregator:

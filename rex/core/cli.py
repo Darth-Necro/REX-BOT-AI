@@ -154,8 +154,12 @@ def scan(
     typer.echo(msg + "...")
     try:
         import httpx
-        resp = httpx.post("https://localhost:8443/api/devices/scan", timeout=10,
-                          headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
+        body: dict[str, str] = {"scan_type": scan_type}
+        if target:
+            body["target"] = target
+        resp = httpx.post("http://localhost:8443/api/devices/scan", timeout=10,
+                          json=body,
+                          headers={"Authorization": f"Bearer {_get_token()}"})
         typer.echo(f"  {resp.json().get('status', 'unknown')}")
     except Exception:
         typer.echo("  Cannot reach REX. Is it running?")
@@ -164,25 +168,25 @@ def scan(
 @app.command()
 def sleep() -> None:
     """Put REX into ALERT_SLEEP mode (lightweight watchdog only)."""
-    typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
     try:
         import httpx
-        httpx.post("https://localhost:8443/api/schedule/sleep", timeout=5,
-                    headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
+        httpx.post("http://localhost:8443/api/schedule/sleep", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"})
+        typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
     except Exception:
-        pass
+        typer.echo("  Cannot reach REX. Is it running?")
 
 
 @app.command()
 def wake() -> None:
     """Wake REX to full AWAKE mode."""
-    typer.echo("REX is awake. Full monitoring and protection active.")
     try:
         import httpx
-        httpx.post("https://localhost:8443/api/schedule/wake", timeout=5,
-                    headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
+        httpx.post("http://localhost:8443/api/schedule/wake", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"})
+        typer.echo("REX is awake. Full monitoring and protection active.")
     except Exception:
-        pass
+        typer.echo("  Cannot reach REX. Is it running?")
 
 
 @app.command()
@@ -253,9 +257,10 @@ def privacy() -> None:
 def _get_token() -> str:
     """Read cached auth token."""
     import os
-    token_file = os.path.expanduser("~/.rex-token")
-    if os.path.exists(token_file):
-        return open(token_file).read().strip()
+    from pathlib import Path
+    token_file = Path(os.path.expanduser("~/.rex-token"))
+    if token_file.exists():
+        return token_file.read_text().strip()
     return ""
 
 

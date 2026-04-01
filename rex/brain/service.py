@@ -113,9 +113,11 @@ class BrainService(BaseService):
         )
 
     async def _on_stop(self) -> None:
-        """Cancel background tasks and save baseline."""
-        for task in self._tasks:
-            task.cancel()
+        """Save baseline on shutdown.
+
+        Note: task cancellation is handled by BaseService.stop() — we do NOT
+        cancel self._tasks here to avoid double-cancel race conditions.
+        """
         try:
             await self._baseline.save()
         except Exception:
@@ -172,6 +174,8 @@ class BrainService(BaseService):
         """Periodically check Ollama availability and recover from degraded mode."""
         while self._running:
             await asyncio.sleep(30)
+            # Prune stale sliding-window keys to prevent unbounded growth
+            self._classifier.prune_stale_keys()
             if self._degraded and self._llm_router is None:
                 try:
                     from rex.brain.llm import DataSanitizer, LLMRouter, OllamaClient

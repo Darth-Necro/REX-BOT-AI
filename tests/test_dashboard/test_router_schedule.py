@@ -212,7 +212,7 @@ class TestTriggerWake:
         call_args = mock_bus.publish.call_args
         assert call_args[0][0] == "rex:core:commands"
         event = call_args[0][1]
-        assert event.payload["command"] == "set_power_state"
+        assert event.event_type == "schedule_sleep"
         assert event.payload["state"] == "alert_sleep"
 
     def test_wake_publishes_correct_command(self) -> None:
@@ -229,5 +229,5 @@ class TestTriggerWake:
         call_args = mock_bus.publish.call_args
         assert call_args[0][0] == "rex:core:commands"
         event = call_args[0][1]
-        assert event.payload["command"] == "set_power_state"
+        assert event.event_type == "schedule_wake"
         assert event.payload["state"] == "awake"

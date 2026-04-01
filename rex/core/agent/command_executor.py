@@ -789,6 +789,11 @@ class CommandExecutor:
                 elif param_name == "filter" and spec.executable == "tcpdump":
                     # BPF filter is appended as-is (already validated).
                     argv.append(value)
+                elif param_name == "rule" and spec.executable == "nft":
+                    # nft rules are multi-token expressions; split into
+                    # individual arguments so create_subprocess_exec passes
+                    # them correctly.
+                    argv.extend(value.split())
                 else:
                     argv.append(value)
 

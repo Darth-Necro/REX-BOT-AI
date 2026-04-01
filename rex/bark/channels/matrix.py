@@ -46,7 +46,6 @@ class MatrixChannel(BaseChannel):
         url = (
             f"{self._homeserver}/_matrix/client/r0/rooms/"
             f"{self._room_id}/send/m.room.message"
-            f"?access_token={self._token}"
         )
         sev_upper = severity.upper()
         payload = {
@@ -71,7 +70,10 @@ class MatrixChannel(BaseChannel):
         req = Request(
             url,
             data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._token}",
+            },
             method="PUT",
         )
         with urlopen(req, timeout=10) as resp:

@@ -37,6 +37,7 @@ class EgressFirewall:
         self._allowlist: list[dict[str, Any]] = []
         self._initialized: bool = False
         self._unauthorized_log: list[dict[str, Any]] = []
+        self._MAX_UNAUTHORIZED_LOG = 10_000
 
     # ----------------------------------------------------------------
     # Setup
@@ -237,6 +238,9 @@ class EgressFirewall:
             "authorized": False,
         }
         self._unauthorized_log.append(record)
+        # Trim oldest entries to prevent unbounded memory growth
+        if len(self._unauthorized_log) > self._MAX_UNAUTHORIZED_LOG:
+            self._unauthorized_log = self._unauthorized_log[-self._MAX_UNAUTHORIZED_LOG:]
         logger.warning(
             "UNAUTHORIZED egress attempt: %s -> %s:%d (service=%s)",
             service,

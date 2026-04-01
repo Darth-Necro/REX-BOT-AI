@@ -318,7 +318,7 @@ class FirewallManager:
         before_count = len(self._rules)
         self._rules = [
             r for r in self._rules
-            if not (r.mac == mac or (r.ip == ip and r.mac == mac))
+            if not (r.mac == mac and r.ip == ip)
         ]
         removed = before_count - len(self._rules)
 

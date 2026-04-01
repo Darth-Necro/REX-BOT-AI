@@ -312,7 +312,9 @@ class MemoryService(BaseService):
 
             if self._pending_commits > 0 and self._git is not None:
                 count = self._pending_commits
-                self._pending_commits = 0
+                # Subtract rather than zero to avoid losing increments
+                # that arrived between the read and the reset.
+                self._pending_commits -= count
                 await self._git.commit(
                     f"Auto-commit: {count} change(s) batched"
                 )

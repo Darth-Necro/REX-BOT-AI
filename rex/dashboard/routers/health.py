@@ -78,8 +78,11 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
         import redis as redis_lib
 
         r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
-        r.ping()
-        redis_ok = True
+        try:
+            r.ping()
+            redis_ok = True
+        finally:
+            r.close()
     except Exception:
         pass
 

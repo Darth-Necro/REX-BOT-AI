@@ -60,6 +60,15 @@ class EmailChannel(BaseChannel):
         )
         msg.attach(MIMEText(message, "plain"))
         msg.attach(MIMEText(html, "html"))
+        import asyncio
+        try:
+            return await asyncio.to_thread(self._send_smtp, msg)
+        except Exception:
+            logger.exception("Email send failed")
+            return False
+
+    def _send_smtp(self, msg: MIMEMultipart) -> bool:
+        """Synchronous SMTP send — runs in thread pool to avoid blocking."""
         try:
             with smtplib.SMTP(self._host, self._port, timeout=10) as server:
                 server.starttls()

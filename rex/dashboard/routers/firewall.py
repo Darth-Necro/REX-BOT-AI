@@ -76,7 +76,19 @@ async def add_rule(
 async def remove_rule(
     rule_id: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Remove a specific firewall rule. Attempts actual unblock via PAL."""
+    """Remove a specific firewall rule by IP address.
+
+    Note: ``rule_id`` is the IP address to unblock (used as the rule
+    identifier in the PAL layer).
+    """
+    import ipaddress
+
+    try:
+        # Validate that rule_id is a valid IP address before passing to PAL
+        ipaddress.ip_address(rule_id)
+    except ValueError:
+        return {"status": "error", "rule_id": rule_id, "detail": "Invalid IP address"}
+
     try:
         from rex.pal import get_adapter
 

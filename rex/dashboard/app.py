@@ -57,8 +57,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
-        self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self.window]
-        if len(self._requests[client_ip]) >= self.max_requests:
+        timestamps = [t for t in self._requests[client_ip] if now - t < self.window]
+        if not timestamps:
+            # Clean up stale IP keys to prevent unbounded dict growth
+            self._requests.pop(client_ip, None)
+        else:
+            self._requests[client_ip] = timestamps
+        if len(timestamps) >= self.max_requests:
             return JSONResponse(
                 {"detail": "Rate limit exceeded"}, status_code=429,
                 headers={"Retry-After": str(self.window)},
@@ -133,12 +138,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     deps.set_auth_manager(auth_mgr)
     deps.set_ws_manager(_ws_manager)
 
+    # Restore persisted mode (survives restarts)
+    try:
+        from rex.dashboard.routers.config import _load_user_settings
+        from rex.shared.enums import OperatingMode
+
+        saved = _load_user_settings()
+        if "mode" in saved:
+            config.mode = OperatingMode(saved["mode"])
+            logger.info("Restored persisted mode: %s", config.mode.value)
+    except Exception:
+        logger.debug("Could not restore persisted mode, using default")
+
     # Try to connect event bus (non-fatal if Redis unavailable)
     try:
         from rex.shared.bus import EventBus
         from rex.shared.enums import ServiceName
 
-        bus = EventBus(redis_url=config.redis_url, service_name=ServiceName.DASHBOARD)
+        bus = EventBus(
+            redis_url=config.redis_url,
+            service_name=ServiceName.DASHBOARD,
+            data_dir=config.data_dir,
+        )
         await bus.connect()
         deps.set_bus(bus)
         logger.info("Event bus connected")
