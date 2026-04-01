@@ -8,8 +8,9 @@ quiet hours, and daily/weekly summaries.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.bark.channels.discord import DiscordChannel
 from rex.bark.channels.email import EmailChannel
@@ -17,11 +18,12 @@ from rex.bark.channels.matrix import MatrixChannel
 from rex.bark.channels.telegram import TelegramChannel
 from rex.bark.channels.webpush import WebPushChannel
 from rex.bark.manager import NotificationManager
-from rex.shared.config import RexConfig
 from rex.shared.constants import STREAM_BRAIN_DECISIONS
 from rex.shared.enums import ServiceName
-from rex.shared.events import RexEvent
 from rex.shared.service import BaseService
+
+if TYPE_CHECKING:
+    from rex.shared.events import RexEvent
 
 logger = logging.getLogger(__name__)
 
@@ -96,14 +98,12 @@ class BarkService(BaseService):
             digest = self._manager.get_digest()
             if digest:
                 from rex.bark.formatter import MessageFormatter
-                fmt = MessageFormatter()
+                MessageFormatter()
                 summary = f"REX has {len(digest)} alerts from the last 15 minutes.\n"
                 for item in digest[:10]:
                     summary += f"  - {item.get('description', 'Alert')}\n"
                 if len(digest) > 10:
                     summary += f"  ... and {len(digest) - 10} more.\n"
                 for channel in self._manager._channels.values():
-                    try:
+                    with contextlib.suppress(Exception):
                         await channel.send(summary, {"title": "REX Digest", "severity": "medium"})
-                    except Exception:
-                        pass

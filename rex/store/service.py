@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
 
 from rex.shared.constants import STREAM_CORE_COMMANDS
 from rex.shared.enums import ServiceName
-from rex.shared.events import RexEvent
 from rex.shared.service import BaseService
 from rex.store.manager import PluginManager
+
+if TYPE_CHECKING:
+    from rex.shared.events import RexEvent
 
 logger = logging.getLogger(__name__)
 

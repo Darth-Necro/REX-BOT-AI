@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.bark.manager import NotificationManager
-from rex.shared.enums import ThreatSeverity
-
 
 # ------------------------------------------------------------------
 # Helpers

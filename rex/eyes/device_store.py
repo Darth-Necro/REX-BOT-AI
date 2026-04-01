@@ -12,11 +12,13 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
 
 from rex.shared.enums import DeviceStatus, DeviceType
-from rex.shared.models import Device, ScanResult
 from rex.shared.utils import mac_normalize, utc_now
+
+if TYPE_CHECKING:
+    from rex.shared.models import Device, ScanResult
 
 logger = logging.getLogger("rex.eyes.device_store")
 

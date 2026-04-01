@@ -79,24 +79,24 @@ def get_adapter() -> PlatformAdapter:
 
 
 __all__ = [
-    # Adapter factory
-    "get_adapter",
+    "CaptureError",
+    "FirewallError",
+    "PermissionDeniedError",
     # Exceptions
     "PlatformError",
-    "FirewallError",
-    "CaptureError",
-    "PermissionDeniedError",
+    "detect_hardware",
     # Detector utilities
     "detect_os",
-    "detect_hardware",
-    "recommend_llm_model",
-    "recommend_tier",
+    # Adapter factory
+    "get_adapter",
+    "get_container_stats",
+    "get_docker_version",
     # Docker helpers
     "is_docker_installed",
     "is_docker_running",
-    "get_docker_version",
-    "pull_image",
     "list_containers",
+    "pull_image",
+    "recommend_llm_model",
+    "recommend_tier",
     "restart_container",
-    "get_container_stats",
 ]

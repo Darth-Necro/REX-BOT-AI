@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.models import PluginManifest
-from rex.shared.types import PluginId
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from rex.shared.types import PluginId
 
 logger = logging.getLogger(__name__)
 

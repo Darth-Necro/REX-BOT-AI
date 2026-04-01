@@ -11,13 +11,16 @@ import asyncio
 import json
 import logging
 from collections import Counter
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.config import RexConfig
 from rex.shared.constants import MAX_THREAT_LOG_ROWS
-from rex.shared.models import ThreatEvent
-from rex.shared.utils import iso_timestamp, utc_now
+from rex.shared.utils import iso_timestamp
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from rex.shared.config import RexConfig
+    from rex.shared.models import ThreatEvent
 
 
 class ThreatLog:

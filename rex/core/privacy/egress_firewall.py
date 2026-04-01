@@ -9,12 +9,9 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-import os
-import re
-import struct
 import socket
-from datetime import datetime, timezone
-from pathlib import Path
+import struct
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -117,7 +114,7 @@ class EgressFirewall:
             "ip_or_cidr": ip_or_cidr,
             "port": port,
             "reason": reason,
-            "added_at": datetime.now(timezone.utc).isoformat(),
+            "added_at": datetime.now(UTC).isoformat(),
         }
         self._allowlist.append(entry)
         logger.info(
@@ -233,7 +230,7 @@ class EgressFirewall:
             The REX service or process that initiated the attempt.
         """
         record: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "dest_ip": dest_ip,
             "dest_port": dest_port,
             "service": service,
@@ -298,7 +295,7 @@ class EgressFirewall:
         }
 
         try:
-            with open(path, "r") as fh:
+            with open(path) as fh:
                 lines = fh.readlines()
         except OSError:
             return connections

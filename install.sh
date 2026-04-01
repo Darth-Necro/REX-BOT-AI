@@ -54,7 +54,16 @@ preflight() {
     # Root check
     if [ "$(id -u)" -ne 0 ]; then
         echo "This script requires root privileges. Re-running with sudo..."
-        exec sudo bash "$0" "$@"
+        # In curl|bash mode, $0 is "bash" or "-bash", not a file path
+        if [ ! -f "$0" ] || [ "$0" = "bash" ] || [ "$0" = "-bash" ] || [ "$0" = "/bin/bash" ]; then
+            SCRIPT_TMP=$(mktemp /tmp/rex-install-XXXXXX.sh)
+            # Script already consumed from stdin by this point in curl|bash
+            # Re-download it
+            curl -sSL https://raw.githubusercontent.com/Darth-Necro/REX-BOT-AI/main/install.sh -o "$SCRIPT_TMP"
+            exec sudo bash "$SCRIPT_TMP" "$@"
+        else
+            exec sudo bash "$0" "$@"
+        fi
     fi
 
     # Create log directory
@@ -191,9 +200,26 @@ install_rex() {
         -out "${REX_DATA_DIR}/certs/cert.pem" -days 365 -nodes \
         -subj "/CN=rex.local/O=REX-BOT-AI" 2>/dev/null
 
-    # Copy project files
+    # Clone the repo to get docker-compose.yml and configs
     if [ -f "$(pwd)/docker-compose.yml" ]; then
-        cp -r "$(pwd)"/* "${REX_INSTALL_DIR}/" 2>/dev/null || true
+        info "Installing from local checkout..."
+        cp -r "$(pwd)/docker-compose.yml" "${REX_INSTALL_DIR}/"
+        cp -r "$(pwd)/.env.example" "${REX_INSTALL_DIR}/.env" 2>/dev/null || true
+        cp -r "$(pwd)/Dockerfile" "${REX_INSTALL_DIR}/" 2>/dev/null || true
+    else
+        info "Downloading REX-BOT-AI files..."
+        git clone --depth 1 https://github.com/Darth-Necro/REX-BOT-AI.git "${REX_INSTALL_DIR}/repo" 2>/dev/null || {
+            # Fallback: download individual files
+            curl -sSL https://raw.githubusercontent.com/Darth-Necro/REX-BOT-AI/main/docker-compose.yml \
+                -o "${REX_INSTALL_DIR}/docker-compose.yml"
+            curl -sSL https://raw.githubusercontent.com/Darth-Necro/REX-BOT-AI/main/.env.example \
+                -o "${REX_INSTALL_DIR}/.env"
+        }
+        if [ -d "${REX_INSTALL_DIR}/repo" ]; then
+            cp "${REX_INSTALL_DIR}/repo/docker-compose.yml" "${REX_INSTALL_DIR}/"
+            cp "${REX_INSTALL_DIR}/repo/.env.example" "${REX_INSTALL_DIR}/.env" 2>/dev/null || true
+            rm -rf "${REX_INSTALL_DIR}/repo"
+        fi
     fi
 
     # Write .env

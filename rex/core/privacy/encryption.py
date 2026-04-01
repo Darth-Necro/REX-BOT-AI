@@ -16,9 +16,8 @@ import json
 import logging
 import os
 import platform
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -186,7 +185,7 @@ class SecretsManager:
                 pass
 
         # First run -- generate and persist
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
         try:
             self._install_ts_path.parent.mkdir(parents=True, exist_ok=True)
             self._install_ts_path.write_text(ts, encoding="utf-8")
@@ -456,7 +455,7 @@ class SecretsManager:
             determinable.
         """
         try:
-            with open("/proc/net/route", "r") as fh:
+            with open("/proc/net/route") as fh:
                 for line in fh:
                     fields = line.strip().split()
                     if len(fields) >= 2 and fields[1] == "00000000":

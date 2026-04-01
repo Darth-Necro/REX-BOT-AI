@@ -1,4 +1,5 @@
 import axios from 'axios';
+import useSystemStore from '../stores/useSystemStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -8,20 +9,19 @@ const api = axios.create({
 
 // Attach auth token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('rex_token');
+  const token = useSystemStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle 401
+// Handle 401 — clear token via store so React re-renders to LoginView
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('rex_token');
-      window.location.href = '/login';
+      useSystemStore.getState().logout();
     }
     return Promise.reject(error);
   }

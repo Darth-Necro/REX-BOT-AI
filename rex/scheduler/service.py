@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.scheduler.cron import CronManager
 from rex.scheduler.power import PowerManager
 from rex.scheduler.scan_scheduler import ScanScheduler
-from rex.shared.constants import STREAM_CORE_COMMANDS, STREAM_SCHEDULER_TRIGGERS
+from rex.shared.constants import STREAM_CORE_COMMANDS
 from rex.shared.enums import PowerState, ServiceName
-from rex.shared.events import RexEvent, ScanTriggeredEvent
 from rex.shared.service import BaseService
+
+if TYPE_CHECKING:
+    from rex.shared.events import RexEvent
 
 logger = logging.getLogger(__name__)
 

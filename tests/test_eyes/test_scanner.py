@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import MagicMock, patch
-
 import pytest
 
-from rex.shared.config import RexConfig
-from rex.shared.enums import DeviceStatus, DeviceType
-from rex.shared.models import Device, NetworkInfo
-
+from rex.shared.enums import DeviceStatus
+from rex.shared.models import Device
 
 # ------------------------------------------------------------------
 # Helpers

@@ -26,14 +26,17 @@ import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig
 from rex.shared.constants import HEARTBEAT_INTERVAL, STREAM_CORE_HEALTH
-from rex.shared.enums import ServiceName
 from rex.shared.errors import RexBusUnavailableError
 from rex.shared.events import HealthHeartbeatEvent
 from rex.shared.models import ServiceHealth
+
+if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
+    from rex.shared.enums import ServiceName
 
 
 class BaseService(ABC):
@@ -179,7 +182,7 @@ class BaseService(ABC):
                 await self.bus.publish(STREAM_CORE_HEALTH, event)
             except RexBusUnavailableError:
                 self._log.debug("Heartbeat skipped — bus unavailable.")
-            except Exception:  # noqa: BLE001
+            except Exception:
                 self._log.exception("Unexpected error in heartbeat loop.")
             await asyncio.sleep(HEARTBEAT_INTERVAL)
 

@@ -15,12 +15,14 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.pal.base import PlatformAdapter
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
-from rex.shared.utils import is_private_ip, utc_now
+from rex.shared.utils import is_private_ip
+
+if TYPE_CHECKING:
+    from rex.pal.base import PlatformAdapter
 
 logger = logging.getLogger("rex.eyes.traffic")
 
@@ -115,7 +117,7 @@ class TrafficMonitor:
                 except StopIteration:
                     self._logger.info("Traffic capture generator exhausted")
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 self._record_packet(packet)

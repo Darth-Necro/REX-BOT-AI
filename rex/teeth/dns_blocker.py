@@ -11,15 +11,12 @@ default) and then automatically purged.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import socket
-import struct
 import time
 from collections import Counter
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from rex.shared.utils import utc_now
 
 if TYPE_CHECKING:
     from rex.shared.config import RexConfig
@@ -126,10 +123,8 @@ class DNSBlocker:
         """Cancel the background update task."""
         if self._update_task is not None:
             self._update_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._update_task
-            except asyncio.CancelledError:
-                pass
 
     async def update_blocklists(self) -> int:
         """Fetch updated blocklists from remote sources.

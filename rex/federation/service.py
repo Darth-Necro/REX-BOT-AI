@@ -6,6 +6,7 @@ Opt-in only. Disabled by default. All data anonymized before sharing.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -85,7 +86,7 @@ class FederationService(BaseService):
             if msg:
                 await self._sharing.receive_ioc(msg)
                 # Publish to local bus for brain to consider
-                try:
+                with contextlib.suppress(Exception):
                     await self.bus.publish(
                         STREAM_FEDERATION_INTEL,
                         FederationIntelEvent(
@@ -94,7 +95,5 @@ class FederationService(BaseService):
                             payload=msg,
                         ),
                     )
-                except Exception:
-                    pass
             else:
                 await asyncio.sleep(5)

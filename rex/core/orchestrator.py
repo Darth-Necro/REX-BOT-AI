@@ -9,16 +9,18 @@ auto-restarts crashed services, and tears everything down cleanly.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.bus import EventBus
 from rex.shared.config import RexConfig, get_config
 from rex.shared.enums import ServiceName
-from rex.shared.service import BaseService
-from rex.shared.utils import utc_now
+
+if TYPE_CHECKING:
+    from rex.shared.service import BaseService
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +166,7 @@ class ServiceOrchestrator:
                     )
                     self._status[name] = "stopped"
                     logger.info("Stopped %s", name.value)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     self._status[name] = "force_stopped"
                     logger.warning("Force-stopped %s (timeout)", name.value)
                 except Exception:
@@ -181,10 +183,8 @@ class ServiceOrchestrator:
             return False
         svc = self._services[name]
         if self._status.get(name) == "running":
-            try:
+            with contextlib.suppress(Exception):
                 await svc.stop()
-            except Exception:
-                pass
         success = await self._start_service(name)
         if success:
             logger.info("Restarted %s", name.value)
@@ -207,10 +207,8 @@ class ServiceOrchestrator:
             stop_event.set()
 
         for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
+            with contextlib.suppress(NotImplementedError):
                 loop.add_signal_handler(sig, _signal_handler)
-            except NotImplementedError:
-                pass  # Windows
 
         logger.info("REX-BOT-AI is running. Press Ctrl+C to stop.")
         await stop_event.wait()

@@ -10,11 +10,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.config import RexConfig
-from rex.shared.models import BehavioralProfile
-from rex.shared.utils import iso_timestamp, utc_now
+from rex.shared.utils import iso_timestamp
+
+if TYPE_CHECKING:
+    from rex.shared.config import RexConfig
+    from rex.shared.models import BehavioralProfile
 
 
 class VectorStore:
@@ -331,7 +333,7 @@ class VectorStore:
         float
             Cosine distance in [0.0, 2.0].  0.0 = identical direction.
         """
-        dot = sum(x * y for x, y in zip(a, b))
+        dot = sum(x * y for x, y in zip(a, b, strict=False))
         norm_a = math.sqrt(sum(x * x for x in a))
         norm_b = math.sqrt(sum(x * x for x in b))
 

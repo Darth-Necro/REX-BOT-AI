@@ -20,17 +20,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
-import time
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
 from typing import TYPE_CHECKING, Any
 
-from rex.core.agent.action_validator import ActionRequest
 from rex.shared.enums import ThreatSeverity
 from rex.shared.utils import generate_id, utc_now
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
+    from rex.core.agent.action_validator import ActionRequest
     from rex.shared.config import RexConfig
 
 logger = logging.getLogger(__name__)
@@ -208,7 +207,7 @@ class ConfirmationManager:
         # Wait for resolution or timeout.
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Timeout reached -- decide based on threat severity.
             return self._handle_timeout(confirmation)
         finally:

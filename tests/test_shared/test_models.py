@@ -1,8 +1,14 @@
 """Tests for shared Pydantic models."""
 
-from rex.shared.models import Device, ThreatEvent, Decision, NetworkInfo, FirewallRule
-from rex.shared.enums import DeviceType, DeviceStatus, ThreatSeverity, DecisionAction, ThreatCategory
-from rex.shared.utils import utc_now, generate_id
+from rex.shared.enums import (
+    DecisionAction,
+    DeviceStatus,
+    DeviceType,
+    ThreatCategory,
+    ThreatSeverity,
+)
+from rex.shared.models import Decision, Device, FirewallRule, NetworkInfo, ThreatEvent
+from rex.shared.utils import generate_id, utc_now
 
 
 def test_device_creation():

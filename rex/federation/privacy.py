@@ -9,10 +9,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from rex.shared.utils import is_private_ip, is_valid_ipv4, is_valid_mac
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +44,7 @@ class PrivacyEngine:
 
     def _get_daily_salt(self) -> str:
         """Return a salt that rotates daily. Deterministic per day."""
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         if today not in self._salt_cache:
             self._salt_cache.clear()
             self._salt_cache[today] = hashlib.sha256(

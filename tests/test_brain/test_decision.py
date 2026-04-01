@@ -1,16 +1,14 @@
 """Tests for the multi-layer decision engine."""
 
-import asyncio
-from unittest.mock import MagicMock
 
 import pytest
 
-from rex.brain.classifier import ThreatClassifier
 from rex.brain.baseline import BehavioralBaseline
+from rex.brain.classifier import ThreatClassifier
 from rex.brain.decision import DecisionEngine
-from rex.shared.enums import DecisionAction, ThreatSeverity, ThreatCategory
+from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
-from rex.shared.utils import utc_now, generate_id
+from rex.shared.utils import generate_id, utc_now
 
 
 @pytest.fixture

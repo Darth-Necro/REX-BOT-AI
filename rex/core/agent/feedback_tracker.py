@@ -18,11 +18,12 @@ from __future__ import annotations
 import json
 import logging
 from collections import Counter, defaultdict
-from datetime import datetime, UTC
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.utils import generate_id, utc_now
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

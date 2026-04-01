@@ -7,10 +7,12 @@ network restrictions, and capability dropping.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.pal.docker_helper import is_docker_running, list_containers, restart_container
-from rex.shared.types import PluginId
+from rex.pal.docker_helper import is_docker_running
+
+if TYPE_CHECKING:
+    from rex.shared.types import PluginId
 
 logger = logging.getLogger(__name__)
 

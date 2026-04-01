@@ -15,10 +15,10 @@ Each question is a typed dictionary with:
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from rex.shared.enums import DeviceType, InterviewMode
-
 
 # ---------------------------------------------------------------------------
 # Type alias for condition predicates

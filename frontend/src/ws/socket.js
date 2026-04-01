@@ -9,7 +9,9 @@ const handlers = new Map();
 export function connect(url) {
   if (ws && ws.readyState === WebSocket.OPEN) return;
 
-  const wsUrl = url || `ws://${window.location.host}/ws`;
+  const token = localStorage.getItem('rex_token');
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = url || `${protocol}//${window.location.host}/ws?token=${token || ''}`;
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
@@ -17,8 +19,8 @@ export function connect(url) {
     handlers.forEach((fn, type) => {
       if (type === '__open') fn();
     });
-    // Subscribe to default channels
-    send({ type: 'subscribe', channels: ['status', 'threats', 'devices'] });
+    // Subscribe to default channels (dotted event names)
+    send({ type: 'subscribe', channels: ['status.update', 'threat.new', 'device.new', 'device.update', 'scan.complete'] });
   };
 
   ws.onmessage = (event) => {

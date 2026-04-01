@@ -13,19 +13,16 @@ failure events, but does not touch the firewall.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.pal import get_adapter
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig
 from rex.shared.constants import (
     STREAM_BRAIN_DECISIONS,
-    STREAM_TEETH_ACTIONS_EXECUTED,
     STREAM_TEETH_ACTION_FAILURES,
+    STREAM_TEETH_ACTIONS_EXECUTED,
 )
 from rex.shared.enums import (
     DecisionAction,
@@ -33,15 +30,17 @@ from rex.shared.enums import (
     ServiceName,
     ThreatSeverity,
 )
-from rex.shared.errors import RexFirewallError, RexPermissionError
+from rex.shared.errors import RexFirewallError
 from rex.shared.events import ActionExecutedEvent, ActionFailedEvent
-from rex.shared.models import Decision
 from rex.shared.service import BaseService
-
 from rex.teeth.actions import ResponseCatalog
 from rex.teeth.dns_blocker import DNSBlocker
 from rex.teeth.firewall import FirewallManager
 from rex.teeth.isolator import DeviceIsolator
+
+if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.teeth.service")
 
@@ -472,7 +471,7 @@ class TeethService(BaseService):
                 # Check for CAP_NET_ADMIN in the effective set.
                 cap_path = "/proc/self/status"
                 if os.path.exists(cap_path):
-                    with open(cap_path, "r") as fh:
+                    with open(cap_path) as fh:
                         for line in fh:
                             if line.startswith("CapEff:"):
                                 cap_hex = line.split(":")[1].strip()

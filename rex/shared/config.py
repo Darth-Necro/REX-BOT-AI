@@ -57,7 +57,7 @@ class RexConfig(BaseSettings):
     dashboard_port: int = 8443
     """HTTPS port the dashboard and REST API listen on."""
 
-    dashboard_host: str = "0.0.0.0"  # noqa: S104 -- intentional bind-all
+    dashboard_host: str = "0.0.0.0"
     """Network interface address the dashboard binds to."""
 
     # -- Redis ----------------------------------------------------------------

@@ -9,20 +9,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig, get_config
 from rex.shared.constants import (
-    STREAM_BRAIN_DECISIONS,
     STREAM_CORE_COMMANDS,
     STREAM_EYES_THREATS,
 )
 from rex.shared.enums import ServiceName
-from rex.shared.events import RexEvent
 from rex.shared.models import ThreatEvent
 from rex.shared.service import BaseService
 from rex.shared.utils import utc_now
+
+if TYPE_CHECKING:
+    from rex.shared.events import RexEvent
 
 logger = logging.getLogger(__name__)
 

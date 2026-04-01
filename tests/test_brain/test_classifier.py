@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import time
-
-import pytest
-
 from rex.brain.classifier import ClassificationResult, ThreatClassifier
 from rex.shared.enums import ThreatCategory, ThreatSeverity
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -102,7 +97,7 @@ def test_classify_dns_tunneling_high_entropy():
         "dns_query": "aGVsbG93b3JsZHRoaXNpc2FiYXNlNjRlbmNvZGVkcGF5bG9hZA.evil.com",
         "event_type": "dns_query",
     }
-    cat, sev, conf = tc.classify(event)
+    cat, _sev, _conf = tc.classify(event)
 
     # The DNS tunneling classifier should fire or at least not crash
     assert isinstance(cat, ThreatCategory)
@@ -122,7 +117,7 @@ def test_classify_rogue_device():
         "event_type": "rogue_device",
         "device_id": "unknown-device-1",
     }
-    cat, sev, conf = tc.classify(event)
+    cat, _sev, _conf = tc.classify(event)
 
     # Should match the rogue_device classifier or fall through
     assert isinstance(cat, ThreatCategory)

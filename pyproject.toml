@@ -106,10 +106,17 @@ ignore = [
     "S101",  # allow assert in tests
     "S603",  # subprocess calls (needed for nmap/scapy)
     "S607",  # partial executable path
+    "S104",  # binding to 0.0.0.0 — intentional for network services
+    "S110",  # try-except-pass — used intentionally for resilience
+    "S310",  # suspicious URL open — intentional HTTP client calls
+    "S314",  # suspicious XML ElementTree — parsing nmap XML output
+    "B008",  # function call in default arg — needed for typer.Option()
+    "RUF012",  # mutable class default — handled by dataclass/pydantic
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S106"]
+"tests/**/*.py" = ["S101", "S106", "S105"]
+"rex/core/cli.py" = ["T201"]
 
 # ---------------------------------------------------------------------------
 # Type Checking — mypy

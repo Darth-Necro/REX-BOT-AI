@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from rex.shared.utils import generate_id, utc_now

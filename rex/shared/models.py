@@ -6,7 +6,8 @@ Every model derives from :class:`RexBaseModel` which provides a common
 ``model_config`` and JSON-friendly serialisation defaults.
 """
 
-from __future__ import annotations
+# NOTE: Do NOT add 'from __future__ import annotations' here.
+# It breaks Pydantic v2 model resolution for datetime and other types.
 
 from datetime import datetime
 from typing import Any
@@ -22,6 +23,8 @@ from rex.shared.enums import (
     ThreatSeverity,
 )
 from rex.shared.utils import generate_id, utc_now
+
+# datetime already imported at module level for Pydantic compatibility
 
 
 # ---------------------------------------------------------------------------

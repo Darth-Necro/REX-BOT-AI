@@ -10,10 +10,8 @@ Missing Docker installations are handled gracefully -- functions return
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Private helpers

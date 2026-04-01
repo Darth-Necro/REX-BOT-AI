@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from rex.shared.enums import ThreatSeverity
-from rex.shared.utils import iso_timestamp, utc_now
+from rex.shared.utils import iso_timestamp
 
 logger = logging.getLogger(__name__)
 

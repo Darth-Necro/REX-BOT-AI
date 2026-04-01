@@ -252,7 +252,7 @@ class ActionValidator:
         return None
 
     def _needs_confirmation(
-        self, request: ActionRequest, spec: "ActionRegistry"
+        self, request: ActionRequest, spec: ActionRegistry
     ) -> bool:
         """Determine whether user confirmation is required.
 

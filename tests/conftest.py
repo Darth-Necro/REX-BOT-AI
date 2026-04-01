@@ -6,9 +6,7 @@ Everything is mocked.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -17,6 +15,9 @@ from rex.shared.config import RexConfig
 from rex.shared.enums import DeviceStatus, DeviceType, ThreatCategory, ThreatSeverity
 from rex.shared.models import Device, NetworkInfo, ThreatEvent
 from rex.shared.utils import generate_id, utc_now
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

@@ -12,6 +12,18 @@ const useSystemStore = create((set) => ({
   version: '1.0.0',
   connected: false,
 
+  // Auth state
+  token: localStorage.getItem('rex_token') || null,
+  setToken: (token) => {
+    if (token) localStorage.setItem('rex_token', token);
+    else localStorage.removeItem('rex_token');
+    set({ token });
+  },
+  logout: () => {
+    localStorage.removeItem('rex_token');
+    set({ token: null, connected: false });
+  },
+
   setStatus: (status) => set({ status }),
   setPowerState: (powerState) => set({ powerState }),
   setMode: (mode) => set({ mode }),

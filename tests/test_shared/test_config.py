@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from rex.shared.config import RexConfig, get_config
 from rex.shared.enums import OperatingMode, PowerState, ProtectionMode
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # Default values

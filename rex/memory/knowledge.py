@@ -13,15 +13,15 @@ import asyncio
 import fcntl
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.config import RexConfig
 from rex.shared.constants import VERSION
-from rex.shared.models import Device, ThreatEvent
-from rex.shared.utils import iso_timestamp, utc_now
+from rex.shared.utils import iso_timestamp
 
+if TYPE_CHECKING:
+    from rex.shared.config import RexConfig
+    from rex.shared.models import Device, ThreatEvent
 
 # ---------------------------------------------------------------------------
 # Section name constants (match the ## headings in the template)
@@ -310,10 +310,7 @@ class KnowledgeBase:
             if cleaned.startswith("> REX records its observations here."):
                 cleaned = ""
 
-            if cleaned:
-                new_content = f"{cleaned}\n{line}\n"
-            else:
-                new_content = f"{line}\n"
+            new_content = f"{cleaned}\n{line}\n" if cleaned else f"{line}\n"
 
             sections[_SECTION_REX_OBSERVATIONS] = new_content
             self._flush_sections(sections)

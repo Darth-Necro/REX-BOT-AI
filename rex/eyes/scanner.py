@@ -16,15 +16,16 @@ import shutil
 import socket
 import time
 import xml.etree.ElementTree as ET
-from typing import Any
+from typing import TYPE_CHECKING
 
-from rex.pal.base import PlatformAdapter
-from rex.shared.config import RexConfig
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import DeviceStatus
 from rex.shared.models import Device, NetworkInfo, ScanResult
-from rex.shared.utils import is_valid_ipv4, is_valid_mac, mac_normalize, utc_now
+from rex.shared.utils import is_valid_ipv4, mac_normalize, utc_now
 
+if TYPE_CHECKING:
+    from rex.pal.base import PlatformAdapter
+    from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.eyes.scanner")
 
@@ -249,7 +250,7 @@ class NetworkScanner:
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._logger.warning("nmap ping sweep timed out after %ds", DEFAULT_SCAN_TIMEOUT)
             if proc.returncode is None:
                 proc.kill()
@@ -364,7 +365,7 @@ class NetworkScanner:
             # Filter out generic PTR records that are just the IP reversed
             if hostname and not hostname.replace(".", "").replace("-", "").isdigit():
                 return hostname
-        except (socket.herror, socket.gaierror, OSError, asyncio.TimeoutError):
+        except (TimeoutError, socket.herror, socket.gaierror, OSError):
             pass
         return None
 

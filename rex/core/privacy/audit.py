@@ -12,14 +12,15 @@ import logging
 import os
 import socket
 import struct
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from textwrap import dedent
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from rex.pal.base import PlatformAdapter
     from rex.shared.config import RexConfig
+
+import contextlib
 
 from rex.core.privacy.data_classifier import (
     DATA_CLASSIFICATIONS,
@@ -121,10 +122,8 @@ class PrivacyAuditor:
                     for entry in store_path.rglob("*"):
                         if entry.is_file():
                             file_count += 1
-                            try:
+                            with contextlib.suppress(OSError):
                                 total_bytes += entry.stat().st_size
-                            except OSError:
-                                pass
                 except OSError:
                     pass
 
@@ -155,7 +154,7 @@ class PrivacyAuditor:
         # Disk-level encryption
         try:
             disk_status = self._pal.get_disk_encryption_status()
-        except Exception:  # noqa: BLE001
+        except Exception:
             disk_status = {
                 "encrypted": False,
                 "method": None,
@@ -262,7 +261,7 @@ class PrivacyAuditor:
             ``data_inventory``, ``encryption_status``,
             ``external_services``, ``data_retention``, ``summary``.
         """
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         outbound = self.audit_outbound_connections()
         inventory = self.audit_data_inventory()
@@ -356,7 +355,7 @@ class PrivacyAuditor:
             logger.info("Network isolation test PASSED: no unauthorized connections")
             return True
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("Network isolation test error: %s", exc)
             return False
         finally:
@@ -366,7 +365,7 @@ class PrivacyAuditor:
                     allowed_hosts=None,
                     allowed_ports=None,
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.error("Failed to restore egress rules after isolation test")
 
     def get_data_retention_status(self) -> dict[str, Any]:
@@ -530,7 +529,7 @@ class PrivacyAuditor:
         }
 
         try:
-            with open(path, "r") as fh:
+            with open(path) as fh:
                 lines = fh.readlines()
         except OSError:
             return connections
@@ -682,12 +681,9 @@ class PrivacyAuditor:
             "localhost",
             "127.0.0.1",
             "::1",
-            "0.0.0.0",  # noqa: S104
+            "0.0.0.0",
         )
-        for host in local_hosts:
-            if host in url:
-                return True
-        return False
+        return any(host in url for host in local_hosts)
 
     @staticmethod
     def _is_local_ip(ip: str) -> bool:

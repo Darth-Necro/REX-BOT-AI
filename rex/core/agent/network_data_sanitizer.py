@@ -121,7 +121,7 @@ def sanitize_network_data(data: dict[str, Any]) -> dict[str, Any]:
         Sanitized copy of the data dict.
     """
     sanitized = {}
-    _NETWORK_KEYS = {
+    network_keys = {
         "hostname", "device_name", "name", "mdns_name", "mdns_service",
         "banner", "service_banner", "http_server", "ssh_banner",
         "user_agent", "dhcp_hostname", "dhcp_client_id", "client_id",
@@ -130,7 +130,7 @@ def sanitize_network_data(data: dict[str, Any]) -> dict[str, Any]:
     }
 
     for key, value in data.items():
-        if isinstance(value, str) and key.lower() in _NETWORK_KEYS:
+        if isinstance(value, str) and key.lower() in network_keys:
             sanitized[key] = _sanitize(value, _MAX_GENERIC_LEN, key)
         elif isinstance(value, dict):
             sanitized[key] = sanitize_network_data(value)

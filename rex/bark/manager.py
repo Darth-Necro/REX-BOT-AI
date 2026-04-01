@@ -6,16 +6,18 @@ deduplication, and daily/weekly summary scheduling.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Any
+from datetime import UTC
+from typing import TYPE_CHECKING, Any
 
-from rex.bark.channels.base import BaseChannel
 from rex.bark.formatter import MessageFormatter
 from rex.shared.constants import MAX_NOTIFICATIONS_PER_HOUR
 from rex.shared.enums import ThreatSeverity
+
+if TYPE_CHECKING:
+    from rex.bark.channels.base import BaseChannel
 
 logger = logging.getLogger(__name__)
 
@@ -135,8 +137,8 @@ class NotificationManager:
     def _in_quiet_hours(self) -> bool:
         if not self._quiet_hours:
             return False
-        from datetime import datetime, timezone
-        hour = datetime.now(timezone.utc).hour
+        from datetime import datetime
+        hour = datetime.now(UTC).hour
         start, end = self._quiet_hours
         if start <= end:
             return start <= hour < end

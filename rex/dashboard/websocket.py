@@ -2,6 +2,14 @@
 
 Manages WebSocket connections, channel subscriptions, and broadcasts.
 Clients subscribe to specific channels to avoid receiving unnecessary data.
+JWT authentication is required before accepting connections.
+
+Event naming convention (dotted names):
+  - status.update   -- system status changes
+  - threat.new      -- new threat detected
+  - device.new      -- new device discovered
+  - device.update   -- device state changed
+  - scan.complete   -- scan finished
 """
 
 from __future__ import annotations
@@ -15,12 +23,16 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
+# Default channels every client subscribes to on connect.
+_DEFAULT_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete"}
+
 
 class WebSocketManager:
     """Manages WebSocket connections for real-time dashboard updates.
 
     Supports channel-based subscriptions so clients only receive events
-    they care about (e.g., threats, devices, logs).
+    they care about (e.g., threat.new, device.update, status.update).
+    Requires a valid JWT token in the ``token`` query parameter.
     """
 
     def __init__(self) -> None:
@@ -31,7 +43,7 @@ class WebSocketManager:
         """Accept a new WebSocket connection."""
         await websocket.accept()
         async with self._lock:
-            self._connections[websocket] = {"status", "threats", "devices"}  # Default channels
+            self._connections[websocket] = set(_DEFAULT_CHANNELS)
         logger.info("WebSocket client connected (total: %d)", len(self._connections))
 
     def disconnect(self, websocket: WebSocket) -> None:
@@ -49,7 +61,7 @@ class WebSocketManager:
         if websocket in self._connections:
             self._connections[websocket] -= set(channels)
 
-    async def broadcast(self, message: dict[str, Any], channel: str = "status") -> None:
+    async def broadcast(self, message: dict[str, Any], channel: str = "status.update") -> None:
         """Send a message to all clients subscribed to the given channel."""
         payload = json.dumps({"type": channel, **message})
         disconnected: list[WebSocket] = []
@@ -77,7 +89,32 @@ class WebSocketManager:
         return len(self._connections)
 
     async def handle_client(self, websocket: WebSocket) -> None:
-        """Main handler loop for a WebSocket client."""
+        """Main handler loop for a WebSocket client.
+
+        Authenticates via JWT token in the ``token`` query parameter
+        before accepting the connection.
+        """
+        # --- Authentication gate ---
+        token = websocket.query_params.get("token")
+        if not token:
+            await websocket.close(code=4001, reason="Missing auth token")
+            return
+
+        from rex.dashboard.deps import get_auth
+
+        try:
+            auth = get_auth()
+        except Exception:
+            # AuthManager not initialised yet (app still starting up)
+            await websocket.close(code=4003, reason="Auth service unavailable")
+            return
+
+        payload = auth.verify_token(token)
+        if payload is None:
+            await websocket.close(code=4003, reason="Invalid or expired token")
+            return
+
+        # --- Token valid -- accept and serve ---
         await self.connect(websocket)
         try:
             while True:

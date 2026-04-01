@@ -50,26 +50,26 @@ from rex.core.agent.web_content_sanitizer import WebContentSanitizer
 __all__ = [
     # Action system
     "ActionRegistry",
-    "ActionSpec",
     "ActionRequest",
+    "ActionSpec",
     "ActionValidator",
-    "ValidationResult",
-    "RiskLevel",
     # Command execution
     "CommandExecutor",
     "CommandResult",
-    # Scope
-    "ScopeEnforcer",
-    # Web safety
-    "WebContentSanitizer",
     # Confirmation
     "ConfirmationManager",
-    "PendingConfirmation",
     # Feedback
     "FeedbackTracker",
-    # Messaging
-    "MessageRouter",
     "IncomingMessage",
     "MessageAuthenticator",
+    # Messaging
+    "MessageRouter",
     "PairedUser",
+    "PendingConfirmation",
+    "RiskLevel",
+    # Scope
+    "ScopeEnforcer",
+    "ValidationResult",
+    # Web safety
+    "WebContentSanitizer",
 ]

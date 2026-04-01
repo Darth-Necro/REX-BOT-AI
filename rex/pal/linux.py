@@ -27,12 +27,12 @@ import socket
 import struct
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.config import get_config
-from rex.shared.enums import DeviceStatus, HardwareTier
+from rex.shared.enums import DeviceStatus
 from rex.shared.errors import (
     RexCaptureError,
     RexFirewallError,
@@ -48,6 +48,9 @@ from rex.shared.models import (
     SystemResources,
 )
 from rex.shared.utils import mac_normalize
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger("rex.pal.linux")
 
@@ -754,7 +757,7 @@ class LinuxAdapter:
         if self._gateway_ip is not None:
             return self._gateway_ip
         try:
-            with open(_PROC_NET_ROUTE, "r") as fh:
+            with open(_PROC_NET_ROUTE) as fh:
                 for line in fh:
                     fields = line.strip().split()
                     if len(fields) >= 3 and fields[1] == "00000000":
@@ -822,7 +825,7 @@ class LinuxAdapter:
         """
         # Primary: /proc/net/route
         try:
-            with open(_PROC_NET_ROUTE, "r") as fh:
+            with open(_PROC_NET_ROUTE) as fh:
                 for line in fh:
                     fields = line.strip().split()
                     if len(fields) >= 2 and fields[1] == "00000000":
@@ -855,7 +858,7 @@ class LinuxAdapter:
         """
         devices: list[Device] = []
         try:
-            with open(_PROC_NET_ARP, "r") as fh:
+            with open(_PROC_NET_ARP) as fh:
                 lines = fh.readlines()
         except OSError as exc:
             logger.warning("Cannot read ARP table: %s", exc)
@@ -971,7 +974,7 @@ class LinuxAdapter:
         """
         servers: list[str] = []
         try:
-            with open(_RESOLV_CONF, "r") as fh:
+            with open(_RESOLV_CONF) as fh:
                 for line in fh:
                     line = line.strip()
                     if line.startswith("nameserver"):
@@ -1022,7 +1025,7 @@ class LinuxAdapter:
         """
         routes: list[dict[str, str]] = []
         try:
-            with open(_PROC_NET_ROUTE, "r") as fh:
+            with open(_PROC_NET_ROUTE) as fh:
                 lines = fh.readlines()
         except OSError as exc:
             logger.warning("Cannot read routing table: %s", exc)
@@ -1087,7 +1090,7 @@ class LinuxAdapter:
             # Check CAP_NET_RAW via /proc/self/status
             has_cap = False
             try:
-                with open("/proc/self/status", "r") as fh:
+                with open("/proc/self/status") as fh:
                     for line in fh:
                         if line.startswith("CapEff:"):
                             cap_hex = int(line.split(":")[1].strip(), 16)
@@ -1129,7 +1132,7 @@ class LinuxAdapter:
             while True:
                 try:
                     raw_packet, _addr = sock.recvfrom(65535)
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 except OSError as exc:
                     logger.warning("Socket recv error: %s", exc)
@@ -1138,7 +1141,7 @@ class LinuxAdapter:
                 if len(raw_packet) < 14:
                     continue
 
-                ts = datetime.now(timezone.utc).isoformat()
+                ts = datetime.now(UTC).isoformat()
                 pkt_len = len(raw_packet)
 
                 # Parse Ethernet header (14 bytes)
@@ -1213,7 +1216,7 @@ class LinuxAdapter:
         """
         flags_path = f"/sys/class/net/{interface}/flags"
         try:
-            with open(flags_path, "r") as fh:
+            with open(flags_path) as fh:
                 flags_hex = fh.read().strip()
                 flags = int(flags_hex, 16)
                 # IFF_PROMISC = 0x100
@@ -1507,7 +1510,7 @@ class LinuxAdapter:
                     return True
             else:
                 rules_text = ""
-                for chain in ("REX-INPUT", "REX-OUTPUT", "REX-FORWARD"):
+                for _chain in ("REX-INPUT", "REX-OUTPUT", "REX-FORWARD"):
                     result = _run(["iptables-save", "-t", "filter"])
                     if result.returncode == 0:
                         rules_text = result.stdout
@@ -1683,7 +1686,7 @@ WantedBy=multi-user.target
         cpu_model = "Unknown"
         cpu_cores = 1
         try:
-            with open(_PROC_CPUINFO, "r") as fh:
+            with open(_PROC_CPUINFO) as fh:
                 core_count = 0
                 for line in fh:
                     if line.startswith("model name") and cpu_model == "Unknown":
@@ -1698,13 +1701,13 @@ WantedBy=multi-user.target
         # -- CPU usage ---------------------------------------------------------
         cpu_percent = 0.0
         try:
-            with open(_PROC_STAT, "r") as fh:
+            with open(_PROC_STAT) as fh:
                 line1 = fh.readline()
             fields1 = [int(x) for x in line1.split()[1:]]
             idle1 = fields1[3] + (fields1[4] if len(fields1) > 4 else 0)
             total1 = sum(fields1)
             time.sleep(0.1)
-            with open(_PROC_STAT, "r") as fh:
+            with open(_PROC_STAT) as fh:
                 line2 = fh.readline()
             fields2 = [int(x) for x in line2.split()[1:]]
             idle2 = fields2[3] + (fields2[4] if len(fields2) > 4 else 0)
@@ -1720,7 +1723,7 @@ WantedBy=multi-user.target
         ram_total_mb = 0
         ram_available_mb = 0
         try:
-            with open(_PROC_MEMINFO, "r") as fh:
+            with open(_PROC_MEMINFO) as fh:
                 for line in fh:
                     if line.startswith("MemTotal:"):
                         ram_total_mb = int(line.split()[1]) // 1024
@@ -1947,7 +1950,7 @@ WantedBy=multi-user.target
                     import json
                     data = json.loads(result.stdout)
                     # rocm-smi JSON format varies; try common structures
-                    for card_key, card_data in data.items():
+                    for _card_key, card_data in data.items():
                         if isinstance(card_data, dict):
                             model = card_data.get("Card SKU", card_data.get("Card series", "AMD GPU"))
                             break
@@ -1962,7 +1965,7 @@ WantedBy=multi-user.target
                 if mem_result.returncode == 0:
                     try:
                         mem_data = json.loads(mem_result.stdout)
-                        for card_key, card_info in mem_data.items():
+                        for _card_key, card_info in mem_data.items():
                             if isinstance(card_info, dict):
                                 total_str = card_info.get("VRAM Total Memory (B)", "0")
                                 vram_mb = int(total_str) // (1024 * 1024)
@@ -2009,7 +2012,7 @@ WantedBy=multi-user.target
         architecture = _platform.machine() or "unknown"
 
         try:
-            with open(_OS_RELEASE, "r") as fh:
+            with open(_OS_RELEASE) as fh:
                 release_data: dict[str, str] = {}
                 for line in fh:
                     line = line.strip()
@@ -2027,7 +2030,7 @@ WantedBy=multi-user.target
         # WSL detection
         is_wsl = False
         try:
-            with open("/proc/version", "r") as fh:
+            with open("/proc/version") as fh:
                 proc_version = fh.read().lower()
                 is_wsl = "microsoft" in proc_version or "wsl" in proc_version
         except OSError:
@@ -2038,7 +2041,7 @@ WantedBy=multi-user.target
         try:
             is_docker = Path("/.dockerenv").exists()
             if not is_docker:
-                with open("/proc/1/cgroup", "r") as fh:
+                with open("/proc/1/cgroup") as fh:
                     cgroup_content = fh.read()
                     is_docker = "docker" in cgroup_content or "containerd" in cgroup_content
         except OSError:
@@ -2054,14 +2057,14 @@ WantedBy=multi-user.target
         # Raspberry Pi detection
         is_raspberry_pi = False
         try:
-            with open("/proc/cpuinfo", "r") as fh:
+            with open("/proc/cpuinfo") as fh:
                 cpuinfo = fh.read().lower()
                 is_raspberry_pi = "raspberry" in cpuinfo or "bcm2" in cpuinfo
         except OSError:
             pass
         # Also check device-tree model
         try:
-            with open("/proc/device-tree/model", "r") as fh:
+            with open("/proc/device-tree/model") as fh:
                 model_str = fh.read().lower()
                 if "raspberry" in model_str:
                     is_raspberry_pi = True

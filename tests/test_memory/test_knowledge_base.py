@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-from unittest.mock import patch
+from typing import TYPE_CHECKING
 
 import pytest
 
 from rex.shared.config import RexConfig
 from rex.shared.enums import DeviceStatus, DeviceType, ThreatCategory, ThreatSeverity
 from rex.shared.models import Device, ThreatEvent
-from rex.shared.utils import generate_id, utc_now
+from rex.shared.utils import utc_now
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # Helpers

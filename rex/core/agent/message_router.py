@@ -19,16 +19,18 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
-from typing import TYPE_CHECKING, Any, Callable, Awaitable
+from typing import TYPE_CHECKING
 
-from rex.core.agent.action_validator import ActionRequest, ActionValidator
 from rex.core.agent.message_authenticator import MessageAuthenticator, PairedUser
-from rex.core.agent.scope_enforcer import ScopeEnforcer
 from rex.shared.utils import generate_id, utc_now
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
+    from rex.core.agent.action_validator import ActionValidator
+    from rex.core.agent.scope_enforcer import ScopeEnforcer
     from rex.shared.config import RexConfig
 
 logger = logging.getLogger(__name__)
@@ -291,10 +293,7 @@ class MessageRouter:
         bool
         """
         text_lower = text.lower()
-        for prefix in _COMMAND_PREFIXES:
-            if text_lower.startswith(prefix):
-                return True
-        return False
+        return any(text_lower.startswith(prefix) for prefix in _COMMAND_PREFIXES)
 
     @staticmethod
     def _parse_command(text: str) -> tuple[str, list[str]]:

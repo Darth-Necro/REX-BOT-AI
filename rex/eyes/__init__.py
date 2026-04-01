@@ -21,11 +21,11 @@ from rex.eyes.service import EyesService
 from rex.eyes.traffic import TrafficMonitor
 
 __all__ = [
-    "DeviceStore",
     "DNSMonitor",
     "DeviceFingerprinter",
-    "PortScanner",
-    "NetworkScanner",
+    "DeviceStore",
     "EyesService",
+    "NetworkScanner",
+    "PortScanner",
     "TrafficMonitor",
 ]

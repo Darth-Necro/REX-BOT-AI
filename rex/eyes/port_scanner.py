@@ -10,15 +10,15 @@ asyncio socket fallback for environments where nmap is not installed.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import shutil
 import xml.etree.ElementTree as ET
-from typing import Any
 
-from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
+from rex.shared.constants import DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
-from rex.shared.utils import is_private_ip, is_valid_ipv4
+from rex.shared.utils import is_valid_ipv4
 
 logger = logging.getLogger("rex.eyes.port_scanner")
 
@@ -295,10 +295,7 @@ class PortScanner:
             Scan results, or ``None`` if nmap failed.
         """
         # Format port list for nmap
-        if len(ports) > 1000:
-            port_arg = "1-65535"
-        else:
-            port_arg = ",".join(str(p) for p in ports)
+        port_arg = "1-65535" if len(ports) > 1000 else ",".join(str(p) for p in ports)
 
         cmd = [
             "nmap", "-sT", "-Pn", "-oX", "-",
@@ -313,10 +310,10 @@ class PortScanner:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
+            stdout, _stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=timeout + 10
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._logger.warning("nmap scan of %s timed out", ip)
             return None
         except (FileNotFoundError, OSError) as exc:
@@ -354,7 +351,7 @@ class PortScanner:
             if ports_elem is None:
                 continue
             for port_elem in ports_elem.findall("port"):
-                protocol = port_elem.get("protocol", "tcp")
+                port_elem.get("protocol", "tcp")
                 portid_str = port_elem.get("portid", "0")
                 try:
                     portid = int(portid_str)
@@ -410,15 +407,9 @@ class PortScanner:
                     )
                     open_ports.append(port)
                     writer.close()
-                    try:
+                    with contextlib.suppress(Exception):
                         await writer.wait_closed()
-                    except Exception:
-                        pass
-                except (
-                    asyncio.TimeoutError,
-                    ConnectionRefusedError,
-                    OSError,
-                ):
+                except (TimeoutError, ConnectionRefusedError, OSError):
                     pass
 
         # Process in batches of 500

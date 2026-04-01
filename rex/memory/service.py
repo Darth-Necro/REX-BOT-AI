@@ -9,12 +9,14 @@ base synchronised with the rest of the system.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig
+from rex.memory.knowledge import KnowledgeBase
+from rex.memory.threat_log import ThreatLog
+from rex.memory.vector_store import VectorStore
+from rex.memory.versioning import GitManager
 from rex.shared.constants import (
     STREAM_BRAIN_DECISIONS,
     STREAM_EYES_DEVICE_UPDATES,
@@ -26,10 +28,9 @@ from rex.shared.events import KnowledgeUpdatedEvent
 from rex.shared.models import Device, ThreatEvent
 from rex.shared.service import BaseService
 
-from rex.memory.knowledge import KnowledgeBase
-from rex.memory.threat_log import ThreatLog
-from rex.memory.vector_store import VectorStore
-from rex.memory.versioning import GitManager
+if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
 
 
 class MemoryService(BaseService):
@@ -114,10 +115,8 @@ class MemoryService(BaseService):
         # Cancel the commit loop
         if self._commit_task is not None:
             self._commit_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._commit_task
-            except asyncio.CancelledError:
-                pass
 
         # Final commit
         if self._git is not None and self._pending_commits > 0:
@@ -141,10 +140,7 @@ class MemoryService(BaseService):
             """Route incoming messages to the correct handler."""
             try:
                 data = fields.get("data", "{}")
-                if isinstance(data, str):
-                    payload = json.loads(data)
-                else:
-                    payload = data
+                payload = json.loads(data) if isinstance(data, str) else data
 
                 # Extract the actual payload from the event envelope
                 event_payload = payload.get("payload", payload)

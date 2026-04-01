@@ -13,21 +13,24 @@ once the connection is restored.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 import redis.asyncio as aioredis
 
 from rex.shared.constants import STREAM_MAX_LEN
-from rex.shared.enums import ServiceName
 from rex.shared.errors import RexBusUnavailableError
-from rex.shared.events import RexEvent
-from rex.shared.types import StreamName
+
+if TYPE_CHECKING:
+    from rex.shared.enums import ServiceName
+    from rex.shared.events import RexEvent
+    from rex.shared.types import StreamName
 
 logger = logging.getLogger(__name__)
 
@@ -102,16 +105,12 @@ class EventBus:
         """Gracefully close Redis and WAL connections."""
         self._running = False
         if self._redis is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._redis.aclose()
-            except Exception:  # noqa: BLE001
-                pass
             self._redis = None
         if self._wal_db is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._wal_db.close()
-            except Exception:  # noqa: BLE001
-                pass
             self._wal_db = None
         logger.info("EventBus disconnected.")
 
@@ -238,7 +237,7 @@ class EventBus:
                     try:
                         await handler(stream_name, msg_id, fields)
                         await self._redis.xack(stream_name, group_name, msg_id)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         logger.exception(
                             "Handler error for msg %s on %s — message NOT acked",
                             msg_id,
@@ -325,8 +324,8 @@ class EventBus:
 
     async def _drain_wal_inner(self) -> None:
         """Inner drain loop (must be called under ``_drain_lock``)."""
-        assert self._redis is not None  # noqa: S101
-        assert self._wal_db is not None  # noqa: S101
+        assert self._redis is not None
+        assert self._wal_db is not None
 
         cursor = await self._wal_db.execute(
             "SELECT id, stream, payload FROM wal WHERE replayed = 0 ORDER BY id ASC LIMIT 100"
@@ -354,7 +353,7 @@ class EventBus:
         if replayed_ids:
             placeholders = ",".join("?" * len(replayed_ids))
             await self._wal_db.execute(
-                f"UPDATE wal SET replayed = 1 WHERE id IN ({placeholders})",  # noqa: S608
+                f"UPDATE wal SET replayed = 1 WHERE id IN ({placeholders})",
                 replayed_ids,
             )
             await self._wal_db.commit()
@@ -377,7 +376,7 @@ class EventBus:
         group_name:
             Consumer group name (e.g. ``rex:eyes:group``).
         """
-        assert self._redis is not None  # noqa: S101
+        assert self._redis is not None
         try:
             await self._redis.xgroup_create(
                 name=stream,

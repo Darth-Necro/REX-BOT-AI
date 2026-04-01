@@ -11,18 +11,19 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig
+from rex.interview.engine import QuestionEngine
+from rex.interview.processor import AnswerProcessor
 from rex.shared.constants import STREAM_INTERVIEW_ANSWERS
 from rex.shared.enums import InterviewMode, ServiceName
 from rex.shared.errors import RexBusUnavailableError
 from rex.shared.events import InterviewAnswerEvent
 from rex.shared.service import BaseService
 
-from rex.interview.engine import QuestionEngine
-from rex.interview.processor import AnswerProcessor
+if TYPE_CHECKING:
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.interview.service")
 
@@ -402,7 +403,6 @@ class InterviewService(BaseService):
 
         # Check USER NOTES
         user_notes = kb_data.get("USER NOTES", "")
-        if isinstance(user_notes, str) and user_notes.strip():
-            # Only replay if it looks like onboarding notes
-            if "onboarding" in user_notes.lower() or "Operator notes" in user_notes:
+        if (isinstance(user_notes, str) and user_notes.strip()
+                and ("onboarding" in user_notes.lower() or "Operator notes" in user_notes)):
                 self._engine.record_answer("additional_notes", user_notes)

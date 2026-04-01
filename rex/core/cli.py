@@ -7,9 +7,9 @@ The ``start`` command initializes the full orchestrator and runs until SIGINT/SI
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import sys
+from datetime import UTC
 
 import typer
 
@@ -74,9 +74,10 @@ def stop() -> None:
     """Stop all REX services gracefully (sends SIGTERM to running instance)."""
     import os
     import signal
-    pidfile = "/tmp/rex-bot-ai.pid"
+    pidfile = "/tmp/rex-bot-ai.pid"  # noqa: S108
     if os.path.exists(pidfile):
-        pid = int(open(pidfile).read().strip())
+        with open(pidfile) as f:
+            pid = int(f.read().strip())
         os.kill(pid, signal.SIGTERM)
         typer.echo(f"Sent stop signal to REX (PID {pid})")
     else:
@@ -162,8 +163,8 @@ def wake() -> None:
 @app.command()
 def diag() -> None:
     """Full diagnostic dump for bug reports."""
-    from rex.pal.detector import detect_os, detect_hardware, recommend_llm_model
-    from rex.pal.docker_helper import is_docker_installed, is_docker_running, get_docker_version
+    from rex.pal.detector import detect_hardware, detect_os, recommend_llm_model
+    from rex.pal.docker_helper import get_docker_version, is_docker_installed, is_docker_running
 
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("=" * 40)
@@ -194,11 +195,12 @@ def diag() -> None:
 def backup() -> None:
     """Create an immediate backup of REX data."""
     typer.echo("Creating backup...")
-    from rex.shared.config import get_config
     import shutil
-    from datetime import datetime, timezone
+    from datetime import datetime
+
+    from rex.shared.config import get_config
     config = get_config()
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     backup_dir = config.data_dir / "backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
     archive = shutil.make_archive(
@@ -213,9 +215,9 @@ def backup() -> None:
 def privacy() -> None:
     """Run a privacy audit and display results."""
     typer.echo("Running privacy audit...")
-    from rex.shared.config import get_config
-    from rex.pal import get_adapter
     from rex.core.privacy.audit import PrivacyAuditor
+    from rex.pal import get_adapter
+    from rex.shared.config import get_config
     config = get_config()
     pal = get_adapter()
     auditor = PrivacyAuditor(config=config, pal=pal)

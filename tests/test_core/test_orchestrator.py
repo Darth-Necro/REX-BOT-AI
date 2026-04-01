@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from rex.core.orchestrator import ServiceOrchestrator, _START_ORDER
+from rex.core.orchestrator import _START_ORDER, ServiceOrchestrator
 from rex.shared.enums import ServiceName
 from rex.shared.models import ServiceHealth
-
 
 # ------------------------------------------------------------------
 # Helpers

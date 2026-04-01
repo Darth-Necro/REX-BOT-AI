@@ -26,7 +26,10 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -775,7 +778,7 @@ class CommandExecutor:
                 raw_stdout, raw_stderr = await asyncio.wait_for(
                     proc.communicate(), timeout=timeout_seconds
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.wait()
                 elapsed = time.monotonic() - start

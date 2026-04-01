@@ -6,9 +6,7 @@ This test verifies that data flows correctly through the EYES -> BRAIN -> TEETH 
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -23,9 +21,8 @@ from rex.shared.events import (
     DecisionMadeEvent,
     ThreatDetectedEvent,
 )
-from rex.shared.models import Decision, Device, ThreatEvent
-from rex.shared.utils import generate_id, utc_now
-
+from rex.shared.models import Decision, ThreatEvent
+from rex.shared.utils import utc_now
 
 # ------------------------------------------------------------------
 # End-to-end pipeline test

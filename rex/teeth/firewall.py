@@ -15,11 +15,11 @@ Safety invariants enforced at this layer (never bypassed):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 from datetime import timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rex.shared.constants import MAX_ACTIONS_PER_MINUTE
@@ -28,6 +28,8 @@ from rex.shared.models import FirewallRule
 from rex.shared.utils import generate_id, is_valid_ipv4, utc_now
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from rex.pal.base import PlatformAdapter
     from rex.shared.config import RexConfig
 
@@ -459,10 +461,8 @@ class FirewallManager:
 
         if self._rollback_task is not None:
             self._rollback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._rollback_task
-            except asyncio.CancelledError:
-                pass
 
         await self.persist_rules()
 

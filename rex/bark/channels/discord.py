@@ -6,7 +6,6 @@ import json
 import logging
 from typing import Any
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 
 from rex.bark.channels.base import BaseChannel
 

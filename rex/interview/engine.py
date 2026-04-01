@@ -16,14 +16,13 @@ import copy
 import logging
 from typing import Any
 
-from rex.shared.enums import DeviceType, InterviewMode
-
 from rex.interview.question_bank import (
     QuestionDict,
     count_iot_devices,
     get_exposed_service_name,
     get_questions_for_mode,
 )
+from rex.shared.enums import DeviceType, InterviewMode
 
 logger = logging.getLogger("rex.interview.engine")
 

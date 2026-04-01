@@ -6,14 +6,14 @@ import pytest
 
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
 
 def _make_monitor(config):
-    from rex.eyes.dns_monitor import DNSMonitor
     from unittest.mock import MagicMock
+
+    from rex.eyes.dns_monitor import DNSMonitor
 
     pal = MagicMock()
     return DNSMonitor(pal=pal, config=config)

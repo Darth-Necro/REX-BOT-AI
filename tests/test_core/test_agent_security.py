@@ -1,11 +1,14 @@
 """Tests for agent security boundaries."""
 
 import pytest
+
+from rex.brain.llm import OllamaClient, PrivacyViolationError
 from rex.core.agent.network_data_sanitizer import (
-    sanitize_hostname, sanitize_banner, sanitize_network_data
+    sanitize_banner,
+    sanitize_hostname,
+    sanitize_network_data,
 )
 from rex.core.agent.scope_enforcer import ScopeEnforcer
-from rex.brain.llm import PrivacyViolationError, OllamaClient, ALLOWED_HOSTS
 
 
 def test_prompt_injection_in_hostname():
@@ -70,7 +73,6 @@ def test_llm_localhost_only():
 def test_no_shell_true_in_codebase():
     """Verify no shell=True in any Rex Python file."""
     import os
-    import re
     rex_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'rex')
     violations = []
     for root, dirs, files in os.walk(rex_dir):

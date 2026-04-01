@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from rex.bark.formatter import MessageFormatter
-from rex.shared.enums import ThreatSeverity
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -58,7 +54,7 @@ def test_format_alert_summary_mode():
     fmt = _make_formatter()
     event = _sample_event(severity="high")
 
-    message, meta = fmt.format_alert(event, "high", detail_level="summary")
+    message, _meta = fmt.format_alert(event, "high", detail_level="summary")
 
     assert "192.168.1.50" in message or "unknown" in message
     assert "REX" in message
@@ -74,7 +70,7 @@ def test_format_alert_alert_only_mode():
     fmt = _make_formatter()
     event = _sample_event(severity="medium")
 
-    message, meta = fmt.format_alert(event, "medium", detail_level="alert_only")
+    message, _meta = fmt.format_alert(event, "medium", detail_level="alert_only")
 
     assert "dashboard" in message.lower()
     # Should NOT contain raw IP in alert-only mode
@@ -129,6 +125,6 @@ def test_format_alert_unknown_severity_defaults():
     """An unrecognized severity string should default gracefully."""
     fmt = _make_formatter()
     event = _sample_event()
-    message, meta = fmt.format_alert(event, "unknown_sev", detail_level="summary")
+    _message, meta = fmt.format_alert(event, "unknown_sev", detail_level="summary")
     # Should not crash; defaults to MEDIUM
     assert meta["severity"] == "medium"

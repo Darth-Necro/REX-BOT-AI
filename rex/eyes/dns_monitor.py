@@ -12,18 +12,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import shutil
-import struct
 from collections import defaultdict
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rex.pal.base import PlatformAdapter
-from rex.shared.config import RexConfig
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
 from rex.shared.utils import entropy, is_private_ip, utc_now
+
+if TYPE_CHECKING:
+    from rex.pal.base import PlatformAdapter
+    from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.eyes.dns_monitor")
 
@@ -159,7 +158,7 @@ class DNSMonitor:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
-        except (asyncio.TimeoutError, OSError) as exc:
+        except (TimeoutError, OSError) as exc:
             self._logger.debug("Feed download failed for %s: %s", url, exc)
             return 0
 
@@ -219,7 +218,7 @@ class DNSMonitor:
                 except StopIteration:
                     self._logger.info("DNS capture generator exhausted")
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 await self._process_dns_packet(packet)

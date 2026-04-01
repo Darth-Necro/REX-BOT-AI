@@ -150,10 +150,7 @@ class ScopeEnforcer:
         # Check for out-of-scope patterns first. These are strong negative
         # signals that override keyword matches.
         for pattern in self.OUT_OF_SCOPE_PATTERNS:
-            if pattern.search(text_lower):
-                # But only reject if there are NO security keywords --
-                # "block the device streaming traffic" is valid.
-                if not self._has_security_keyword(text_lower):
+            if pattern.search(text_lower) and not self._has_security_keyword(text_lower):
                     logger.info(
                         "Out-of-scope request rejected (pattern match): %s",
                         text[:100],
@@ -197,9 +194,7 @@ class ScopeEnforcer:
         if not action_type:
             return False
         # Must be a valid Python-style identifier (snake_case).
-        if not re.match(r"^[a-z][a-z0-9_]{1,63}$", action_type):
-            return False
-        return True
+        return bool(re.match(r"^[a-z][a-z0-9_]{1,63}$", action_type))
 
     def validate_action_domain(self, domain: str) -> bool:
         """Check that a domain string is one of the valid REX domains.

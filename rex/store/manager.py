@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.enums import DeviceType
 from rex.shared.models import PluginManifest
-from rex.shared.types import PluginId
 from rex.store.registry import PluginRegistry
 from rex.store.sandbox import PluginSandbox
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from rex.shared.types import PluginId
 
 logger = logging.getLogger(__name__)
 

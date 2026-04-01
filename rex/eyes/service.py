@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.eyes.device_store import DeviceStore
 from rex.eyes.dns_monitor import DNSMonitor
@@ -25,9 +24,6 @@ from rex.eyes.port_scanner import PortScanner
 from rex.eyes.scanner import NetworkScanner
 from rex.eyes.traffic import TrafficMonitor
 from rex.pal import get_adapter
-from rex.pal.base import PlatformAdapter
-from rex.shared.bus import EventBus
-from rex.shared.config import RexConfig
 from rex.shared.constants import (
     STREAM_CORE_COMMANDS,
     STREAM_EYES_DEVICE_UPDATES,
@@ -42,8 +38,13 @@ from rex.shared.events import (
     ScanTriggeredEvent,
     ThreatDetectedEvent,
 )
-from rex.shared.models import Device, ScanResult, ThreatEvent
 from rex.shared.service import BaseService
+
+if TYPE_CHECKING:
+    from rex.pal.base import PlatformAdapter
+    from rex.shared.bus import EventBus
+    from rex.shared.config import RexConfig
+    from rex.shared.models import Device, ScanResult, ThreatEvent
 
 
 class EyesService(BaseService):
@@ -489,7 +490,7 @@ class EyesService(BaseService):
                 data = {}
 
             payload = data.get("payload", {})
-            event_type = data.get("event_type", "")
+            data.get("event_type", "")
             target_service = payload.get("target_service", "")
 
             # Only handle commands directed at Eyes
@@ -537,10 +538,9 @@ class EyesService(BaseService):
                     stats = self._dns_monitor.get_dns_stats()
                     self._log.info("DNS stats: %s", stats)
 
-            elif command == "traffic_stats":
-                if self._traffic_monitor:
-                    stats = self._traffic_monitor.get_traffic_summary()
-                    self._log.info("Traffic stats: %s", stats)
+            elif command == "traffic_stats" and self._traffic_monitor:
+                stats = self._traffic_monitor.get_traffic_summary()
+                self._log.info("Traffic stats: %s", stats)
 
         try:
             await self.bus.subscribe([STREAM_CORE_COMMANDS], handler)

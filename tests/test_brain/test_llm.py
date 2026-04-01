@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
 from rex.brain.llm import (
-    ALLOWED_HOSTS,
     DataSanitizer,
     LLMRouter,
     OllamaClient,
     PrivacyLevel,
     PrivacyViolationError,
 )
-
 
 # ------------------------------------------------------------------
 # OllamaClient -- localhost restriction

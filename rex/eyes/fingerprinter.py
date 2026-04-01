@@ -17,13 +17,15 @@ import re
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-from rex.shared.config import RexConfig
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import DeviceType
-from rex.shared.models import Device
 from rex.shared.utils import is_valid_ipv4, mac_normalize
+
+if TYPE_CHECKING:
+    from rex.shared.config import RexConfig
+    from rex.shared.models import Device
 
 logger = logging.getLogger("rex.eyes.fingerprinter")
 
@@ -288,7 +290,7 @@ class DeviceFingerprinter:
                         "Downloaded OUI CSV: %d bytes", len(text)
                     )
                     return text
-        except (asyncio.TimeoutError, OSError) as exc:
+        except (TimeoutError, OSError) as exc:
             self._logger.debug("OUI CSV download failed: %s", exc)
 
         return None
@@ -445,7 +447,7 @@ class DeviceFingerprinter:
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT
             )
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
+        except (TimeoutError, FileNotFoundError, OSError):
             return None
 
         if proc.returncode != 0:
@@ -495,7 +497,7 @@ class DeviceFingerprinter:
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_NETWORK_TIMEOUT + 2
             )
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
+        except (TimeoutError, FileNotFoundError, OSError):
             return None
 
         if proc.returncode != 0:
@@ -591,8 +593,7 @@ class DeviceFingerprinter:
         if port_set & {32400, 8096}:
             return DeviceType.SERVER
         # SSH + HTTP but no desktop ports: server
-        if 22 in port_set and (80 in port_set or 443 in port_set):
-            if not port_set & {3389, 5900}:
+        if 22 in port_set and (80 in port_set or 443 in port_set) and not port_set & {3389, 5900}:
                 return DeviceType.SERVER
         # RDP or VNC: desktop
         if port_set & {3389, 5900, 5901}:
@@ -813,4 +814,4 @@ class DeviceFingerprinter:
 
 
 # Make ET available for nmap XML parsing
-import xml.etree.ElementTree as ET  # noqa: E402 -- intentional re-import for clarity
+import xml.etree.ElementTree as ET

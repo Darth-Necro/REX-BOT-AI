@@ -10,7 +10,7 @@ Higher layers interact with the OS exclusively through this interface.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.errors import (
     RexCaptureError,
@@ -18,13 +18,17 @@ from rex.shared.errors import (
     RexFirewallError,
     RexPermissionError,
 )
-from rex.shared.models import (
-    FirewallRule,
-    GPUInfo,
-    NetworkInfo,
-    OSInfo,
-    SystemResources,
-)
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from rex.shared.models import (
+        FirewallRule,
+        GPUInfo,
+        NetworkInfo,
+        OSInfo,
+        SystemResources,
+    )
 
 
 # ---------------------------------------------------------------------------

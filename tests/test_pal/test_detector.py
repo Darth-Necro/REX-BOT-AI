@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
-import pytest
-
 from rex.shared.enums import HardwareTier
 from rex.shared.models import OSInfo, SystemResources
-
 
 # ------------------------------------------------------------------
 # test_detect_os_returns_valid_osinfo

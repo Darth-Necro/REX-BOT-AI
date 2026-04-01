@@ -14,14 +14,10 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
-    CaptureError,
-    FirewallError,
     PlatformAdapter,
-    PlatformError,
-    PermissionDeniedError,
 )
 from rex.shared.errors import RexPlatformNotSupportedError
 from rex.shared.models import (
@@ -31,6 +27,9 @@ from rex.shared.models import (
     OSInfo,
     SystemResources,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class BSDAdapter(PlatformAdapter):
@@ -115,7 +114,7 @@ class BSDAdapter(PlatformAdapter):
                 )
                 if ret == 0:
                     ram_total_mb = int(size.value / (1024 ** 2))
-        except Exception:  # noqa: BLE001 -- best-effort fallback
+        except Exception:
             pass
 
         return SystemResources(
@@ -588,7 +587,7 @@ class BSDAdapter(PlatformAdapter):
             return True
         # FreeBSD jail detection
         try:
-            with open("/var/run/jail_name", "r") as fh:
+            with open("/var/run/jail_name") as fh:
                 return bool(fh.read().strip())
         except OSError:
             pass

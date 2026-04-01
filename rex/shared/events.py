@@ -8,7 +8,8 @@ that publishers only need to supply a ``payload`` dict (and optionally a
 deserialising from the stream.
 """
 
-from __future__ import annotations
+# NOTE: Do NOT add 'from __future__ import annotations' here.
+# It breaks Pydantic v2 model resolution for datetime fields.
 
 from datetime import datetime
 from typing import Any
@@ -18,6 +19,8 @@ from pydantic import Field
 from rex.shared.enums import ServiceName
 from rex.shared.models import RexBaseModel
 from rex.shared.utils import generate_id, utc_now
+
+# datetime imported at module level above
 
 
 # ---------------------------------------------------------------------------

@@ -9,10 +9,13 @@ is simply disabled with a warning and all public methods become no-ops.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class GitManager:
@@ -197,7 +200,7 @@ class GitManager:
                     "message": commit.message.strip(),
                     "author": str(commit.author),
                     "timestamp": datetime.fromtimestamp(
-                        commit.committed_date, tz=timezone.utc
+                        commit.committed_date, tz=UTC
                     ).isoformat(),
                 })
         except Exception:
@@ -277,10 +280,8 @@ class GitManager:
         except _git.GitCommandError as exc:
             self._logger.warning("git revert failed: %s", exc)
             # Abort if revert left the repo in a conflicted state
-            try:
+            with contextlib.suppress(Exception):
                 repo.git.revert("--abort")
-            except Exception:
-                pass
             return None
 
     async def get_file_at_version(self, commit_hash: str) -> str:

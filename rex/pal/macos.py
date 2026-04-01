@@ -14,14 +14,10 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
-    CaptureError,
-    FirewallError,
     PlatformAdapter,
-    PlatformError,
-    PermissionDeniedError,
 )
 from rex.shared.errors import RexPlatformNotSupportedError
 from rex.shared.models import (
@@ -31,6 +27,9 @@ from rex.shared.models import (
     OSInfo,
     SystemResources,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class MacOSAdapter(PlatformAdapter):
@@ -118,7 +117,7 @@ class MacOSAdapter(PlatformAdapter):
                     ram_total_mb = int(size.value / (1024 ** 2))
                     # No portable way to get available RAM without psutil;
                     # leave at 0 as "unknown" sentinel.
-        except Exception:  # noqa: BLE001 -- best-effort fallback
+        except Exception:
             pass
 
         return SystemResources(

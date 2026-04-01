@@ -23,6 +23,7 @@ Usage::
 
 from __future__ import annotations
 
+from rex.core.privacy.audit import PrivacyAuditor
 from rex.core.privacy.data_classifier import (
     DATA_CLASSIFICATIONS,
     DataClassifier,
@@ -30,13 +31,12 @@ from rex.core.privacy.data_classifier import (
 )
 from rex.core.privacy.egress_firewall import EgressFirewall
 from rex.core.privacy.encryption import SecretsManager
-from rex.core.privacy.audit import PrivacyAuditor
 
 __all__ = [
-    "EgressFirewall",
-    "SecretsManager",
-    "PrivacyAuditor",
+    "DATA_CLASSIFICATIONS",
     "DataClassifier",
     "DataPrivacyTier",
-    "DATA_CLASSIFICATIONS",
+    "EgressFirewall",
+    "PrivacyAuditor",
+    "SecretsManager",
 ]

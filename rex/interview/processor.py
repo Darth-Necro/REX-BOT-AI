@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from rex.shared.utils import iso_timestamp, utc_now
+from rex.shared.utils import iso_timestamp
 
 logger = logging.getLogger("rex.interview.processor")
 

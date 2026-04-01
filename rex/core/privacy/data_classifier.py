@@ -278,10 +278,8 @@ class DataClassifier:
                 self._sanitize_dict(value)
             elif isinstance(value, list):
                 self._sanitize_list(value)
-            elif isinstance(value, str):
-                # Mask MAC addresses in string values
-                if not self._debug_mode:
-                    d[key] = self._mask_mac_addresses(value)
+            elif isinstance(value, str) and not self._debug_mode:
+                d[key] = self._mask_mac_addresses(value)
 
     def _sanitize_list(self, lst: list[Any]) -> None:
         """In-place recursive sanitisation of a list.
@@ -313,10 +311,7 @@ class DataClassifier:
         bool
             ``True`` if the key matches any sensitive field pattern.
         """
-        for pattern in _SENSITIVE_FIELD_PATTERNS:
-            if re.search(pattern, key):
-                return True
-        return False
+        return any(re.search(pattern, key) for pattern in _SENSITIVE_FIELD_PATTERNS)
 
     @staticmethod
     def _mask_mac_addresses(value: str) -> str:

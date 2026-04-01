@@ -19,7 +19,6 @@ from rex.shared.enums import (
     ThreatSeverity,
 )
 
-
 ALL_ENUMS = [
     ServiceName,
     ThreatSeverity,

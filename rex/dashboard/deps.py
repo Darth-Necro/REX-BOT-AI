@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Header, HTTPException, status
 
 from rex.shared.config import RexConfig, get_config
 

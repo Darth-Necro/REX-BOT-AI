@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-import pytest
-
 from rex.core.privacy.data_classifier import (
-    DATA_CLASSIFICATIONS,
     DataClassifier,
     DataPrivacyTier,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # SecretsManager tests (encryption module)

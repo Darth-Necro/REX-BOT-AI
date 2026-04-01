@@ -11,8 +11,8 @@ Public API
 from rex.interview.engine import QuestionEngine
 from rex.interview.processor import AnswerProcessor
 from rex.interview.question_bank import (
-    ALL_QUESTIONS,
     ADVANCED_QUESTIONS,
+    ALL_QUESTIONS,
     BASIC_QUESTIONS,
     get_advanced_questions,
     get_basic_questions,
@@ -22,10 +22,10 @@ from rex.interview.question_bank import (
 from rex.interview.service import InterviewService
 
 __all__ = [
-    "ALL_QUESTIONS",
     "ADVANCED_QUESTIONS",
-    "AnswerProcessor",
+    "ALL_QUESTIONS",
     "BASIC_QUESTIONS",
+    "AnswerProcessor",
     "InterviewService",
     "QuestionEngine",
     "get_advanced_questions",

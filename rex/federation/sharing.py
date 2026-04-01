@@ -8,7 +8,6 @@ Federation is OPT-IN only, disabled by default.
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 from rex.federation.privacy import PrivacyEngine

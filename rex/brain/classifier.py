@@ -62,7 +62,7 @@ _BEACON_INTERVALS: list[tuple[float, float]] = [
 class ClassificationResult:
     """Result of a threat classification."""
 
-    __slots__ = ("category", "severity", "confidence", "description", "indicators", "rule_name")
+    __slots__ = ("category", "confidence", "description", "indicators", "rule_name", "severity")
 
     def __init__(
         self,
@@ -375,7 +375,7 @@ class ThreatClassifier:
                     f"Lateral movement detected: {source_ip} connected to "
                     f"{len(unique_dests)} internal hosts in {self._lateral_window}s"
                 ),
-                indicators=[source_ip] + list(unique_dests)[:5],
+                indicators=[source_ip, *list(unique_dests)[:5]],
                 rule_name="lateral_movement_internal_spread",
             )
 
@@ -697,7 +697,7 @@ class ThreatClassifier:
                     f"DNS tunneling suspected: query={dns_query}, "
                     f"score={score:.2f}"
                 ),
-                indicators=[dns_query] + indicators,
+                indicators=[dns_query, *indicators],
                 rule_name="dns_tunnel_heuristic",
             )
 

@@ -5,14 +5,14 @@ Includes CORS, CSP headers, WebSocket endpoint, and all API routers.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
-from starlette.responses import Response
 
 from rex.dashboard.routers import (
+    auth,
     config,
     devices,
     firewall,
@@ -26,6 +26,10 @@ from rex.dashboard.routers import (
 )
 from rex.dashboard.websocket import WebSocketManager
 from rex.shared.constants import VERSION
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.responses import Response
 
 _ws_manager = WebSocketManager()
 
@@ -73,6 +77,7 @@ def create_app() -> FastAPI:
     )
 
     # API Routers
+    app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(devices.router)
     app.include_router(threats.router)

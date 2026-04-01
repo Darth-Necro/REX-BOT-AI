@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -12,6 +12,8 @@ from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
 from rex.shared.utils import generate_id, utc_now
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # Helpers
@@ -111,10 +113,10 @@ async def test_archive_when_over_limit(tmp_path: Path):
         # keep_count=100, it keeps all -- the real threshold is exceeded at 10)
         # After appending 11th, archival runs: keeps last 100 of 11 = all 11
         # So the archive only triggers, but with <100 total it keeps all in hot
-        archived = await tl.archive_old()
+        await tl.archive_old()
 
     # The archive_dir should exist if archival ran
-    archive_dir = tmp_path / "rex-data" / "threats-archive"
+    tmp_path / "rex-data" / "threats-archive"
     # With only 15 items and keep_count=100, everything stays in hot store
     # The important thing is it didn't crash
     stats = await tl.get_stats()

@@ -22,13 +22,14 @@ from __future__ import annotations
 import json
 import logging
 import secrets
-import string
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta, UTC
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.utils import generate_id, utc_now
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

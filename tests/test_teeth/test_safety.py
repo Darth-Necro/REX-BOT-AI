@@ -1,9 +1,10 @@
 """Tests for firewall safety checks."""
 
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
-from rex.teeth.firewall import FirewallManager
+
 from rex.shared.errors import RexFirewallError
+from rex.teeth.firewall import FirewallManager
 
 
 @pytest.fixture

@@ -14,14 +14,10 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
-    CaptureError,
-    FirewallError,
     PlatformAdapter,
-    PlatformError,
-    PermissionDeniedError,
 )
 from rex.shared.errors import RexPlatformNotSupportedError
 from rex.shared.models import (
@@ -31,6 +27,9 @@ from rex.shared.models import (
     OSInfo,
     SystemResources,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class WindowsAdapter(PlatformAdapter):
@@ -98,7 +97,7 @@ class WindowsAdapter(PlatformAdapter):
         ram_available_mb: int = 0
         try:
             # Attempt ctypes call for GlobalMemoryStatusEx if available
-            import ctypes  # noqa: F811
+            import ctypes
 
             class _MEMORYSTATUSEX(ctypes.Structure):
                 _fields_ = [
@@ -118,7 +117,7 @@ class WindowsAdapter(PlatformAdapter):
             if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem)):  # type: ignore[attr-defined]
                 ram_total_mb = int(mem.ullTotalPhys / (1024 ** 2))
                 ram_available_mb = int(mem.ullAvailPhys / (1024 ** 2))
-        except Exception:  # noqa: BLE001 -- best-effort fallback
+        except Exception:
             pass
 
         return SystemResources(

@@ -14,6 +14,7 @@ Layers 1-2 provide the decision and Layer 3 is skipped.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -77,7 +78,7 @@ class DecisionEngine:
             decision = await asyncio.wait_for(
                 self._pipeline(event), timeout=DEFAULT_LLM_TIMEOUT
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Pipeline timed out for %s — L1/L2 fallback", event.event_id)
             self._llm_timeouts += 1
             decision = self._fallback_decision(event)
@@ -204,10 +205,8 @@ class DecisionEngine:
             try:
                 kb_context = ""
                 if self._kb:
-                    try:
+                    with contextlib.suppress(Exception):
                         kb_context = await self._kb.get_context_for_llm("threat")
-                    except Exception:
-                        pass
 
                 from rex.brain.prompts import THREAT_ANALYSIS_TEMPLATE
                 prompt = (
@@ -220,7 +219,7 @@ class DecisionEngine:
                 )
                 resp = await self._llm.security_query(prompt, {"event_id": event.event_id})
                 return self._parse_llm(event, resp)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._llm_timeouts += 1
                 return None
             except Exception:

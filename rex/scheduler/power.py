@@ -6,14 +6,15 @@ and wakes REX within 5 seconds if needed.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.enums import PowerState
 from rex.shared.utils import utc_now
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 logger = logging.getLogger(__name__)
 

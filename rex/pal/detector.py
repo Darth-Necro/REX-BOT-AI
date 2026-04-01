@@ -10,6 +10,7 @@ platforms they fall back to :mod:`platform`, :mod:`os`, and
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import re
@@ -20,7 +21,6 @@ from typing import Any
 
 from rex.shared.enums import HardwareTier
 from rex.shared.models import GPUInfo, OSInfo, SystemResources
-
 
 # ---------------------------------------------------------------------------
 # Private helpers
@@ -60,10 +60,8 @@ def _parse_proc_meminfo() -> dict[str, int]:
         if len(parts) == 2:
             key = parts[0].strip()
             val = parts[1].strip().split()[0]  # value before "kB"
-            try:
+            with contextlib.suppress(ValueError):
                 info[key] = int(val)
-            except ValueError:
-                pass
     return info
 
 
@@ -153,10 +151,8 @@ def _detect_gpu_amd() -> GPUInfo | None:
                 # Parse total VRAM in bytes, convert to MB
                 nums = re.findall(r"(\d+)", line)
                 if nums:
-                    try:
+                    with contextlib.suppress(ValueError, IndexError):
                         vram_mb = int(nums[-1]) // (1024 * 1024)
-                    except (ValueError, IndexError):
-                        pass
 
     return GPUInfo(
         model=model,
@@ -198,7 +194,6 @@ def _detect_gpu_apple() -> GPUInfo | None:
     # as VRAM if no explicit VRAM line was found.
     if vram_mb == 0:
         try:
-            import ctypes
             # Fallback: use sysctl
             mem_output = _run_cmd(["sysctl", "-n", "hw.memsize"])
             if mem_output:
@@ -283,9 +278,7 @@ def detect_os() -> OSInfo:
 
     # Docker detection -- check multiple indicators
     cgroup = _read_file("/proc/1/cgroup")
-    if "docker" in cgroup or "containerd" in cgroup:
-        is_docker = True
-    elif Path("/.dockerenv").exists():
+    if "docker" in cgroup or "containerd" in cgroup or Path("/.dockerenv").exists():
         is_docker = True
 
     # VM detection
@@ -338,10 +331,7 @@ def _detect_is_vm() -> bool:
 
     # Method 5: systemd-detect-virt (common on modern Linux)
     virt = _run_cmd(["systemd-detect-virt"])
-    if virt and virt != "none":
-        return True
-
-    return False
+    return bool(virt and virt != "none")
 
 
 def detect_hardware() -> SystemResources:
@@ -373,10 +363,8 @@ def detect_hardware() -> SystemResources:
             cpu_model = brand
         cores_str = _run_cmd(["sysctl", "-n", "hw.logicalcpu"])
         if cores_str:
-            try:
+            with contextlib.suppress(ValueError):
                 cpu_cores = int(cores_str)
-            except ValueError:
-                pass
     elif system == "Windows":
         cpu_model = platform.processor() or "Unknown CPU"
 
@@ -399,10 +387,8 @@ def detect_hardware() -> SystemResources:
     elif system == "Darwin":
         mem_str = _run_cmd(["sysctl", "-n", "hw.memsize"])
         if mem_str:
-            try:
+            with contextlib.suppress(ValueError):
                 ram_total_mb = int(mem_str) // (1024 * 1024)
-            except ValueError:
-                pass
         # Approximate available memory via vm_stat
         vm_stat = _run_cmd(["vm_stat"])
         if vm_stat:
@@ -434,10 +420,8 @@ def detect_hardware() -> SystemResources:
                 if "TotalPhysicalMemory" in line:
                     parts = line.split("=")
                     if len(parts) == 2:
-                        try:
+                        with contextlib.suppress(ValueError):
                             ram_total_mb = int(parts[1].strip()) // (1024 * 1024)
-                        except ValueError:
-                            pass
             wmic_free = _run_cmd([
                 "wmic", "OS", "get", "FreePhysicalMemory", "/value",
             ])
@@ -445,10 +429,8 @@ def detect_hardware() -> SystemResources:
                 if "FreePhysicalMemory" in line:
                     parts = line.split("=")
                     if len(parts) == 2:
-                        try:
+                        with contextlib.suppress(ValueError):
                             ram_available_mb = int(parts[1].strip()) // 1024  # kB -> MB
-                        except ValueError:
-                            pass
 
     # --- CPU utilization (snapshot) --------------------------------------
     cpu_percent = 0.0

@@ -31,7 +31,6 @@ from urllib.parse import urlparse
 import httpx
 
 from rex.pal.detector import detect_hardware, recommend_llm_model
-from rex.shared.constants import DEFAULT_LLM_TIMEOUT
 from rex.shared.errors import RexLLMUnavailableError, RexTimeoutError
 
 logger = logging.getLogger(__name__)

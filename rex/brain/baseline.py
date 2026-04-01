@@ -17,15 +17,17 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import time
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from rex.shared.models import BehavioralProfile
-from rex.shared.types import DeviceId
 from rex.shared.utils import utc_now
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from rex.shared.types import DeviceId
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +40,15 @@ class _LearningState:
     """Accumulator used during the learning period for one device."""
 
     __slots__ = (
-        "start_time", "observations", "total_seconds_up",
-        "total_seconds_elapsed", "ports_seen", "destinations_seen",
-        "bandwidth_samples", "active_hours", "dns_queries",
+        "active_hours",
+        "bandwidth_samples",
+        "destinations_seen",
+        "dns_queries",
+        "observations",
+        "ports_seen",
+        "start_time",
+        "total_seconds_elapsed",
+        "total_seconds_up",
     )
 
     def __init__(self) -> None:
@@ -145,7 +153,7 @@ class BehavioralBaseline:
             state.bandwidth_samples.append(float(bw))
 
         # Active hours
-        now_hour = datetime.now(timezone.utc).hour
+        now_hour = datetime.now(UTC).hour
         state.active_hours[now_hour] = state.active_hours.get(now_hour, 0) + 1
 
         # DNS queries
@@ -272,7 +280,7 @@ class BehavioralBaseline:
                 pass  # Destinations added only during periodic re-evaluation
 
         # Update active hours
-        now_hour = datetime.now(timezone.utc).hour
+        now_hour = datetime.now(UTC).hour
         if now_hour not in profile.active_hours:
             # Slow incorporation of new active hours
             pass  # Hours added only during periodic re-evaluation
@@ -426,7 +434,7 @@ class BehavioralBaseline:
         """Score timing deviation (activity outside normal hours)."""
         hour = current.get("hour")
         if hour is None:
-            hour = datetime.now(timezone.utc).hour
+            hour = datetime.now(UTC).hour
 
         if not profile.active_hours:
             return 0.0  # no baseline for hours

@@ -4,6 +4,7 @@ import useSystemStore from './stores/useSystemStore';
 import { connect, on, disconnect } from './ws/socket';
 import BasicView from './views/BasicView';
 import AdvancedView from './views/AdvancedView';
+import LoginView from './views/LoginView';
 
 function ModeToggle() {
   const { mode, toggleMode } = useSystemStore();
@@ -21,7 +22,7 @@ function ModeToggle() {
 }
 
 function TopBar() {
-  const { connected, powerState } = useSystemStore();
+  const { connected, powerState, logout } = useSystemStore();
   return (
     <header className="h-16 bg-rex-surface border-b border-rex-card flex items-center justify-between px-4">
       <div className="flex items-center gap-3">
@@ -30,19 +31,29 @@ function TopBar() {
               title={connected ? 'Connected' : 'Disconnected'} />
         <span className="text-xs text-rex-muted capitalize">{powerState}</span>
       </div>
-      <ModeToggle />
+      <div className="flex items-center gap-3">
+        <ModeToggle />
+        <button
+          onClick={logout}
+          className="px-3 py-1.5 rounded-lg border border-rex-card hover:border-rex-threat text-rex-muted hover:text-rex-threat transition-colors text-sm"
+          title="Log out"
+        >
+          Logout
+        </button>
+      </div>
     </header>
   );
 }
 
 export default function App() {
-  const { mode, setConnected, updateFromStatus } = useSystemStore();
+  const { mode, token, setConnected, updateFromStatus } = useSystemStore();
 
   useEffect(() => {
+    if (!token) return;
     connect();
     on('__open', () => setConnected(true));
     on('__close', () => setConnected(false));
-    on('rex.status', (data) => updateFromStatus(data.payload || data));
+    on('status.update', (data) => updateFromStatus(data.payload || data));
     on('threat.new', (data) => {
       // Import dynamically to avoid circular deps
       import('./stores/useThreatStore').then(({ default: store }) => {
@@ -50,7 +61,11 @@ export default function App() {
       });
     });
     return () => disconnect();
-  }, []);
+  }, [token]);
+
+  if (!token) {
+    return <LoginView />;
+  }
 
   return (
     <BrowserRouter>
