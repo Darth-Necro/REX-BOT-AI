@@ -70,6 +70,7 @@ class DecisionEngine:
         self._llm_calls = 0
         self._llm_timeouts = 0
         self._avg_latency_ms = 0.0
+        self._bg_tasks: set[asyncio.Task[None]] = set()
 
     async def evaluate_event(self, event: ThreatEvent) -> Decision:
         """Run the pipeline with a hard 10-second timeout."""
@@ -150,7 +151,9 @@ class DecisionEngine:
         if self._llm_available:
             d = await self._layer3_llm(event)
             if d:
-                self._bg_task = asyncio.create_task(self._layer4_federated(event, d))
+                task = asyncio.create_task(self._layer4_federated(event, d))
+                self._bg_tasks.add(task)
+                task.add_done_callback(self._bg_tasks.discard)
                 return d
         return self._default_decision(event)
 
@@ -208,7 +211,7 @@ class DecisionEngine:
                     with contextlib.suppress(Exception):
                         kb_context = await self._kb.get_context_for_llm("threat")
 
-                from rex.brain.prompts import THREAT_ANALYSIS_TEMPLATE
+                from rex.brain.prompts import SYSTEM_PROMPT, THREAT_ANALYSIS_TEMPLATE
 
                 # Sanitize the FULL event data, not just raw_data.
                 # Fields like description, indicators, source_device_id
@@ -238,7 +241,7 @@ class DecisionEngine:
                     .replace("{{ user_notes }}", "")
                     .replace("{{ event_json }}", event_json_str)
                 )
-                resp = await self._llm.security_query(prompt, {"event_id": event.event_id})
+                resp = await self._llm.security_query(prompt, SYSTEM_PROMPT)
                 return self._parse_llm(event, resp)
             except TimeoutError:
                 self._llm_timeouts += 1

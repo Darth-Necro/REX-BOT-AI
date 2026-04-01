@@ -14,11 +14,19 @@ router = APIRouter(prefix="/plugin-api", tags=["plugin-api"])
 
 
 async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
-    """Verify plugin API token. Returns plugin_id."""
-    # In production: look up token in plugin registry, verify permissions
-    if not x_plugin_token:
-        raise HTTPException(status_code=401, detail="Missing plugin token")
-    return x_plugin_token
+    """Verify plugin API token. Returns plugin_id.
+
+    TODO: Wire to real plugin registry for production.  Until then, tokens
+    must be at least 32 characters to discourage trivial bypass.
+    """
+    if not x_plugin_token or len(x_plugin_token) < 32:
+        raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
+    # In production: look up token in the plugin registry and return the
+    # real plugin_id associated with it.  For now, return a hash-derived
+    # identifier so callers cannot choose their own plugin_id.
+    import hashlib
+    plugin_id = f"plugin-{hashlib.sha256(x_plugin_token.encode()).hexdigest()[:16]}"
+    return plugin_id
 
 
 @router.get("/devices")

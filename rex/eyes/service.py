@@ -360,10 +360,11 @@ class EyesService(BaseService):
         assert self._traffic_monitor is not None
         assert self._interface is not None
 
-        # Start a parallel anomaly detection sweep
+        # Start a parallel anomaly detection sweep (tracked for shutdown)
         self._anomaly_task = asyncio.create_task(
             self._anomaly_sweep_loop(), name="eyes:anomaly_sweep"
         )
+        self._bg_tasks.append(self._anomaly_task)
 
         backoff = 5
         while self._running:

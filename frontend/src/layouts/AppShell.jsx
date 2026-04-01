@@ -3,6 +3,7 @@ import { colors } from '../theme/tokens';
 import ConnectionStatusPill from '../components/chrome/ConnectionStatusPill';
 import { ToastContainer } from '../components/chrome/ActionFeedbackToast';
 import useSystemStore from '../stores/useSystemStore';
+import useAuthStore from '../stores/useAuthStore';
 
 /* ------------------------------------------------------------------ */
 /*  Default nav items (can be overridden via props)                   */
@@ -138,7 +139,12 @@ export default function AppShell({
   const apiConnection = useSystemStore((s) => s.apiConnection);
   const wsConnection = useSystemStore((s) => s.wsConnection);
   const version = useSystemStore((s) => s.version);
-  const logout = useSystemStore((s) => s.logout);
+  const systemLogout = useSystemStore((s) => s.logout);
+  const authLogout = useAuthStore((s) => s.logout);
+  const logout = useCallback(() => {
+    systemLogout();
+    authLogout();
+  }, [systemLogout, authLogout]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
