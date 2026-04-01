@@ -46,9 +46,10 @@ class WebSocketManager:
             self._connections[websocket] = set(_DEFAULT_CHANNELS)
         logger.info("WebSocket client connected (total: %d)", len(self._connections))
 
-    def disconnect(self, websocket: WebSocket) -> None:
+    async def disconnect(self, websocket: WebSocket) -> None:
         """Remove a WebSocket from the active pool."""
-        self._connections.pop(websocket, None)
+        async with self._lock:
+            self._connections.pop(websocket, None)
         logger.info("WebSocket client disconnected (total: %d)", len(self._connections))
 
     async def subscribe(self, websocket: WebSocket, channels: list[str]) -> None:
@@ -58,36 +59,46 @@ class WebSocketManager:
         unknown channel names are silently ignored to prevent clients
         from subscribing to arbitrary internal topics.
         """
-        if websocket in self._connections:
-            valid = [c for c in channels if c in _DEFAULT_CHANNELS]
-            self._connections[websocket].update(valid)
+        async with self._lock:
+            if websocket in self._connections:
+                valid = [c for c in channels if c in _DEFAULT_CHANNELS]
+                self._connections[websocket].update(valid)
 
     async def unsubscribe(self, websocket: WebSocket, channels: list[str]) -> None:
         """Remove channel subscriptions for a connection."""
-        if websocket in self._connections:
-            self._connections[websocket] -= set(channels)
+        async with self._lock:
+            if websocket in self._connections:
+                self._connections[websocket] -= set(channels)
 
     async def broadcast(self, message: dict[str, Any], channel: str = "status.update") -> None:
         """Send a message to all clients subscribed to the given channel."""
         payload = json.dumps({"type": channel, **message})
         disconnected: list[WebSocket] = []
 
-        for ws, channels in self._connections.items():
+        async with self._lock:
+            targets = [(ws, set(ch)) for ws, ch in self._connections.items()]
+
+        for ws, channels in targets:
             if channel in channels:
                 try:
                     await ws.send_text(payload)
                 except Exception:
+                    logger.debug(
+                        "Failed to send to WebSocket client, marking disconnected",
+                        exc_info=True,
+                    )
                     disconnected.append(ws)
 
         for ws in disconnected:
-            self.disconnect(ws)
+            await self.disconnect(ws)
 
     async def send_personal(self, websocket: WebSocket, message: dict[str, Any]) -> None:
         """Send a message to a specific WebSocket connection."""
         try:
             await websocket.send_json(message)
         except Exception:
-            self.disconnect(websocket)
+            logger.debug("Failed to send personal message, disconnecting client", exc_info=True)
+            await self.disconnect(websocket)
 
     @property
     def active_count(self) -> int:
@@ -139,4 +150,4 @@ class WebSocketManager:
                         websocket, {"type": "error", "message": "Invalid JSON"}
                     )
         except WebSocketDisconnect:
-            self.disconnect(websocket)
+            await self.disconnect(websocket)

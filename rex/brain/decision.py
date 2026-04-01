@@ -66,6 +66,7 @@ class DecisionEngine:
         self._bus = bus
         self._semaphore = asyncio.Semaphore(MAX_LLM_CONCURRENT)
         self._llm_available = llm_router is not None
+        self._bg_tasks: set[asyncio.Task[None]] = set()
         self._decisions_made = 0
         self._llm_calls = 0
         self._llm_timeouts = 0
@@ -150,13 +151,16 @@ class DecisionEngine:
         if self._llm_available:
             d = await self._layer3_llm(event)
             if d:
-                self._bg_task = asyncio.create_task(self._layer4_federated(event, d))
+                task = asyncio.create_task(self._layer4_federated(event, d))
+                self._bg_tasks.add(task)
+                task.add_done_callback(self._bg_tasks.discard)
                 return d
         return self._default_decision(event)
 
     async def _layer1_signature(self, event: ThreatEvent) -> Decision | None:
         """Known IOC / rule match — instant, no LLM."""
-        cat, sev, conf = self._classifier.classify(event.raw_data)
+        raw = event.raw_data or {}
+        cat, sev, conf = self._classifier.classify(raw)
         if conf >= 0.9 and sev in (ThreatSeverity.CRITICAL, ThreatSeverity.HIGH):
             return Decision(
                 decision_id=generate_id(), timestamp=utc_now(),
@@ -172,13 +176,14 @@ class DecisionEngine:
 
     async def _layer2_statistical(self, event: ThreatEvent) -> Decision | None:
         """Behavioral deviation + rule classifier."""
+        raw = event.raw_data or {}
         deviation = 0.0
-        mac = event.raw_data.get("source_mac", "")
+        mac = raw.get("source_mac", "")
         if mac:
             deviation = self._baseline.get_deviation_score(
-                mac, event.raw_data.get("current_behavior", {})
+                mac, raw.get("current_behavior", {})
             )
-        cat, sev, conf = self._classifier.classify(event.raw_data)
+        cat, sev, conf = self._classifier.classify(raw)
         combined = min(1.0, conf * 0.6 + deviation * 0.4)
         if combined >= 0.75 and sev in (
             ThreatSeverity.CRITICAL, ThreatSeverity.HIGH, ThreatSeverity.MEDIUM
@@ -232,7 +237,7 @@ class DecisionEngine:
                     .replace("{{ network_context }}", safe_kb_context[:2000])
                     .replace(
                         "{{ device_context }}",
-                        str(event.raw_data.get("device_context", "N/A")),
+                        str((event.raw_data or {}).get("device_context", "N/A")),
                     )
                     .replace("{{ recent_threats }}", "See KB context above.")
                     .replace("{{ user_notes }}", "")
@@ -293,7 +298,8 @@ class DecisionEngine:
 
     def _fallback_decision(self, event: ThreatEvent) -> Decision:
         """Timeout fallback using rules only."""
-        cat, sev, conf = self._classifier.classify(event.raw_data)
+        raw = event.raw_data or {}
+        cat, sev, conf = self._classifier.classify(raw)
         return Decision(
             decision_id=generate_id(), timestamp=utc_now(),
             threat_event_id=event.event_id,

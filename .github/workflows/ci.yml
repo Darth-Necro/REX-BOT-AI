@@ -68,6 +68,30 @@ jobs:
       - run: cd frontend && npm ci
       - run: cd frontend && npm run build
 
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: [test-python]
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pip install -e .
+      - run: python -m pytest tests/ -v -m integration --tb=short
+        env:
+          REX_DATA_DIR: /tmp/rex-test
+
   build-docker:
     runs-on: ubuntu-latest
     needs: [test-python, build-frontend]

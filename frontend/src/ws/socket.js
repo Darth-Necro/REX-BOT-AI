@@ -40,6 +40,8 @@ export function connect(url) {
   ws.onclose = () => {
     const closeHandler = handlers.get('__close');
     if (closeHandler) closeHandler();
+    // Clear any existing reconnect timer to prevent stacking
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     // Reconnect with exponential backoff + jitter
     const jitter = Math.random() * 1000;
     reconnectTimer = setTimeout(() => {

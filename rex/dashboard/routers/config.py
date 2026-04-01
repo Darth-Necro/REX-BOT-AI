@@ -1,10 +1,10 @@
-"""Config router -- system configuration endpoints."""
+"""Config router -- system configuration and mode management endpoints."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user, get_mode_manager
 from rex.shared.enums import OperatingMode
@@ -42,21 +42,26 @@ async def update_config(
     }
 
 
-@router.put("/mode")
+@router.get("/mode")
+async def get_mode(user: dict = Depends(get_current_user)) -> dict[str, str]:
+    """Return the current operating mode."""
+    mm = get_mode_manager()
+    return {"mode": mm.get_mode().value}
+
+
+@router.post("/mode")
 async def set_mode(
-    body: dict = Body(...),
+    mode: str = Body(..., embed=True),
     user: dict = Depends(get_current_user),
-    mode_manager: Any = Depends(get_mode_manager),
-) -> dict[str, Any]:
-    """Switch the operating mode between BASIC and ADVANCED."""
-    raw_mode = body.get("mode", "")
+) -> dict[str, str]:
+    """Set the operating mode (basic or advanced)."""
     try:
-        new_mode = OperatingMode(raw_mode.lower())
-    except (ValueError, AttributeError):
-        valid = [m.value for m in OperatingMode]
+        new_mode = OperatingMode(mode)
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid mode '{raw_mode}'. Valid values: {valid}",
-        )
-    mode_manager.set_mode(new_mode)
-    return {"mode": new_mode.value}
+            status_code=400,
+            detail=f"Invalid mode: {mode!r}. Must be 'basic' or 'advanced'.",
+        ) from exc
+    mm = get_mode_manager()
+    mm.set_mode(new_mode)
+    return {"mode": mm.get_mode().value}
