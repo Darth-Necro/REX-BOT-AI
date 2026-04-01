@@ -14,7 +14,8 @@ import contextlib
 import logging
 import os
 import shutil
-import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as DefusedET
 
 from rex.shared.constants import DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import ThreatCategory, ThreatSeverity
@@ -367,8 +368,8 @@ class PortScanner:
         """
         results: list[tuple[int, str, str]] = []
         try:
-            root = ET.fromstring(xml_data)
-        except ET.ParseError as exc:
+            root = DefusedET.fromstring(xml_data)
+        except DefusedET.ParseError as exc:
             self._logger.warning("Failed to parse nmap port XML: %s", exc)
             return results
 

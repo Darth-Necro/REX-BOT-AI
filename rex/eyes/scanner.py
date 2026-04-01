@@ -16,7 +16,7 @@ import re
 import shutil
 import socket
 import time
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as DefusedET
 from typing import TYPE_CHECKING
 
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
@@ -294,8 +294,8 @@ class NetworkScanner:
         """
         devices: list[Device] = []
         try:
-            root = ET.fromstring(xml_data)
-        except ET.ParseError as exc:
+            root = DefusedET.fromstring(xml_data)
+        except DefusedET.ParseError as exc:
             self._logger.warning("Failed to parse nmap XML: %s", exc)
             return devices
 

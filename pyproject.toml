@@ -110,7 +110,6 @@ ignore = [
     "S104",  # binding to 0.0.0.0 — intentional for network services
     "S110",  # try-except-pass — used intentionally for resilience
     "S310",  # suspicious URL open — intentional HTTP client calls
-    "S314",  # suspicious XML ElementTree — parsing nmap XML output
     "B008",  # function call in default arg — needed for typer.Option()
     "RUF012",  # mutable class default — handled by dataclass/pydantic
 ]

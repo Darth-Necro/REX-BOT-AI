@@ -17,7 +17,8 @@ import os
 import re
 import shutil
 import sqlite3
-import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as DefusedET
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -425,6 +426,10 @@ class DeviceFingerprinter:
         if not is_valid_ipv4(ip):
             return None
 
+        if not is_private_ip(ip):
+            self._logger.warning("Refusing OS fingerprint on non-private IP: %s", ip)
+            return None
+
         # Try nmap -O (privileged)
         os_guess = await self._nmap_os_detect(ip)
         if os_guess:
@@ -467,7 +472,7 @@ class DeviceFingerprinter:
             return None
 
         try:
-            root = ET.fromstring(stdout.decode(errors="replace"))
+            root = DefusedET.fromstring(stdout.decode(errors="replace"))
             for host in root.findall("host"):
                 os_elem = host.find("os")
                 if os_elem is not None:
@@ -477,7 +482,7 @@ class DeviceFingerprinter:
                         accuracy = osmatch.get("accuracy", "")
                         if name:
                             return f"{name} ({accuracy}% confidence)" if accuracy else name
-        except ET.ParseError:
+        except DefusedET.ParseError:
             pass
 
         return None

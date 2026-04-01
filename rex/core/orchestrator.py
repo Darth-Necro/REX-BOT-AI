@@ -35,6 +35,7 @@ _START_ORDER = [
     ServiceName.TEETH,
     ServiceName.FEDERATION,
     ServiceName.STORE,
+    ServiceName.DASHBOARD,
 ]
 
 _MAX_RESTART_ATTEMPTS = 3
@@ -95,6 +96,7 @@ class ServiceOrchestrator:
             ("rex.teeth.service", "TeethService"),
             ("rex.federation.service", "FederationService"),
             ("rex.store.service", "StoreService"),
+            ("rex.dashboard.service", "DashboardService"),
         ]
 
         for module_path, class_name in service_classes:

@@ -94,7 +94,7 @@ export default function App() {
           </Routes>
         </main>
         <footer className="text-center text-xs text-rex-muted py-4 border-t border-rex-card">
-          Network monitoring active | REX-BOT-AI v1.0.0 | MIT License
+          Network monitoring active | REX-BOT-AI v0.1.0-alpha | MIT License
         </footer>
       </div>
     </BrowserRouter>

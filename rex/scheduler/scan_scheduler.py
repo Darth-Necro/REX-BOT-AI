@@ -72,11 +72,14 @@ class ScanScheduler:
             spec = self._scheduled[job_id]
             spec["last_run"] = utc_now().isoformat()
             spec["run_count"] += 1
+            # NOTE: This records that the scan interval fired, NOT that a
+            # real network scan completed.  Actual scan execution requires
+            # publishing to the event bus so EyesService picks it up.
             self._history.append({
                 "job_id": job_id,
                 "scan_type": spec["scan_type"],
                 "started_at": spec["last_run"],
-                "status": "completed",
+                "status": "scheduled",  # Honest: scan was triggered, not verified complete
             })
             if len(self._history) > 500:
                 self._history = self._history[-250:]

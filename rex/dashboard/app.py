@@ -175,6 +175,14 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router)
     app.include_router(schedule.router)
 
+    # Static frontend files (served if the build exists)
+    import os
+    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    if os.path.isdir(frontend_dist):
+        from starlette.staticfiles import StaticFiles
+        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+        logger.info("Serving frontend from %s", frontend_dist)
+
     # WebSocket endpoint
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:

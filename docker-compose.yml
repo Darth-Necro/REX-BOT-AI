@@ -7,7 +7,7 @@ services:
 
   # SECURITY: Set REDIS_PASSWORD in .env before first run
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     restart: unless-stopped
     command: >
       sh -c '
@@ -35,7 +35,7 @@ services:
       retries: 3
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6  # Pin to minor version, not :latest
     restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
@@ -61,7 +61,7 @@ services:
       retries: 3
 
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.6.3  # Pin to specific version
     restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"
