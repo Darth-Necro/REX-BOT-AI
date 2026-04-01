@@ -29,6 +29,29 @@ async def get_config(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     }
 
 
+@router.put("/mode")
+async def set_mode(
+    mode: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Switch between basic and advanced mode.
+
+    This is a runtime control, not just a frontend toggle.
+    """
+    from rex.shared.enums import OperatingMode
+
+    valid_modes = {m.value for m in OperatingMode}
+    if mode not in valid_modes:
+        return {"status": "error", "detail": f"Invalid mode. Must be one of: {valid_modes}"}
+
+    from rex.shared.config import get_config as _get_config
+
+    config = _get_config()
+    config.mode = OperatingMode(mode)
+
+    return {"status": "updated", "mode": config.mode.value}
+
+
 @router.put("/")
 async def update_config(
     config: dict = Body(...), user: dict = Depends(get_current_user)
@@ -40,5 +63,3 @@ async def update_config(
         "runtime updates not yet implemented",
         "requested": config,
     }
-
-

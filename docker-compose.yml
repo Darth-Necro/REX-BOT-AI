@@ -127,8 +127,11 @@ services:
     tmpfs:
       - /tmp
     volumes:
-      - rex-data:/etc/rex-bot-ai
-      - rex-logs:/var/log/rex-bot-ai
+      # Bind-mount host paths so install.sh data (certs, credentials)
+      # is visible inside the container. Uses host directories, NOT
+      # Docker named volumes, to avoid path shadowing.
+      - /etc/rex-bot-ai:/etc/rex-bot-ai
+      - /var/log/rex-bot-ai:/var/log/rex-bot-ai
     # NOTE: no ports: directive — network_mode: host exposes all bound ports directly
 
 volumes:
@@ -138,10 +141,8 @@ volumes:
     driver: local
   chroma-data:
     driver: local
-  rex-data:
-    driver: local
-  rex-logs:
-    driver: local
+  # rex-data and rex-logs are bind-mounted from host paths
+  # (set by install.sh) to avoid path shadowing
 
 networks:
   rex-internal:

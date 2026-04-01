@@ -9,9 +9,16 @@ import LoginView from './views/LoginView';
 
 function ModeToggle() {
   const { mode, toggleMode } = useSystemStore();
+  const handleToggle = async () => {
+    const newMode = mode === 'basic' ? 'advanced' : 'basic';
+    try {
+      await api.put('/config/mode', { mode: newMode });
+    } catch { /* Backend may not be reachable; toggle locally anyway */ }
+    toggleMode();
+  };
   return (
     <button
-      onClick={toggleMode}
+      onClick={handleToggle}
       className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-rex-card hover:border-rex-accent transition-colors text-sm"
       aria-label={`Switch to ${mode === 'basic' ? 'Advanced' : 'Basic'} mode`}
     >

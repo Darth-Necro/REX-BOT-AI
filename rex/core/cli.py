@@ -56,6 +56,21 @@ def start(
     typer.echo(f"  Ollama: {config.ollama_url}")
     typer.echo("")
 
+    # Pre-initialize auth to show first-boot password to the user
+    from rex.dashboard.auth import AuthManager
+    auth_mgr = AuthManager(data_dir=config.data_dir)
+
+    async def _init_and_show_password() -> str | None:
+        return await auth_mgr.initialize()
+
+    initial_pw = asyncio.run(_init_and_show_password())
+    if initial_pw:
+        typer.echo("  " + "=" * 46)
+        typer.echo(f"  ADMIN PASSWORD: {initial_pw}")
+        typer.echo("  Write this down. It will not be shown again.")
+        typer.echo("  " + "=" * 46)
+        typer.echo("")
+
     from rex.core.orchestrator import ServiceOrchestrator
 
     async def _run() -> None:
