@@ -608,15 +608,68 @@ class MacOSAdapter(PlatformAdapter):
     def register_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Register REX as a macOS launchd daemon.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            macOS support: TODO -- Will create launchd plist in Phase 2.
+        Creates a plist file in ``/Library/LaunchDaemons/`` and loads it
+        via ``launchctl load``.
+
+        Parameters
+        ----------
+        service_name:
+            Service name for the plist identifier.
+
+        Returns
+        -------
+        bool
+            ``True`` if registration succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "macOS register_autostart: TODO -- "
-            "Implemented in Phase 2 using launchd plist in /Library/LaunchDaemons/"
-        )
+        rex_exec = shutil.which("rex-bot-ai") or shutil.which("rex")
+        program_args: list[str]
+        if rex_exec:
+            program_args = [rex_exec]
+        else:
+            python = sys.executable or "/usr/bin/python3"
+            program_args = [python, "-m", "rex.core"]
+
+        label = f"ai.rex-bot.{service_name}"
+        plist_path = _LAUNCHD_DIR / f"{label}.plist"
+
+        args_xml = "\n".join(f"            <string>{a}</string>" for a in program_args)
+        plist_content = f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{label}</string>
+    <key>ProgramArguments</key>
+    <array>
+{args_xml}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/{service_name}.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/{service_name}.error.log</string>
+</dict>
+</plist>
+"""
+        try:
+            _LAUNCHD_DIR.mkdir(parents=True, exist_ok=True)
+            plist_path.write_text(plist_content)
+        except OSError as exc:
+            logger.error("Cannot write plist: %s", exc)
+            return False
+
+        result = _run(["launchctl", "load", str(plist_path)])
+        if result.returncode == 0:
+            logger.info("Registered launchd daemon: %s", label)
+            return True
+
+        logger.error("Failed to load plist: %s", result.stderr)
+        return False
 
     def unregister_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Remove REX launchd daemon registration.
@@ -833,3 +886,96 @@ class MacOSAdapter(PlatformAdapter):
         proc = platform.processor().lower() if platform.processor() else ""
         indicators = ("virtual", "vmware", "vbox", "parallels", "qemu", "utm")
         return any(ind in node or ind in proc for ind in indicators)
+
+    # -- pfctl anchor helpers ------------------------------------------------
+
+    @staticmethod
+    def _read_anchor_rules() -> list[str]:
+        """Read current REX anchor rules from the file on disk.
+
+        Returns
+        -------
+        list[str]
+            Non-empty lines from the anchor file.
+        """
+        try:
+            if _REX_RULES_FILE.exists():
+                content = _REX_RULES_FILE.read_text()
+                return [line for line in content.splitlines() if line.strip()]
+        except OSError as exc:
+            logger.debug("Cannot read anchor file: %s", exc)
+        return []
+
+    @staticmethod
+    def _write_and_reload_anchor(rules: list[str]) -> bool:
+        """Write rules to the anchor file and reload via pfctl.
+
+        Parameters
+        ----------
+        rules:
+            The complete list of pf rules for the anchor.
+
+        Returns
+        -------
+        bool
+            ``True`` if the reload succeeded.
+        """
+        try:
+            _REX_RULES_DIR.mkdir(parents=True, exist_ok=True)
+            _REX_RULES_FILE.write_text("\n".join(rules) + "\n")
+        except OSError as exc:
+            logger.error("Cannot write anchor file: %s", exc)
+            return False
+
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-f", str(_REX_RULES_FILE)])
+        if result.returncode != 0:
+            logger.error("pfctl reload failed: %s", result.stderr)
+            return False
+        return True
+
+    @staticmethod
+    def _parse_pf_rule(line: str) -> FirewallRule | None:
+        """Parse a single pf rule line into a FirewallRule.
+
+        Parameters
+        ----------
+        line:
+            A pf rule string like ``block in quick from 1.2.3.4 to any``.
+
+        Returns
+        -------
+        FirewallRule or None
+            Parsed rule, or None if the line cannot be parsed.
+        """
+        line = line.strip()
+        if not line or not line.startswith("block"):
+            return None
+
+        # Extract direction
+        direction = "both"
+        if " in " in line:
+            direction = "inbound"
+        elif " out " in line:
+            direction = "outbound"
+
+        # Extract IP
+        ip: str | None = None
+        from_match = re.search(r"from\s+([\d.]+(?:/\d+)?)", line)
+        to_match = re.search(r"to\s+([\d.]+(?:/\d+)?)", line)
+        if from_match and from_match.group(1) != "any":
+            ip = from_match.group(1)
+        elif to_match and to_match.group(1) != "any":
+            ip = to_match.group(1)
+
+        # Extract reason from comment
+        reason = "REX pf rule"
+        comment_match = re.search(r"#\s*REX:(.*)", line)
+        if comment_match:
+            reason = comment_match.group(1).strip()
+
+        return FirewallRule(
+            ip=ip,
+            direction=direction,
+            action="drop",
+            reason=reason,
+        )

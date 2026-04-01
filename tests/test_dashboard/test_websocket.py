@@ -63,10 +63,10 @@ async def test_subscribe_adds_channels(ws_manager):
     ws = _make_mock_ws()
     await ws_manager.connect(ws)
 
-    await ws_manager.subscribe(ws, ["custom.channel", "another.channel"])
+    await ws_manager.subscribe(ws, ["log.entry", "scan.complete"])
     subs = ws_manager._connections[ws]
-    assert "custom.channel" in subs
-    assert "another.channel" in subs
+    assert "log.entry" in subs
+    assert "scan.complete" in subs
     # Default channels should still be present
     for ch in _DEFAULT_CHANNELS:
         assert ch in subs

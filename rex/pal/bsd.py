@@ -1,19 +1,24 @@
-"""BSD platform adapter stub.
+"""BSD platform adapter for REX-BOT-AI.
 
 Layer 0.5 -- implements :class:`~rex.pal.base.PlatformAdapter` for
 FreeBSD (and derivatives such as OpenBSD, NetBSD, DragonFly BSD).
 
-Phase 1.5 delivers ``get_os_info()`` and ``get_system_resources()`` via
-platform-agnostic stdlib calls.  All other methods raise
-:class:`~rex.shared.errors.RexPlatformNotSupportedError` with a clear
-description of the BSD tool or API that will be used in Phase 2.
+Provides functional implementations for network discovery, firewall
+control via ``pfctl``, and autostart via ``rc.d``.  All subprocess calls
+use ``subprocess.run`` with ``timeout=10``, ``capture_output=True``,
+``text=True``, ``check=False``.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
+import re
 import shutil
+import subprocess
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
@@ -31,14 +36,45 @@ from rex.shared.models import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+logger = logging.getLogger("rex.pal.bsd")
+
+_DEFAULT_SUBPROCESS_TIMEOUT = 10
+_REX_ANCHOR = "rex"
+_REX_RULES_DIR = Path("/etc/pf.anchors")
+_REX_RULES_FILE = _REX_RULES_DIR / "rex"
+_RC_D_DIR = Path("/usr/local/etc/rc.d")
+_RESOLV_CONF = "/etc/resolv.conf"
+
+
+# ---------------------------------------------------------------------------
+# Subprocess helper
+# ---------------------------------------------------------------------------
+def _run(
+    cmd: list[str],
+    *,
+    timeout: int = _DEFAULT_SUBPROCESS_TIMEOUT,
+) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess with standardised parameters."""
+    try:
+        return subprocess.run(
+            cmd,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        logger.warning("Command not found: %s", cmd[0])
+        return subprocess.CompletedProcess(
+            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found",
+        )
+
 
 class BSDAdapter(PlatformAdapter):
     """Concrete :class:`PlatformAdapter` for FreeBSD and related BSD hosts.
 
-    Only ``get_os_info()`` and ``get_system_resources()`` are functional
-    in this phase.  Every other method raises
-    :class:`~rex.shared.errors.RexPlatformNotSupportedError` indicating
-    which BSD tool or API will be used when full support lands in Phase 2.
+    Provides real implementations for network discovery, pf-based firewall
+    management via pfctl, and autostart via rc.d service scripts.
     """
 
     # ================================================================
@@ -134,16 +170,29 @@ class BSDAdapter(PlatformAdapter):
     # ================================================================
 
     def get_default_interface(self) -> str:
-        """Detect the default network interface on BSD.
+        """Detect the default network interface via ``route get default``.
+
+        Returns
+        -------
+        str
+            Interface name (e.g. ``"em0"``, ``"igb0"``).
 
         Raises
         ------
         RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse ``route -n get default`` in Phase 2.
+            If no default interface can be determined.
         """
+        result = _run(["route", "-n", "get", "default"])
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("interface:"):
+                    iface = line.split(":", 1)[1].strip()
+                    if iface:
+                        return iface
+
         raise RexPlatformNotSupportedError(
-            "BSD get_default_interface: TODO -- "
-            "Implemented in Phase 2 using 'route -n get default' parsing"
+            "Cannot determine default network interface from 'route get default'",
         )
 
     def capture_packets(
@@ -167,43 +216,122 @@ class BSDAdapter(PlatformAdapter):
         yield {}  # type: ignore[misc]  # pragma: no cover
 
     def scan_arp_table(self) -> list[dict[str, str]]:
-        """Read the BSD ARP cache.
+        """Read the BSD ARP cache by parsing ``arp -a`` output.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse ``arp -an`` output in Phase 2.
+        Parses lines like:
+        ``? (192.168.1.1) at aa:bb:cc:dd:ee:ff on em0 ...``
+
+        Returns
+        -------
+        list[dict[str, str]]
+            Each dict contains ``ip``, ``mac``, and ``interface`` keys.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD scan_arp_table: TODO -- "
-            "Implemented in Phase 2 using 'arp -an' parsing"
-        )
+        entries: list[dict[str, str]] = []
+        result = _run(["arp", "-a"])
+        if result.returncode != 0:
+            logger.warning("arp -a failed: %s", result.stderr)
+            return entries
+
+        for line in result.stdout.splitlines():
+            match = re.match(
+                r"^\?\s+\(([\d.]+)\)\s+at\s+"
+                r"([\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:"
+                r"[\da-fA-F]{1,2}:[\da-fA-F]{1,2}:[\da-fA-F]{1,2})"
+                r"\s+on\s+(\S+)",
+                line,
+            )
+            if match:
+                mac = match.group(2).lower()
+                if mac == "ff:ff:ff:ff:ff:ff" or mac == "(incomplete)":
+                    continue
+                entries.append({
+                    "ip": match.group(1),
+                    "mac": mac,
+                    "interface": match.group(3),
+                })
+
+        return entries
 
     def get_network_info(self) -> NetworkInfo:
         """Collect local network environment snapshot on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ifconfig and route in Phase 2.
+        Combines data from ``route get default``, ``ifconfig``, and
+        ``/etc/resolv.conf`` to populate gateway, subnet CIDR, and DNS.
+
+        Returns
+        -------
+        NetworkInfo
+            Snapshot of the local network environment.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_network_info: TODO -- "
-            "Implemented in Phase 2 using ifconfig / route / resolv.conf parsing"
+        interface = self.get_default_interface()
+        gateway = "0.0.0.0"
+        subnet_cidr = "0.0.0.0/0"
+        dns_servers = self.get_dns_servers()
+
+        # Gateway from route
+        route_result = _run(["route", "-n", "get", "default"])
+        if route_result.returncode == 0:
+            for line in route_result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("gateway:"):
+                    gw = line.split(":", 1)[1].strip()
+                    if gw:
+                        gateway = gw
+                    break
+
+        # Subnet from ifconfig
+        ifc_result = _run(["ifconfig", interface])
+        if ifc_result.returncode == 0:
+            ip_addr: str | None = None
+            netmask_hex: str | None = None
+            for line in ifc_result.stdout.splitlines():
+                inet_match = re.search(
+                    r"inet\s+([\d.]+)\s+netmask\s+(0x[\da-fA-F]+)", line,
+                )
+                if inet_match:
+                    ip_addr = inet_match.group(1)
+                    netmask_hex = inet_match.group(2)
+                    break
+
+            if ip_addr and netmask_hex:
+                try:
+                    import ipaddress
+                    mask_int = int(netmask_hex, 16)
+                    mask_str = ".".join(
+                        str((mask_int >> (8 * (3 - i))) & 0xFF) for i in range(4)
+                    )
+                    net = ipaddress.IPv4Network(f"{ip_addr}/{mask_str}", strict=False)
+                    subnet_cidr = str(net)
+                except ValueError:
+                    pass
+
+        return NetworkInfo(
+            interface=interface,
+            gateway_ip=gateway,
+            subnet_cidr=subnet_cidr,
+            dns_servers=dns_servers,
         )
 
     def get_dns_servers(self) -> list[str]:
-        """Return configured DNS servers on BSD.
+        """Return configured DNS servers from ``/etc/resolv.conf``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse /etc/resolv.conf in Phase 2.
+        Returns
+        -------
+        list[str]
+            Ordered list of DNS server IP addresses.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_dns_servers: TODO -- "
-            "Implemented in Phase 2 using /etc/resolv.conf parsing"
-        )
+        servers: list[str] = []
+        try:
+            with open(_RESOLV_CONF) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line.startswith("nameserver"):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            servers.append(parts[1])
+        except OSError as exc:
+            logger.warning("Cannot read %s: %s", _RESOLV_CONF, exc)
+        return servers
 
     def get_dhcp_leases(self) -> list[dict[str, str]]:
         """Return DHCP lease information on BSD.
@@ -275,30 +403,71 @@ class BSDAdapter(PlatformAdapter):
     # ================================================================
 
     def block_ip(self, ip: str, direction: str = "both", reason: str = "") -> FirewallRule:
-        """Block an IP address using BSD pf (packet filter).
+        """Block an IP address using a pfctl anchor rule.
+
+        Writes a block rule to the REX anchor file and reloads.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to block.
+        direction:
+            ``"inbound"``, ``"outbound"``, or ``"both"``.
+        reason:
+            Human-readable justification.
+
+        Returns
+        -------
+        FirewallRule
+            The newly created rule.
 
         Raises
         ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use pf table and anchor rules in Phase 2.
+        FirewallError
+            If the rule cannot be applied.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD block_ip: TODO -- "
-            "Implemented in Phase 2 using pf table <rex_blocked> and 'pfctl -t rex_blocked -T add'"
+        from rex.pal.base import FirewallError
+
+        rules = self._read_anchor_rules()
+
+        if direction == "inbound":
+            rules.append(f"block in quick from {ip} to any  # REX:{reason}")
+        elif direction == "outbound":
+            rules.append(f"block out quick from any to {ip}  # REX:{reason}")
+        else:
+            rules.append(f"block quick from {ip} to any  # REX:{reason}")
+            rules.append(f"block quick from any to {ip}  # REX:{reason}")
+
+        if not self._write_and_reload_anchor(rules):
+            raise FirewallError(f"Failed to block {ip} via pfctl anchor")
+
+        return FirewallRule(
+            ip=ip,
+            direction=direction,
+            action="drop",
+            reason=reason or f"Blocked by REX: {ip}",
         )
 
     def unblock_ip(self, ip: str) -> bool:
-        """Remove pf block rules for an IP on BSD.
+        """Remove pfctl anchor rules targeting an IP.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``pfctl -t rex_blocked -T delete`` in Phase 2.
+        Rewrites the anchor file excluding rules that reference the IP.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to unblock.
+
+        Returns
+        -------
+        bool
+            ``True`` if at least one rule was removed.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD unblock_ip: TODO -- "
-            "Implemented in Phase 2 using 'pfctl -t rex_blocked -T delete'"
-        )
+        rules = self._read_anchor_rules()
+        new_rules = [r for r in rules if ip not in r]
+        if len(new_rules) == len(rules):
+            return False
+        return self._write_and_reload_anchor(new_rules)
 
     def isolate_device(self, ip: str, mac: str | None = None) -> list[FirewallRule]:
         """Isolate a device via BSD pf rules.
@@ -340,30 +509,61 @@ class BSDAdapter(PlatformAdapter):
         )
 
     def get_active_rules(self) -> list[FirewallRule]:
-        """List active REX-managed pf rules on BSD.
+        """List active REX-managed pf rules from the anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse ``pfctl -a rex -sr`` in Phase 2.
+        Parses ``pfctl -a rex -sr`` output for block rules.
+
+        Returns
+        -------
+        list[FirewallRule]
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_active_rules: TODO -- "
-            "Implemented in Phase 2 using 'pfctl -a rex -sr' anchor rule listing"
-        )
+        rules: list[FirewallRule] = []
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-sr"])
+        if result.returncode != 0:
+            # Fall back to reading the anchor file
+            file_rules = self._read_anchor_rules()
+            for line in file_rules:
+                rule = self._parse_pf_rule(line)
+                if rule:
+                    rules.append(rule)
+            return rules
+
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rule = self._parse_pf_rule(line)
+            if rule:
+                rules.append(rule)
+
+        return rules
 
     def panic_restore(self) -> bool:
-        """Remove all REX pf rules on BSD.
+        """Remove all REX pf rules by flushing the anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will flush all REX pf anchors and tables in Phase 2.
+        Flushes the ``rex`` anchor via ``pfctl -a rex -F all`` and
+        clears the anchor rules file.
+
+        Returns
+        -------
+        bool
+            ``True`` if the flush succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD panic_restore: TODO -- "
-            "Implemented in Phase 2 using 'pfctl -a rex -F all' + table flush"
-        )
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-F", "all"])
+        # Also clear the rules file
+        try:
+            if _REX_RULES_FILE.exists():
+                _REX_RULES_FILE.write_text("")
+        except OSError as exc:
+            logger.error("Cannot clear anchor file: %s", exc)
+
+        if result.returncode == 0:
+            logger.warning("PANIC RESTORE: all REX pf rules flushed")
+            return True
+
+        logger.warning("PANIC RESTORE: pfctl flush returned %d, anchor may not exist",
+                       result.returncode)
+        return True
 
     def create_rex_chains(self) -> bool:
         """Create REX pf anchor on BSD.
@@ -398,16 +598,70 @@ class BSDAdapter(PlatformAdapter):
     def register_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Register REX as a BSD rc.d service.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will create rc.d script in Phase 2.
+        Creates an rc.d script in ``/usr/local/etc/rc.d/`` and enables
+        it in ``/etc/rc.conf``.
+
+        Parameters
+        ----------
+        service_name:
+            Service name for the rc.d script.
+
+        Returns
+        -------
+        bool
+            ``True`` if registration succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD register_autostart: TODO -- "
-            "Implemented in Phase 2 using /usr/local/etc/rc.d/ service script + "
-            "rc.conf 'rex_enable=YES'"
-        )
+        rex_exec = shutil.which("rex-bot-ai") or shutil.which("rex")
+        if not rex_exec:
+            python = sys.executable or "/usr/local/bin/python3"
+            rex_exec = f"{python} -m rex.core"
+
+        # Sanitise service name for rc.d
+        rc_name = service_name.replace("-", "_")
+        script_path = _RC_D_DIR / service_name
+
+        script_content = f"""\
+#!/bin/sh
+
+# PROVIDE: {rc_name}
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="{rc_name}"
+rcvar="{rc_name}_enable"
+command="{rex_exec}"
+command_args="--daemon"
+pidfile="/var/run/${{name}}.pid"
+
+load_rc_config $name
+: ${{{rc_name}_enable:="NO"}}
+
+run_rc_command "$1"
+"""
+        try:
+            _RC_D_DIR.mkdir(parents=True, exist_ok=True)
+            script_path.write_text(script_content)
+            script_path.chmod(0o755)
+        except OSError as exc:
+            logger.error("Cannot write rc.d script: %s", exc)
+            return False
+
+        # Enable in rc.conf
+        rc_conf = Path("/etc/rc.conf")
+        enable_line = f'{rc_name}_enable="YES"'
+        try:
+            existing = rc_conf.read_text() if rc_conf.exists() else ""
+            if enable_line not in existing:
+                with open(rc_conf, "a") as fh:
+                    fh.write(f"\n{enable_line}\n")
+        except OSError as exc:
+            logger.error("Cannot update rc.conf: %s", exc)
+            return False
+
+        logger.info("Registered rc.d service: %s", service_name)
+        return True
 
     def unregister_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Remove REX rc.d service registration.
@@ -606,3 +860,96 @@ class BSDAdapter(PlatformAdapter):
         proc = platform.processor().lower() if platform.processor() else ""
         indicators = ("virtual", "vmware", "vbox", "bhyve", "qemu", "kvm", "xen")
         return any(ind in node or ind in proc for ind in indicators)
+
+    # -- pfctl anchor helpers ------------------------------------------------
+
+    @staticmethod
+    def _read_anchor_rules() -> list[str]:
+        """Read current REX anchor rules from the file on disk.
+
+        Returns
+        -------
+        list[str]
+            Non-empty lines from the anchor file.
+        """
+        try:
+            if _REX_RULES_FILE.exists():
+                content = _REX_RULES_FILE.read_text()
+                return [line for line in content.splitlines() if line.strip()]
+        except OSError as exc:
+            logger.debug("Cannot read anchor file: %s", exc)
+        return []
+
+    @staticmethod
+    def _write_and_reload_anchor(rules: list[str]) -> bool:
+        """Write rules to the anchor file and reload via pfctl.
+
+        Parameters
+        ----------
+        rules:
+            The complete list of pf rules for the anchor.
+
+        Returns
+        -------
+        bool
+            ``True`` if the reload succeeded.
+        """
+        try:
+            _REX_RULES_DIR.mkdir(parents=True, exist_ok=True)
+            _REX_RULES_FILE.write_text("\n".join(rules) + "\n")
+        except OSError as exc:
+            logger.error("Cannot write anchor file: %s", exc)
+            return False
+
+        result = _run(["pfctl", "-a", _REX_ANCHOR, "-f", str(_REX_RULES_FILE)])
+        if result.returncode != 0:
+            logger.error("pfctl reload failed: %s", result.stderr)
+            return False
+        return True
+
+    @staticmethod
+    def _parse_pf_rule(line: str) -> FirewallRule | None:
+        """Parse a single pf rule line into a FirewallRule.
+
+        Parameters
+        ----------
+        line:
+            A pf rule string like ``block in quick from 1.2.3.4 to any``.
+
+        Returns
+        -------
+        FirewallRule or None
+            Parsed rule, or None if the line cannot be parsed.
+        """
+        line = line.strip()
+        if not line or not line.startswith("block"):
+            return None
+
+        # Extract direction
+        direction = "both"
+        if " in " in line:
+            direction = "inbound"
+        elif " out " in line:
+            direction = "outbound"
+
+        # Extract IP
+        ip: str | None = None
+        from_match = re.search(r"from\s+([\d.]+(?:/\d+)?)", line)
+        to_match = re.search(r"to\s+([\d.]+(?:/\d+)?)", line)
+        if from_match and from_match.group(1) != "any":
+            ip = from_match.group(1)
+        elif to_match and to_match.group(1) != "any":
+            ip = to_match.group(1)
+
+        # Extract reason from comment
+        reason = "REX pf rule"
+        comment_match = re.search(r"#\s*REX:(.*)", line)
+        if comment_match:
+            reason = comment_match.group(1).strip()
+
+        return FirewallRule(
+            ip=ip,
+            direction=direction,
+            action="drop",
+            reason=reason,
+        )

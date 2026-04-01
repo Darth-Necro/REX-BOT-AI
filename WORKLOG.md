@@ -10,7 +10,7 @@
 | 2 | Service graph wiring | IN PROGRESS |
 | 3 | Runtime state truthfulness | IN PROGRESS |
 | 4 | Auth/session security | IN PROGRESS |
-| 5 | Prompt injection defense | IN PROGRESS |
+| 5 | Prompt injection defense | DOCUMENTED |
 | 6 | Command/action boundary | IN PROGRESS |
 | 7 | Dashboard/CLI real data | IN PROGRESS |
 | 8 | Plugin system | PENDING |
@@ -27,6 +27,21 @@
 
 ### Blockers
 - None identified yet
+
+### Phase 5: Prompt Safety Documentation (2026-03-31)
+
+Completed comprehensive prompt safety documentation:
+
+- `docs/PROMPT_SAFETY.md` -- Full prompt construction model, sanitization pipeline, pattern matching, known limitations, regression corpus instructions
+- `docs/TRUST_BOUNDARIES.md` -- Complete trust zone mapping (trusted/semi-trusted/untrusted), all 7 trust transitions with sanitization at each boundary
+- `docs/KB_SAFETY.md` -- Knowledge base safety: markdown escaping, heading injection prevention, Git versioning, file locking
+- `PROMPT_SAFETY_AUDIT.md` -- 35-row audit table mapping every untrusted text path from source through transform chain to sink
+
+Key findings documented:
+- 30+ injection patterns in network data sanitizer with homoglyph, leetspeak, delimiter, filler-word normalization
+- 16 injection pattern categories in web content sanitizer
+- Two independent enforcement gates (ActionValidator + CommandExecutor) that are code-enforced, not LLM-dependent
+- Two residual risks: advanced paraphrase evasion and plugin output strings (both mitigated by ActionValidator gate)
 
 ### Verification Results
 - Tests: 1018 passed, 0 failed, 10 xfailed

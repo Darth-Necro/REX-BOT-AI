@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse
 
 from rex.dashboard import deps
 from rex.dashboard.routers import (
@@ -58,7 +59,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time.time()
         self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self.window]
         if len(self._requests[client_ip]) >= self.max_requests:
-            from starlette.responses import JSONResponse
             return JSONResponse(
                 {"detail": "Rate limit exceeded"}, status_code=429,
                 headers={"Retry-After": str(self.window)},
@@ -188,6 +188,15 @@ def create_app() -> FastAPI:
     async def websocket_endpoint(websocket: WebSocket) -> None:
         """Real-time event stream for dashboard clients."""
         await _ws_manager.handle_client(websocket)
+
+    # Global exception handler -- catch unhandled errors and return a safe 500
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        logger.exception("Unhandled exception: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
 
     # Privacy audit endpoint (no auth, limited info)
     @app.get("/api/privacy/status")

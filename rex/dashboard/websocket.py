@@ -23,8 +23,14 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
+# Maximum simultaneous WebSocket connections to prevent resource exhaustion.
+MAX_CONNECTIONS = 100
+
 # Default channels every client subscribes to on connect.
 _DEFAULT_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete"}
+
+# Allowed channel names -- subscribe requests for unknown channels are silently dropped.
+_ALLOWED_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete", "log.entry"}
 
 
 class WebSocketManager:
@@ -40,7 +46,14 @@ class WebSocketManager:
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket) -> None:
-        """Accept a new WebSocket connection."""
+        """Accept a new WebSocket connection.
+
+        Rejects the connection if the server has reached ``MAX_CONNECTIONS``.
+        """
+        if self.active_count >= MAX_CONNECTIONS:
+            await websocket.close(code=4029, reason="Connection limit reached")
+            logger.warning("WebSocket connection rejected: limit of %d reached", MAX_CONNECTIONS)
+            return
         await websocket.accept()
         async with self._lock:
             self._connections[websocket] = set(_DEFAULT_CHANNELS)
@@ -52,9 +65,14 @@ class WebSocketManager:
         logger.info("WebSocket client disconnected (total: %d)", len(self._connections))
 
     async def subscribe(self, websocket: WebSocket, channels: list[str]) -> None:
-        """Add channel subscriptions for a connection."""
+        """Add channel subscriptions for a connection.
+
+        Only channels present in ``_ALLOWED_CHANNELS`` are accepted;
+        unknown channel names are silently ignored.
+        """
+        valid = [c for c in channels if c in _ALLOWED_CHANNELS]
         if websocket in self._connections:
-            self._connections[websocket].update(channels)
+            self._connections[websocket].update(valid)
 
     async def unsubscribe(self, websocket: WebSocket, channels: list[str]) -> None:
         """Remove channel subscriptions for a connection."""

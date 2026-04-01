@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING, Any
 from rex.shared.constants import VERSION
 from rex.shared.utils import iso_timestamp
 
+# Maximum KB file size before a warning is emitted (10 MB).
+MAX_KB_SIZE = 10 * 1024 * 1024
+
 if TYPE_CHECKING:
     from rex.shared.config import RexConfig
     from rex.shared.models import Device, ThreatEvent
@@ -177,6 +180,11 @@ class KnowledgeBase:
     def _write_locked(self, section: str, data: Any) -> None:
         """Synchronous write with flock.  Called under ``self._lock``."""
         content = self._kb_file.read_text("utf-8")
+        if len(content.encode("utf-8")) > MAX_KB_SIZE:
+            self._logger.warning(
+                "KB file exceeds %d bytes, consider archiving old data",
+                MAX_KB_SIZE,
+            )
         sections = self._parse_markdown(content)
         sections[section] = data
 

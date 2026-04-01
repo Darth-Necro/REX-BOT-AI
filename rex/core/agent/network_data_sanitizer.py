@@ -73,6 +73,7 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"ignore\s*all\s*previous\s*instructions?",
         r"ignore\s*all\s*instructions?",
         r"disable\s*all?\s*firewall\s*rules?",
+        r"override\s*all\s*instructions?",
         # Standalone "override" (not just "IMPORTANT: override")
         r"\boverride\b",
         # Admin / debug mode escalation

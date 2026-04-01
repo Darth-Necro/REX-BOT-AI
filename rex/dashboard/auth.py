@@ -30,7 +30,13 @@ _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt."""
+    """Hash a password using bcrypt.
+
+    NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
+    password hashing.  bcrypt is acceptable for the alpha/beta phase, but
+    Argon2id should be adopted before a production release due to its
+    superior resistance to GPU/ASIC attacks and configurable memory cost.
+    """
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
