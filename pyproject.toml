@@ -1,11 +1,11 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "rex-bot-ai"
-version = "1.0.0"
-description = "Open-source autonomous AI security agent"
+version = "0.1.0-alpha"
+description = "Open-source autonomous AI security agent (pre-alpha)"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["security", "network", "ai", "monitoring", "intrusion-detection"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 2 - Pre-Alpha",
     "Environment :: Console",
     "Framework :: FastAPI",
     "Intended Audience :: System Administrators",
@@ -58,13 +58,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/REX-BOT-AI/rex-bot-ai"
-Documentation = "https://docs.rexbot.ai"
-Repository = "https://github.com/REX-BOT-AI/rex-bot-ai"
-Issues = "https://github.com/REX-BOT-AI/rex-bot-ai/issues"
+Homepage = "https://github.com/Darth-Necro/REX-BOT-AI"
+Repository = "https://github.com/Darth-Necro/REX-BOT-AI"
+Issues = "https://github.com/Darth-Necro/REX-BOT-AI/issues"
 
 [project.scripts]
-rex = "rex.core.cli:app"
+rex = "rex.core.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["rex*"]

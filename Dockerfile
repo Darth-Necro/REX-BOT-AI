@@ -98,5 +98,5 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 # Note: NET_ADMIN/NET_RAW capabilities granted via docker-compose
 USER rex
 
-ENTRYPOINT ["python", "-m", "rex.core.cli"]
-CMD ["start"]
+ENTRYPOINT ["python", "-m", "rex.core"]
+CMD []

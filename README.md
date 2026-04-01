@@ -9,142 +9,102 @@
                  |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**REX-BOT-AI is an open-source AI security agent that protects your home or business network. One click. Zero configuration. Always watching.**
+**PRE-ALPHA** -- Early-stage local-first network security prototype with a Linux PAL, agent-policy foundation, and local LLM integration.
+
+> This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
 ---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Status: Pre-Alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)]()
 
 ---
 
-## Install
+## What This Is
+
+REX-BOT-AI aims to be an open-source autonomous AI security agent for home and small business networks. It uses a local LLM (via Ollama) to reason about network threats and takes defensive actions through a whitelisted command system.
+
+The project has substantial low-level modules (Linux platform adapter, threat classifier, command executor, privacy enforcement) but the product surface (dashboard, installer, end-to-end orchestration) is incomplete.
+
+## Current State (Honest)
+
+| Component | Status |
+|-----------|--------|
+| Platform Abstraction Layer (Linux) | Working -- 2300 lines, real subprocess calls |
+| Threat classifier (12 categories) | Working -- rule-based, no LLM required |
+| Command executor (whitelisted) | Working -- zero shell=True, parameter validation |
+| LLM client (localhost-only enforced) | Working -- Ollama integration with privacy boundary |
+| Pydantic data models | Working -- Device, ThreatEvent, Decision, etc. |
+| Redis event bus | Working -- publish/subscribe with WAL fallback |
+| Network scanner (ARP + nmap) | Working -- device discovery via PAL |
+| DNS monitor | Working -- query analysis, DGA detection |
+| Device fingerprinter | Working -- MAC OUI, OS detection, type classification |
+| Knowledge base (markdown) | Working -- REX-BOT-AI.md read/write/parse with git |
+| Privacy/encryption module | Working -- Fernet secrets, audit tools |
+| Agent security (scope, sanitizers) | Working -- prompt injection defense, action whitelist |
+| Dashboard API (FastAPI) | **Stubbed** -- endpoints exist but return hard-coded data |
+| Dashboard frontend (React) | **Skeleton** -- components exist but not wired to real data |
+| Notification channels | **Partial** -- channel classes exist, not integration-tested |
+| Plugin system | **Minimal** -- SDK defined, no real plugin execution |
+| Orchestrator | **Partial** -- starts services but not fully lifecycle-managed |
+| Docker deployment | **Broken** -- networking and entrypoint issues being fixed |
+| Installer (install.sh) | **Broken** -- curl pipe mode does not work correctly |
+| Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
+| Test coverage | **~13%** -- critical paths tested, most modules untested |
+
+## Development Setup
 
 ```bash
-curl -sSL https://install.rexbot.ai | bash
-```
-
-Or install manually:
-
-```bash
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
-pip install -e .
-rex start
-```
-
-## Quick Start
-
-1. **Install REX** -- run the one-liner above or clone the repo.
-2. **Launch** -- `rex start` boots up the dashboard, scanner, and AI engine.
-3. **Open the dashboard** -- navigate to `https://localhost:8443` in your browser.
-
-That is it. REX auto-detects your network interface, starts scanning, and begins learning what "normal" looks like on your network.
-
-## Features
-
-| Feature                        | Status         |
-|--------------------------------|----------------|
-| Network discovery and mapping  | Implemented    |
-| Real-time traffic analysis     | Implemented    |
-| AI threat classification       | Implemented    |
-| Local LLM via Ollama           | Implemented    |
-| Web dashboard (HTTPS)          | Implemented    |
-| Automated incident response    | Implemented    |
-| DNS sinkhole                   | Implemented    |
-| Honeypot services              | Implemented    |
-| Vulnerability scanning         | Implemented    |
-| Notification system            | Implemented    |
-| Vector memory (ChromaDB)       | Implemented    |
-| Plugin system                  | In Progress    |
-| Multi-node mesh                | In Progress    |
-| Mobile companion app           | Planned        |
-| SIEM integration (Wazuh/ELK)   | Planned        |
-| Hardware appliance image       | Planned        |
-
-## Architecture
-
-REX-BOT-AI is built as a set of cooperating async services orchestrated by a central engine:
-
-```
-                     +------------------+
-                     |   Web Dashboard  |
-                     |  (FastAPI/HTTPS) |
-                     +--------+---------+
-                              |
-                     +--------+---------+
-                     |    REX Engine     |
-                     |  (Orchestrator)   |
-                     +--------+---------+
-                              |
-          +-------------------+-------------------+
-          |           |           |                |
-   +------+---+ +----+----+ +---+------+  +------+------+
-   | Network  | |  Threat | |  AI/LLM  |  | Notification|
-   | Scanner  | | Detector| | (Ollama) |  |   Service   |
-   +------+---+ +----+----+ +---+------+  +-------------+
-          |           |           |
-   +------+-----------+-----------+------+
-   |              Redis Bus              |
-   +----------------+-------------------+
-                    |
-          +---------+---------+
-          |  ChromaDB Vector  |
-          |     Memory        |
-          +-------------------+
-```
-
-- **REX Engine** -- coordinates all subsystems, manages scheduling, and handles lifecycle.
-- **Network Scanner** -- uses Scapy and Nmap for host discovery, port scanning, and traffic capture.
-- **Threat Detector** -- rule engine plus AI classification for anomaly detection.
-- **AI/LLM** -- local inference via Ollama; analyzes packets, classifies threats, generates reports.
-- **Redis Bus** -- pub/sub event bus and state cache shared across all services.
-- **ChromaDB** -- vector store for long-term memory, threat signatures, and pattern matching.
-- **Web Dashboard** -- HTTPS-only FastAPI application for monitoring, configuration, and alerts.
-- **Notification Service** -- multi-channel alerts via Discord, Telegram, Matrix, Email, and more.
-
-## Configuration
-
-Copy the example environment file and adjust values as needed:
-
-```bash
-cp .env.example .env
-```
-
-All configuration can also be managed through the web dashboard after first launch.
-
-See the [docs/](docs/) directory for detailed configuration reference.
-
-## Development
-
-```bash
-# Clone and install in development mode
-git clone https://github.com/REX-BOT-AI/rex-bot-ai.git
-cd rex-bot-ai
-python -m venv .venv
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
 pip install -e .
+pip install -r requirements-dev.txt
 
 # Run tests
 pytest
 
-# Lint and type check
-ruff check .
-mypy rex/
+# Lint
+ruff check rex/ tests/
 ```
+
+## Architecture
+
+REX is built as cooperating async services communicating via Redis Streams:
+
+```
+EYES (scan) -> Redis -> BRAIN (classify) -> TEETH (block) -> BARK (notify)
+                                   |
+                              MEMORY (log to REX-BOT-AI.md)
+```
+
+All OS-specific operations go through the Platform Abstraction Layer (PAL). The LLM is hardcoded to localhost only -- network data never leaves the machine.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+
+## Security Invariants
+
+These are enforced in code, not just policy:
+
+- **No `shell=True`** anywhere in the codebase. Commands use a whitelist with parameter validators.
+- **LLM is localhost-only**. `OllamaClient` raises `PrivacyViolationError` for non-localhost URLs.
+- **Network data is sanitized** before reaching the LLM (hostnames, banners stripped of injection attempts).
+- **Firewall safety**: gateway and REX IPs are hardcoded as untargetable.
+- **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](docs/CONTRIBUTING.md) before opening a pull request.
+This project needs help. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
-1. Fork the repository.
-2. Create a feature branch from `main`.
-3. Write tests for your changes.
-4. Ensure `pytest`, `ruff check .`, and `mypy rex/` all pass.
-5. Open a pull request with a clear description.
+Priority areas:
+1. Wire dashboard API to real service data (replace hard-coded responses)
+2. Integration tests for the EYES->BRAIN->TEETH pipeline
+3. Frontend login flow and WebSocket authentication
+4. Fix Docker Compose networking for end-to-end deployment
+5. Grow test coverage beyond 13%
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE).

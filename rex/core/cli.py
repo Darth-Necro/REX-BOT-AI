@@ -230,3 +230,12 @@ def _get_token() -> str:
     if os.path.exists(token_file):
         return open(token_file).read().strip()
     return ""
+
+
+def main() -> None:
+    """Entry point for ``python -m rex.core.cli`` and the ``rex`` console script."""
+    app()
+
+
+if __name__ == "__main__":
+    main()
