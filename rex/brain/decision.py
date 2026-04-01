@@ -209,16 +209,34 @@ class DecisionEngine:
                         kb_context = await self._kb.get_context_for_llm("threat")
 
                 from rex.brain.prompts import THREAT_ANALYSIS_TEMPLATE
+
+                # Sanitize the FULL event data, not just raw_data.
+                # Fields like description, indicators, source_device_id
+                # etc. could contain prompt-injection payloads from
+                # network-derived data and bypass the raw_data-only
+                # sanitization done earlier in the pipeline.
+                safe_event = sanitize_network_data(event.model_dump(mode="json"))
+                event_json_str = json.dumps(
+                    safe_event, indent=2, default=str,
+                )[:2000]
+
+                # Sanitize KB context as well -- it contains device
+                # hostnames, service banners, and other network-sourced
+                # strings read back from the knowledge base.
+                safe_kb_context = sanitize_network_data(
+                    {"_kb": kb_context}
+                )["_kb"] if kb_context else ""
+
                 prompt = (
                     THREAT_ANALYSIS_TEMPLATE
-                    .replace("{{ network_context }}", kb_context[:2000])
+                    .replace("{{ network_context }}", safe_kb_context[:2000])
                     .replace(
                         "{{ device_context }}",
                         str(event.raw_data.get("device_context", "N/A")),
                     )
                     .replace("{{ recent_threats }}", "See KB context above.")
                     .replace("{{ user_notes }}", "")
-                    .replace("{{ event_json }}", event.model_dump_json(indent=2)[:2000])
+                    .replace("{{ event_json }}", event_json_str)
                 )
                 resp = await self._llm.security_query(prompt, {"event_id": event.event_id})
                 return self._parse_llm(event, resp)

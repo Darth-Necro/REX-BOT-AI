@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import shutil
 import socket
@@ -28,6 +29,13 @@ if TYPE_CHECKING:
     from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.eyes.scanner")
+
+_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
+
+
+def _safe_env() -> dict[str, str]:
+    """Return environment with sensitive variables stripped."""
+    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
 
 
 class NetworkScanner:
@@ -242,10 +250,12 @@ class NetworkScanner:
         self._logger.debug("Running: %s", " ".join(cmd))
 
         try:
+            logger.info("Subprocess: %s %s", cmd[0], " ".join(cmd[1:]))
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT

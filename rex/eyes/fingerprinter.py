@@ -13,6 +13,7 @@ import asyncio
 import csv
 import io
 import logging
+import os
 import re
 import shutil
 import sqlite3
@@ -22,13 +23,20 @@ from typing import TYPE_CHECKING
 
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import DeviceType
-from rex.shared.utils import is_valid_ipv4, mac_normalize
+from rex.shared.utils import is_private_ip, is_valid_ipv4, mac_normalize
 
 if TYPE_CHECKING:
     from rex.shared.config import RexConfig
     from rex.shared.models import Device
 
 logger = logging.getLogger("rex.eyes.fingerprinter")
+
+_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
+
+
+def _safe_env() -> dict[str, str]:
+    """Return environment with sensitive variables stripped."""
+    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
 
 
 class DeviceFingerprinter:
@@ -278,10 +286,12 @@ class DeviceFingerprinter:
             return None
 
         try:
+            logger.info("Subprocess: %s %s", "curl", "-sL --max-time 30 " + self.OUI_DB_URL)
             proc = await asyncio.create_subprocess_exec(
                 "curl", "-sL", "--max-time", "30", self.OUI_DB_URL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=45)
             if proc.returncode == 0 and stdout:
@@ -440,10 +450,12 @@ class DeviceFingerprinter:
             return None
 
         try:
+            logger.info("Subprocess: %s %s", "nmap", "-O --osscan-guess -oX - " + ip)
             proc = await asyncio.create_subprocess_exec(
                 "nmap", "-O", "--osscan-guess", "-oX", "-", ip,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT
@@ -490,10 +502,12 @@ class DeviceFingerprinter:
             OS family guess, or ``None`` if unreachable.
         """
         try:
+            logger.info("Subprocess: %s %s", "ping", "-c 1 -W " + str(DEFAULT_NETWORK_TIMEOUT) + " " + ip)
             proc = await asyncio.create_subprocess_exec(
                 "ping", "-c", "1", "-W", str(DEFAULT_NETWORK_TIMEOUT), ip,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=DEFAULT_NETWORK_TIMEOUT + 2

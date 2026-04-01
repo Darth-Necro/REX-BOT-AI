@@ -12,15 +12,23 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import shutil
 import xml.etree.ElementTree as ET
 
 from rex.shared.constants import DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
-from rex.shared.utils import is_valid_ipv4
+from rex.shared.utils import is_private_ip, is_valid_ipv4
 
 logger = logging.getLogger("rex.eyes.port_scanner")
+
+_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
+
+
+def _safe_env() -> dict[str, str]:
+    """Return environment with sensitive variables stripped."""
+    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +139,10 @@ class PortScanner:
             self._logger.warning("Invalid IP for port scan: %s", ip)
             return []
 
+        if not is_private_ip(ip):
+            self._logger.warning("Refusing to scan non-private IP: %s", ip)
+            return []
+
         # Try nmap
         if self._is_nmap_available():
             results = await self._nmap_scan(ip, self.TOP_100_PORTS)
@@ -167,6 +179,10 @@ class PortScanner:
         """
         if not is_valid_ipv4(ip):
             self._logger.warning("Invalid IP for deep scan: %s", ip)
+            return []
+
+        if not is_private_ip(ip):
+            self._logger.warning("Refusing to scan non-private IP: %s", ip)
             return []
 
         self._logger.info("Starting deep scan on %s (65535 ports)", ip)
@@ -222,6 +238,14 @@ class PortScanner:
             Threat events for each exposed dangerous service.
         """
         threats: list[ThreatEvent] = []
+
+        # Enforce: gateway_ip must be a private/LAN address
+        if not is_private_ip(gateway_ip):
+            self._logger.warning(
+                "Refusing exposed-service check: gateway_ip %s is not private",
+                gateway_ip,
+            )
+            return threats
 
         # Scan the public IP for dangerous ports
         target = public_ip or gateway_ip
@@ -305,10 +329,12 @@ class PortScanner:
         ]
 
         try:
+            logger.info("Subprocess: %s %s", cmd[0], " ".join(cmd[1:]))
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, _stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=timeout + 10

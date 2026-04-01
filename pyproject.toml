@@ -55,6 +55,7 @@ dependencies = [
     "pyyaml>=6.0.2,<7.0",
     "aiosqlite>=0.20.0,<1.0",
     "anyio>=4.7.0,<5.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.urls]

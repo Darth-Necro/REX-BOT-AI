@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
@@ -25,6 +26,13 @@ if TYPE_CHECKING:
     from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.eyes.dns_monitor")
+
+_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
+
+
+def _safe_env() -> dict[str, str]:
+    """Return environment with sensitive variables stripped."""
+    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
 
 
 # ---------------------------------------------------------------------------
@@ -152,10 +160,12 @@ class DNSMonitor:
             return 0
 
         try:
+            logger.info("Subprocess: %s %s", "curl", "-sL --max-time 15 " + url)
             proc = await asyncio.create_subprocess_exec(
                 "curl", "-sL", "--max-time", "15", url,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_safe_env(),
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
         except (TimeoutError, OSError) as exc:
