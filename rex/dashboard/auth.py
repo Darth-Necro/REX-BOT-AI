@@ -52,7 +52,10 @@ def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS
 def verify_token_str(token: str, secret: str) -> dict | None:
     """Verify a JWT token. Returns payload or None if invalid/expired."""
     try:
-        return jwt.decode(token, secret, algorithms=[_JWT_ALGORITHM])
+        return jwt.decode(
+            token, secret, algorithms=[_JWT_ALGORITHM],
+            options={"require": ["exp", "iat", "sub"]},
+        )
     except jwt.PyJWTError:
         return None
 

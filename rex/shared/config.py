@@ -18,6 +18,7 @@ from __future__ import annotations
 import functools
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rex.shared.enums import OperatingMode, PowerState, ProtectionMode
@@ -77,6 +78,19 @@ class RexConfig(BaseSettings):
     # -- Vector store (ChromaDB) ----------------------------------------------
     chroma_url: str = "http://localhost:8000"
     """Base URL for the ChromaDB HTTP API."""
+
+    @field_validator("redis_url", "chroma_url")
+    @classmethod
+    def validate_local_url(cls, v: str) -> str:
+        """Ensure service URLs point to localhost or Docker-internal names only."""
+        from urllib.parse import urlparse
+        parsed = urlparse(v)
+        allowed = {"127.0.0.1", "localhost", "::1", "redis", "chromadb"}
+        if parsed.hostname and parsed.hostname not in allowed:
+            raise ValueError(
+                f"URL must point to localhost or Docker service name, got: {parsed.hostname}"
+            )
+        return v
 
     # -- Network scanning -----------------------------------------------------
     network_interface: str = "auto"

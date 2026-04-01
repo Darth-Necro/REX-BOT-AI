@@ -1,4 +1,8 @@
-"""Threats router -- threat log query and management endpoints."""
+"""Threats router -- threat log query and management endpoints.
+
+NOTE: React auto-escapes JSX content, preventing XSS from LLM reasoning.
+If this data is ever served as raw HTML, it MUST be escaped first.
+"""
 
 from __future__ import annotations
 

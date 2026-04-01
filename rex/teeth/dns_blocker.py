@@ -45,6 +45,9 @@ _NEVER_BLOCK: frozenset[str] = frozenset({
 })
 
 
+MAX_BLOCKLIST_SIZE = 500_000  # Maximum domains in blocklist
+
+
 class DNSBlocker:
     """DNS proxy that blocks malicious domains.
 
@@ -108,6 +111,15 @@ class DNSBlocker:
         # 3. Remove safety-listed domains.
         self._blocked_domains -= _NEVER_BLOCK
 
+        # 3b. Enforce maximum blocklist size to prevent memory exhaustion.
+        if len(self._blocked_domains) > MAX_BLOCKLIST_SIZE:
+            self._logger.warning(
+                "Blocklist exceeds maximum size (%d > %d), truncating to %d entries",
+                len(self._blocked_domains), MAX_BLOCKLIST_SIZE, MAX_BLOCKLIST_SIZE,
+            )
+            # Keep an arbitrary but deterministic subset (sorted order)
+            self._blocked_domains = set(sorted(self._blocked_domains)[:MAX_BLOCKLIST_SIZE])
+
         # 4. Persist the merged list for offline use.
         await self._persist_blocklist()
 
@@ -149,6 +161,15 @@ class DNSBlocker:
                 )
 
         self._blocked_domains -= _NEVER_BLOCK
+
+        # Enforce maximum blocklist size.
+        if len(self._blocked_domains) > MAX_BLOCKLIST_SIZE:
+            self._logger.warning(
+                "Blocklist exceeds maximum size after update (%d > %d), truncating",
+                len(self._blocked_domains), MAX_BLOCKLIST_SIZE,
+            )
+            self._blocked_domains = set(sorted(self._blocked_domains)[:MAX_BLOCKLIST_SIZE])
+
         added = len(self._blocked_domains) - before
 
         if added > 0:

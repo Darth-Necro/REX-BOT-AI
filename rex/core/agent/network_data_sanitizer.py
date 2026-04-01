@@ -34,7 +34,7 @@ _MAX_GENERIC_LEN = 256
 _INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r"ignore\s+(all\s+)?previous\s+instructions?",
+        r"ignore\s+(all\s+)?previous(\s+instructions?)?",
         r"ignore\s+(all\s+)?above",
         r"disregard\s+(all\s+)?previous",
         r"you\s+are\s+now",
@@ -67,11 +67,56 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"open\s+all\s+ports",
         r"trust\s+this",
         r"permit\s+.*access",
+        # Catch injection with noise words inserted between key tokens
+        r"ignore\b.{0,40}(?:all\b).{0,40}(?:previous\b).{0,40}instruct",
+        # Catch concatenated keywords (after delimiter stripping: ignoreallpreviousinstructions)
+        r"ignore\s*all\s*previous\s*instructions?",
+        r"ignore\s*all\s*instructions?",
+        r"disable\s*all?\s*firewall\s*rules?",
     ]
 ]
 
 # Characters that should never appear in network identifiers
-_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+# Homoglyph mapping: visually similar characters -> ASCII equivalents
+_HOMOGLYPH_MAP: dict[str, str] = {
+    # Cyrillic -> Latin
+    "\u0430": "a",  # а
+    "\u0435": "e",  # е
+    "\u043e": "o",  # о
+    "\u0440": "p",  # р
+    "\u0441": "c",  # с
+    "\u0443": "y",  # у
+    "\u0445": "x",  # х
+    "\u0456": "i",  # і
+    "\u0458": "j",  # ј
+    "\u04bb": "h",  # һ
+    "\u0410": "A",  # А
+    "\u0412": "B",  # В
+    "\u0415": "E",  # Е
+    "\u041a": "K",  # К
+    "\u041c": "M",  # М
+    "\u041d": "H",  # Н
+    "\u041e": "O",  # О
+    "\u0420": "P",  # Р
+    "\u0421": "C",  # С
+    "\u0422": "T",  # Т
+    "\u0425": "X",  # Х
+}
+
+# Leetspeak mapping: number/symbol -> letter
+_LEET_MAP = str.maketrans({
+    "0": "o",
+    "1": "i",
+    "3": "e",
+    "4": "a",
+    "5": "s",
+    "7": "t",
+    "8": "b",
+    "@": "a",
+    "$": "s",
+})
 
 
 def sanitize_hostname(hostname: str) -> str:
@@ -132,16 +177,10 @@ def sanitize_network_data(data: dict[str, Any]) -> dict[str, Any]:
         Sanitized copy of the data dict.
     """
     sanitized = {}
-    network_keys = {
-        "hostname", "device_name", "name", "mdns_name", "mdns_service",
-        "banner", "service_banner", "http_server", "ssh_banner",
-        "user_agent", "dhcp_hostname", "dhcp_client_id", "client_id",
-        "snmp_description", "snmp_name", "snmp_location", "snmp_contact",
-        "netbios_name", "dns_name", "txt_record",
-    }
 
     for key, value in data.items():
-        if isinstance(value, str) and key.lower() in network_keys:
+        if isinstance(value, str):
+            # Sanitize ALL string values -- any field could end up in an LLM prompt
             sanitized[key] = _sanitize(value, _MAX_GENERIC_LEN, key)
         elif isinstance(value, dict):
             sanitized[key] = sanitize_network_data(value)
@@ -156,6 +195,52 @@ def sanitize_network_data(data: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = value
 
     return sanitized
+
+
+def _normalize_for_matching(text: str) -> str:
+    """Produce a canonical ASCII form for pattern matching.
+
+    Applies homoglyph replacement, combining-mark stripping,
+    leetspeak decoding, and delimiter removal so patterns can
+    catch obfuscated injections.
+    """
+    # 1. Replace known homoglyphs
+    chars = [_HOMOGLYPH_MAP.get(ch, ch) for ch in text]
+    norm = "".join(chars)
+
+    # 2. NFKD + strip combining marks (accents, diacritics)
+    norm = unicodedata.normalize("NFKD", norm)
+    norm = "".join(ch for ch in norm if unicodedata.category(ch) != "Mn")
+
+    # 3. Leetspeak decode
+    norm = norm.translate(_LEET_MAP)
+
+    # 4. Collapse single-char-delimiter-separated patterns like i.g.n.o.r.e
+    #    These are sequences of single chars separated by dots/hyphens/underscores
+    def _collapse_single_char_delims(m: re.Match[str]) -> str:
+        return re.sub(r'[.\-_]', '', m.group(0))
+
+    norm = re.sub(
+        r'\b\w[.\-_](?:\w[.\-_])*\w\b',
+        _collapse_single_char_delims,
+        norm,
+    )
+
+    # 5. Replace underscores/hyphens between words with spaces
+    norm = re.sub(r'[_\-]+', ' ', norm)
+
+    # 6. Collapse whitespace and strip common filler words to defeat
+    #    noise-word evasion like "please kindly ignore safely all ..."
+    norm = re.sub(r'\s+', ' ', norm).strip()
+    _FILLER = frozenset({
+        'please', 'kindly', 'safely', 'now', 'quickly', 'immediately',
+        'the', 'of', 'set', 'a', 'an', 'this', 'that', 'my', 'your',
+        'all', 'any', 'every', 'each',
+    })
+    words = norm.split()
+    norm = ' '.join(w for w in words if w.lower() not in _FILLER)
+
+    return norm
 
 
 def _sanitize(value: str, max_len: int, field_name: str) -> str:
@@ -179,10 +264,15 @@ def _sanitize(value: str, max_len: int, field_name: str) -> str:
         )
         clean = clean[:max_len]
 
-    # Check for prompt injection patterns
+    # Build a normalized form for pattern matching (catches homoglyphs,
+    # leetspeak, delimiter-separated chars, etc.)
+    matchable = _normalize_for_matching(clean)
+
+    # Check for prompt injection patterns against BOTH the original
+    # cleaned text and the normalized form
+    injection_found = False
     for pattern in _INJECTION_PATTERNS:
-        match = pattern.search(clean)
-        if match:
+        if pattern.search(clean) or pattern.search(matchable):
             logger.warning(
                 "PROMPT INJECTION DETECTED in network %s: '%s' (pattern: %s)",
                 field_name,
@@ -191,5 +281,12 @@ def _sanitize(value: str, max_len: int, field_name: str) -> str:
             )
             # Replace the injection with a flag (don't silently remove)
             clean = pattern.sub("[INJECTION_ATTEMPT_STRIPPED]", clean)
+            injection_found = True
+
+    # If patterns matched on the normalized form but not the raw text,
+    # the raw substitution above may not have replaced anything.
+    # In that case, flag the entire string.
+    if injection_found and "[INJECTION_ATTEMPT_STRIPPED]" not in clean:
+        clean = "[INJECTION_ATTEMPT_STRIPPED]"
 
     return clean

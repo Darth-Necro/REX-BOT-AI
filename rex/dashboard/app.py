@@ -7,6 +7,8 @@ dependency initialization, and all API routers.
 from __future__ import annotations
 
 import logging
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -40,6 +42,29 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _ws_manager = WebSocketManager()
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple sliding-window rate limiter per client IP."""
+
+    def __init__(self, app: FastAPI, max_requests: int = 60, window_seconds: int = 60) -> None:
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._requests: dict[str, list[float]] = defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self.window]
+        if len(self._requests[client_ip]) >= self.max_requests:
+            from starlette.responses import JSONResponse
+            return JSONResponse(
+                {"detail": "Rate limit exceeded"}, status_code=429,
+                headers={"Retry-After": str(self.window)},
+            )
+        self._requests[client_ip].append(now)
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -118,6 +143,9 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc",
         lifespan=lifespan,
     )
+
+    # Rate limiting (applied before CORS so abuse is blocked early)
+    app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)

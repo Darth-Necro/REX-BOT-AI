@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("rex.eyes.device_store")
 
+MAX_DEVICES = 10_000  # Prevents memory exhaustion from MAC spoofing
+
 
 class DeviceStore:
     """In-memory device inventory with change tracking.
@@ -76,6 +78,13 @@ class DeviceStore:
                 seen_macs.add(mac)
 
                 if mac not in self._devices:
+                    # Prevent memory exhaustion from MAC spoofing
+                    if len(self._devices) >= MAX_DEVICES:
+                        logger.warning(
+                            "Device store at maximum capacity (%d). Ignoring new devices.",
+                            MAX_DEVICES,
+                        )
+                        continue
                     # New device
                     device.first_seen = utc_now()
                     device.last_seen = utc_now()
@@ -322,6 +331,12 @@ class DeviceStore:
                 existing.last_seen = utc_now()
                 return False
             else:
+                if len(self._devices) >= MAX_DEVICES:
+                    logger.warning(
+                        "Device store at maximum capacity (%d). Ignoring new device.",
+                        MAX_DEVICES,
+                    )
+                    return False
                 device.first_seen = utc_now()
                 device.last_seen = utc_now()
                 self._devices[mac] = device

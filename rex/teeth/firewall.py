@@ -586,10 +586,32 @@ class FirewallManager:
         Runs every 10 seconds.  If it detects that an unreasonable number
         of devices have been blocked (suggesting a runaway loop), it
         triggers a panic restore automatically.
+
+        Also prunes expired rules on each iteration.
         """
         while True:
             try:
                 await asyncio.sleep(10)
+
+                # Prune expired rules
+                now = utc_now()
+                expired = [
+                    r for r in self._rules
+                    if r.expires_at and r.expires_at < now
+                ]
+                for rule in expired:
+                    self._logger.info(
+                        "Auto-pruning expired rule %s (ip=%s)",
+                        rule.rule_id, rule.ip,
+                    )
+                    try:
+                        await self.unblock_ip(rule.ip)
+                    except Exception as exc:
+                        self._logger.warning(
+                            "Failed to unblock expired rule %s: %s",
+                            rule.rule_id, exc,
+                        )
+
                 await self._auto_rollback_check()
             except asyncio.CancelledError:
                 return

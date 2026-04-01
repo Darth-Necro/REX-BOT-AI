@@ -223,6 +223,12 @@ def validate_nft_rule(value: str) -> bool:
     colons, slashes, braces, comparison operators, and common nft
     keywords.  Blocks shell metacharacters (``; & | $ ` \\``).
 
+    Additionally performs semantic validation to prevent dangerous rules:
+
+    - Only ``drop`` and ``reject`` actions are permitted (never ``accept``).
+    - Wildcard source/destination addresses (``0.0.0.0/0``, ``::/0``) are blocked.
+    - Full port ranges (``0-65535``) are blocked.
+
     Parameters
     ----------
     value:
@@ -241,7 +247,34 @@ def validate_nft_rule(value: str) -> bool:
         return False
     # Only allow safe nft characters.
     nft_re = re.compile(r"^[a-zA-Z0-9\s\.\:\(\)/<>=!\-\{\},@\"]+$")
-    return bool(nft_re.match(value))
+    if not nft_re.match(value):
+        return False
+
+    # --- Semantic validation ---
+    # Normalise for keyword matching.
+    lower = value.lower()
+
+    # Only allow "drop" and "reject" actions; block "accept" and others.
+    _ALLOWED_ACTIONS = {"drop", "reject"}
+    _DANGEROUS_ACTIONS = {"accept", "jump", "goto", "queue", "continue", "return"}
+    for action in _DANGEROUS_ACTIONS:
+        if re.search(r'\b' + action + r'\b', lower):
+            return False
+
+    # The rule MUST end with an allowed action (drop or reject).
+    tokens = lower.split()
+    if not tokens or tokens[-1] not in _ALLOWED_ACTIONS:
+        return False
+
+    # Block wildcard source/destination addresses.
+    if "0.0.0.0/0" in value or "::/0" in value:
+        return False
+
+    # Block full port ranges that would match all traffic.
+    if "0-65535" in value:
+        return False
+
+    return True
 
 
 def validate_integer(value: str) -> bool:
@@ -282,9 +315,11 @@ def validate_positive_integer(value: str) -> bool:
 
 
 def validate_safe_path(value: str) -> bool:
-    """Validate a filesystem path is absolute and free of traversal attacks.
+    """Validate a filesystem path is absolute and within allowed directories.
 
-    Rejects relative paths, ``..`` components, and unusual characters.
+    Uses a strict whitelist of allowed directory prefixes.  Only paths
+    under ``/etc/rex-bot-ai/``, ``/var/log/rex-bot-ai/``, or ``/tmp/rex-*``
+    are accepted.  Sensitive system paths are explicitly rejected.
 
     Parameters
     ----------
@@ -299,12 +334,23 @@ def validate_safe_path(value: str) -> bool:
         return False
     if not _SAFE_PATH_RE.match(value):
         return False
-    # Resolve and verify the path doesn't escape after symlink resolution.
+
+    # Resolve symlinks to prevent bypass via symlink chains.
     try:
-        resolved = Path(value).resolve()
-        return str(resolved).startswith("/")
+        resolved = str(Path(value).resolve())
     except (OSError, ValueError):
         return False
+
+    # Whitelist: only these directory prefixes are allowed.
+    _ALLOWED_PREFIXES = (
+        "/etc/rex-bot-ai/",
+        "/var/log/rex-bot-ai/",
+        "/tmp/rex-",
+    )
+    if not any(resolved.startswith(prefix) for prefix in _ALLOWED_PREFIXES):
+        return False
+
+    return True
 
 
 def validate_bpf_filter(value: str) -> bool:

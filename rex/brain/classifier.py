@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 # Known indicators
 # ---------------------------------------------------------------------------
 
+# Known CDN / cloud provider domain suffixes -- never flag as DGA
+_KNOWN_CDN_PATTERNS: frozenset[str] = frozenset({
+    "cloudfront.net", "akamaized.net", "fastly.net", "cdn.cloudflare.com",
+    "googleapis.com", "gstatic.com", "amazonaws.com", "azurefd.net",
+    "edgecastcdn.net", "stackpathdns.com",
+})
+
 # Common C2 ports used by known malware families
 _C2_PORTS: frozenset[int] = frozenset({
     443, 4443, 4444, 5555, 6666, 6667, 7777, 8080, 8443, 8888,
@@ -643,6 +650,11 @@ class ThreatClassifier:
         if not dns_query:
             return None
 
+        # Skip DGA / tunneling detection for known CDN domains
+        domain_lower = dns_query.lower().strip(".")
+        if any(domain_lower.endswith(cdn) for cdn in _KNOWN_CDN_PATTERNS):
+            return None
+
         indicators: list[str] = []
         score = 0.0
 
@@ -942,12 +954,16 @@ class ThreatClassifier:
         # IoT device doing DNS lookups to high-entropy domains
         dns_query = raw_data.get("dns_query", "") or event.get("dns_query", "")
         if dns_query:
-            parts = dns_query.split(".")
-            if len(parts) >= 2:
-                ent = entropy(parts[0])
-                if ent > 3.5:
-                    score += 0.3
-                    indicators.append(f"dga_domain({ent:.2f})")
+            # Skip DGA detection for known CDN domains
+            dq_lower = dns_query.lower().strip(".")
+            is_cdn = any(dq_lower.endswith(cdn) for cdn in _KNOWN_CDN_PATTERNS)
+            if not is_cdn:
+                parts = dns_query.split(".")
+                if len(parts) >= 2:
+                    ent = entropy(parts[0])
+                    if ent > 3.5:
+                        score += 0.3
+                        indicators.append(f"dga_domain({ent:.2f})")
 
         # Deviation score from baseline (passed via raw_data)
         deviation = raw_data.get("deviation_score", 0.0)

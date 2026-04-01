@@ -5,23 +5,31 @@
 services:
   # ---- Infrastructure ----
 
+  # SECURITY: Set REDIS_PASSWORD in .env before first run
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     command: >
+      sh -c '
+      if [ -z "$REDIS_PASSWORD" ]; then
+        echo "ERROR: REDIS_PASSWORD is not set. Set it in .env before starting." >&2;
+        exit 1;
+      fi;
       redis-server
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD:-rex-default-password}
-      --bind 0.0.0.0
+      --requirepass "$REDIS_PASSWORD"
+      --bind 0.0.0.0'
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - rex-internal
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-rex-default-password}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -86,7 +94,7 @@ services:
       REX_DATA_DIR: /etc/rex-bot-ai
       REX_DASHBOARD_PORT: "8443"
       REX_DASHBOARD_HOST: "0.0.0.0"
-      REX_REDIS_URL: redis://:${REDIS_PASSWORD:-rex-default-password}@localhost:6379
+      REX_REDIS_URL: redis://:${REDIS_PASSWORD}@localhost:6379
       REX_OLLAMA_URL: http://localhost:11434
       REX_CHROMA_URL: http://localhost:8000
       REX_NETWORK_INTERFACE: ${REX_NETWORK_INTERFACE:-auto}

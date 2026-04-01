@@ -637,6 +637,22 @@ class KnowledgeBase:
         text = str(data).strip()
         return f"{heading}\n{text}"
 
+    @staticmethod
+    def _escape_md_table(value: str) -> str:
+        """Escape pipe characters to prevent markdown table injection.
+
+        Parameters
+        ----------
+        value:
+            Raw cell value.
+
+        Returns
+        -------
+        str
+            Sanitised value safe for embedding in a markdown table cell.
+        """
+        return str(value).replace("|", "\\|").replace("\n", " ").replace("\r", "")
+
     def _render_table(self, rows: list[dict[str, str]], headers: list[str]) -> str:
         """Render a list of dicts as a markdown table.
 
@@ -660,7 +676,7 @@ class KnowledgeBase:
         lines = [header_line, sep_line]
 
         for row in rows:
-            cells = [str(row.get(h, "")).replace("|", "/") for h in headers]
+            cells = [self._escape_md_table(row.get(h, "")) for h in headers]
             lines.append("| " + " | ".join(cells) + " |")
 
         return "\n".join(lines)

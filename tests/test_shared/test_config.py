@@ -35,13 +35,13 @@ def test_default_config_values(tmp_path: Path):
 
 def test_config_from_env(monkeypatch, tmp_path: Path):
     """Fields should be overridable via REX_ prefixed env vars."""
-    monkeypatch.setenv("REX_REDIS_URL", "redis://custom:9999")
+    monkeypatch.setenv("REX_REDIS_URL", "redis://localhost:9999")
     monkeypatch.setenv("REX_SCAN_INTERVAL", "42")
     monkeypatch.setenv("REX_LOG_LEVEL", "debug")
     monkeypatch.setenv("REX_NETWORK_INTERFACE", "wlan0")
 
     cfg = RexConfig(data_dir=tmp_path)
-    assert cfg.redis_url == "redis://custom:9999"
+    assert cfg.redis_url == "redis://localhost:9999"
     assert cfg.scan_interval == 42
     assert cfg.log_level == "debug"
     assert cfg.network_interface == "wlan0"
