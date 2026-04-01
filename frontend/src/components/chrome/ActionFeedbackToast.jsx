@@ -122,7 +122,7 @@ export function ToastContainer() {
   const otherToasts = toasts.filter((t) => t.type !== 'error');
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-4 sm:right-4 bottom-20 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-20 right-4 sm:bottom-4 sm:right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
       {/* Assertive region for errors -- screen readers announce immediately */}
       <div aria-live="assertive" aria-atomic="true" className="contents">
         {errorToasts.map((toast) => (

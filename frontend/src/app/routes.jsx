@@ -145,6 +145,12 @@ function AuthenticatedShell() {
           <Route path="/settings/notifications" element={<NotificationsPage />} />
           <Route path="/settings/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          {/* Batch 5 -- network, device details, threat details, investigations, service health */}
+          <Route path="/network" element={<NetworkMapPage />} />
+          <Route path="/devices/:id" element={<DeviceDetailsPage />} />
+          <Route path="/threats/:id" element={<ThreatDetailsPage />} />
+          <Route path="/threats/:id/investigate" element={<InvestigationsPage />} />
+          <Route path="/diagnostics/services" element={<ServiceHealthPage />} />
           {/* Legacy chat route -- falls back to overview until chat page exists */}
           <Route path="/chat" element={<AdvancedOverviewPage />} />
           {/* Root redirects to overview */}

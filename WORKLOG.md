@@ -69,3 +69,40 @@ Completed final security regression and documentation hardening:
 - Install script path alignment
 - Credentials encryption fallback
 - Live Redis integration test in CI
+
+### UI Batch 6: Final Polish (2026-03-31)
+
+Responsive, accessible, tested, consistent pass across the frontend.
+
+**Test setup and critical tests** (verified correct):
+- `frontend/src/__tests__/stores/useSystemStore.test.js` -- 9 assertions: defaults are honest (unknown, not operational)
+- `frontend/src/__tests__/stores/useAuthStore.test.js` -- 7 tests: login/logout/reject/expire flows
+- `frontend/src/__tests__/lib/status.test.js` -- 14 tests: normalizeStatus, normalizeHealth, derivePosture
+- `frontend/vitest.config.js` -- jsdom environment, globals, react plugin
+- `frontend/package.json` -- test + test:watch scripts wired
+
+**Toast system polish** (`ActionFeedbackToast.jsx` + `useUiStore.js`):
+- Success toasts auto-dismiss after 5s
+- Error toasts stay visible until manually dismissed (duration: 0)
+- Separate aria-live regions: `assertive` for errors, `polite` for everything else
+- All icons have `aria-hidden="true"`; dismiss button has proper `aria-label`
+
+**Responsive layout refinements**:
+- `AppShell.jsx`: hamburger menu, mobile drawer, Escape-to-close, h-full max-w-7xl content area
+- `BasicShell.jsx`: bottom nav bar on mobile, desktop inline nav, critical alert banner always visible
+- `BasicOverviewPage.jsx`: plain language posture banners, card stack, recent alerts
+
+**Shared primitives** (verified consistent):
+- `Button.jsx` -- primary/secondary/danger/ghost variants, loading state with spinner + aria-busy
+- `EmptyState.jsx` -- empty/loading/degraded/unsupported/disconnected/error variants
+- `Badge.jsx` -- SeverityBadge, StatusBadge, CapabilityBadge shorthands
+
+**Consistent page padding**:
+- FirewallPage, DiagnosticsPage, SchedulerPage now use `p-4 sm:p-6 lg:p-8` responsive padding
+- SettingsPage, NotificationsPage, PrivacyPage, BasicOverviewPage already had consistent padding
+- DevicesPage, ThreatsPage use internal flex layout with p-4 content area
+
+**Tailwind config**:
+- Added `slideIn` keyframe for toast entrance animation
+
+**Build**: verified `npm run build` succeeds
