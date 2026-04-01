@@ -27,6 +27,33 @@ async def login(request: Request, password: str = Body(..., embed=True)) -> dict
     return result
 
 
+@router.get("/first-boot")
+async def first_boot() -> dict[str, Any]:
+    """Return the initial admin password if this is the first boot.
+
+    No auth required -- this is the bootstrap mechanism.
+    The password file is deleted after being read (one-time display).
+    """
+    from rex.shared.config import get_config
+
+    config = get_config()
+    first_boot_file = config.data_dir / ".first-boot-password"
+
+    if not first_boot_file.exists():
+        return {"first_boot": False}
+
+    try:
+        password = first_boot_file.read_text(encoding="utf-8").strip()
+        first_boot_file.unlink()
+        return {
+            "first_boot": True,
+            "password": password,
+            "message": "Write this down. It will not be shown again.",
+        }
+    except OSError:
+        return {"first_boot": False}
+
+
 @router.post("/change-password")
 async def change_password(
     old_password: str = Body(...),

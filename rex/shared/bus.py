@@ -72,8 +72,16 @@ class EventBus:
     # Connection lifecycle
     # ------------------------------------------------------------------
 
+    @property
+    def is_connected(self) -> bool:
+        """Return *True* if the bus is running (Redis or WAL-only)."""
+        return self._running
+
     async def connect(self) -> None:
         """Open the Redis connection and initialise the WAL database.
+
+        The method is idempotent — calling it on an already-connected bus
+        is a no-op.
 
         Raises
         ------
@@ -81,6 +89,8 @@ class EventBus:
             If the initial Redis connection fails.  The WAL is still
             initialised so that ``publish`` can degrade gracefully.
         """
+        if self._running:
+            return
         await self._init_wal()
         try:
             self._redis = aioredis.from_url(

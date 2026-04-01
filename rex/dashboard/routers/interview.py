@@ -44,33 +44,30 @@ async def get_status() -> dict[str, Any]:
     }
 
 
-@router.get("/question")
+@router.get("/question", status_code=501)
 async def get_current_question() -> dict[str, Any]:
-    """Return the current question to display."""
+    """Return the current question to display. Not yet wired."""
     return {
-        "question": None,
-        "complete": False,
+        "status": "not_implemented",
         "note": "Interview service not connected",
     }
 
 
-@router.post("/answer")
+@router.post("/answer", status_code=501)
 async def submit_answer(
     question_id: str = Body(...), answer: Any = Body(...)
 ) -> dict[str, Any]:
     """Submit an answer. Interview service must be running to process."""
     return {
-        "accepted": False,
-        "next_question": None,
-        "complete": False,
+        "status": "not_implemented",
         "note": "Interview service not connected; answer not processed",
     }
 
 
-@router.post("/restart")
+@router.post("/restart", status_code=501)
 async def restart(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Restart the interview from the beginning."""
     return {
-        "status": "not_available",
+        "status": "not_implemented",
         "note": "Interview service not connected",
     }

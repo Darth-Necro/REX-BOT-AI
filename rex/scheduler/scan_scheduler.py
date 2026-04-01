@@ -51,15 +51,15 @@ class ScanScheduler:
         return self._scheduled.pop(job_id, None) is not None
 
     async def run_scan_now(self, scan_type: str = "quick") -> dict[str, Any]:
-        """Trigger an immediate scan (publishes event to bus)."""
+        """Trigger an immediate scan by publishing a command to the event bus."""
         result = {
             "scan_id": generate_id()[:8],
             "scan_type": scan_type,
             "started_at": utc_now().isoformat(),
             "status": "triggered",
         }
+        await self._publish_scan_command(scan_type)
         self._history.append(result)
-        await self._publish_scan_request(scan_type)
         logger.info("Immediate %s scan triggered", scan_type)
         return result
 
@@ -71,20 +71,24 @@ class ScanScheduler:
         """Return recent scan history, newest first."""
         return self._history[-limit:][::-1]
 
-    async def _publish_scan_request(self, scan_type: str) -> None:
-        """Publish a scan_now command to the event bus so EyesService picks it up."""
+    async def _publish_scan_command(self, scan_type: str) -> None:
+        """Publish a scan command to the event bus for EyesService."""
         if self._bus is None:
-            logger.warning("No event bus — scan request not published")
+            logger.debug("No event bus available; scan command not published")
             return
         try:
             event = RexEvent(
                 source=ServiceName.SCHEDULER,
-                event_type="scan_request",
-                payload={"command": "scan_now", "scan_type": scan_type},
+                event_type="scan_command",
+                payload={
+                    "command": "scan_now",
+                    "scan_type": scan_type,
+                    "target_service": ServiceName.EYES,
+                },
             )
             await self._bus.publish(STREAM_CORE_COMMANDS, event)
         except Exception:
-            logger.exception("Failed to publish scan request to event bus")
+            logger.warning("Failed to publish scan command to event bus")
 
     async def _scan_loop(self, job_id: str, interval: int) -> None:
         """Background loop for a scheduled scan job."""
@@ -95,6 +99,8 @@ class ScanScheduler:
             spec = self._scheduled[job_id]
             spec["last_run"] = utc_now().isoformat()
             spec["run_count"] += 1
+            # Publish scan command to event bus so EyesService executes it
+            await self._publish_scan_command(spec["scan_type"])
             self._history.append({
                 "job_id": job_id,
                 "scan_type": spec["scan_type"],
@@ -103,7 +109,6 @@ class ScanScheduler:
             })
             if len(self._history) > 500:
                 self._history = self._history[-250:]
-            await self._publish_scan_request(spec["scan_type"])
 
     async def stop_all(self) -> None:
         """Cancel all scheduled scans."""

@@ -31,13 +31,24 @@ _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt."""
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    """Hash a password using bcrypt.
+
+    bcrypt has a 72-byte input limit; passwords are truncated to stay
+    within this boundary (standard bcrypt behaviour).
+    Null bytes are rejected to prevent truncation-at-null attacks.
+    """
+    if "\x00" in password:
+        raise ValueError("password must not contain NUL bytes")
+    pw_bytes = password.encode()[:72]
+    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    if "\x00" in password:
+        raise ValueError("password must not contain NUL bytes")
+    pw_bytes = password.encode()[:72]
+    return bcrypt.checkpw(pw_bytes, hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:

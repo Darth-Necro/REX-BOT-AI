@@ -1,9 +1,9 @@
 """Service orchestrator -- manages the full lifecycle of all REX services.
 
 The orchestrator is the single entry point that ``rex start`` invokes.
-It creates all service instances, wires them to the shared EventBus,
-starts them in dependency order, monitors health via heartbeats,
-auto-restarts crashed services, and tears everything down cleanly.
+It creates all service instances (each with its own EventBus), starts
+them in dependency order, monitors health via heartbeats, auto-restarts
+crashed services, and tears everything down cleanly.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from rex.shared.bus import EventBus
 from rex.shared.config import RexConfig, get_config
-from rex.shared.enums import ServiceName
+from rex.shared.enums import PowerState, ServiceName
 
 if TYPE_CHECKING:
     from rex.shared.service import BaseService
@@ -80,33 +80,40 @@ class ServiceOrchestrator:
         )
 
     def _create_services(self) -> None:
-        """Instantiate all service classes and register them."""
-        config = self._config
-        bus = self._bus
-        if config is None:
-            raise RuntimeError("Orchestrator.initialize() must be called before _create_services()")
-        if bus is None:
-            raise RuntimeError("EventBus must be created before _create_services()")
+        """Instantiate all service classes with per-service event buses.
 
-        service_classes: list[tuple[str, str]] = [
-            ("rex.memory.service", "MemoryService"),
-            ("rex.eyes.service", "EyesService"),
-            ("rex.scheduler.service", "SchedulerService"),
-            ("rex.interview.service", "InterviewService"),
-            ("rex.brain.service", "BrainService"),
-            ("rex.bark.service", "BarkService"),
-            ("rex.teeth.service", "TeethService"),
-            ("rex.federation.service", "FederationService"),
-            ("rex.store.service", "StoreService"),
-            ("rex.dashboard.service", "DashboardService"),
+        Each service gets its own :class:`EventBus` instance so that:
+        1. Consumer groups are scoped per-service (``rex:<svc>:group``),
+           preventing services from stealing each other's messages.
+        2. Stopping or restarting one service disconnects only its own bus,
+           leaving every other service unaffected.
+        """
+        config = self._config
+        assert config is not None
+
+        service_classes: list[tuple[str, str, ServiceName]] = [
+            ("rex.memory.service", "MemoryService", ServiceName.MEMORY),
+            ("rex.eyes.service", "EyesService", ServiceName.EYES),
+            ("rex.scheduler.service", "SchedulerService", ServiceName.SCHEDULER),
+            ("rex.interview.service", "InterviewService", ServiceName.INTERVIEW),
+            ("rex.brain.service", "BrainService", ServiceName.BRAIN),
+            ("rex.bark.service", "BarkService", ServiceName.BARK),
+            ("rex.teeth.service", "TeethService", ServiceName.TEETH),
+            ("rex.federation.service", "FederationService", ServiceName.FEDERATION),
+            ("rex.store.service", "StoreService", ServiceName.STORE),
+            ("rex.dashboard.service", "DashboardService", ServiceName.DASHBOARD),
         ]
 
-        for module_path, class_name in service_classes:
+        for module_path, class_name, svc_name in service_classes:
             try:
                 import importlib
                 module = importlib.import_module(module_path)
                 cls = getattr(module, class_name)
-                instance = cls(config=config, bus=bus)
+                svc_bus = EventBus(
+                    redis_url=config.redis_url,
+                    service_name=svc_name,
+                )
+                instance = cls(config=config, bus=svc_bus)
                 self.register(instance)
             except Exception:
                 logger.exception("Failed to create %s", class_name)
@@ -134,6 +141,12 @@ class ServiceOrchestrator:
         for name in _START_ORDER:
             if name in self._services:
                 await self._start_service(name)
+
+        # Register power transition callback with the SchedulerService
+        scheduler = self._services.get(ServiceName.SCHEDULER)
+        if scheduler and hasattr(scheduler, "_power"):
+            scheduler._power.set_on_transition(self._handle_power_transition)
+            logger.info("Power transition callback registered")
 
         running = sum(1 for s in self._status.values() if s == "running")
         failed = sum(1 for s in self._status.values() if s == "failed")
@@ -277,3 +290,38 @@ class ServiceOrchestrator:
     def get_service(self, name: ServiceName) -> BaseService | None:
         """Get a service instance by name."""
         return self._services.get(name)
+
+    async def _handle_power_transition(
+        self, old_state: PowerState, new_state: PowerState
+    ) -> None:
+        """Respond to power state changes from the SchedulerService.
+
+        On ALERT_SLEEP: notify Eyes to reduce scan frequency, pause Federation.
+        On AWAKE: restore normal operation.
+        """
+        logger.info("Orchestrator handling power transition: %s -> %s", old_state, new_state)
+
+        if self._bus is None:
+            return
+
+        if new_state == PowerState.ALERT_SLEEP:
+            # Pause non-essential services
+            for name in (ServiceName.FEDERATION, ServiceName.STORE):
+                svc = self._services.get(name)
+                if svc and self._status.get(name) == "running":
+                    try:
+                        await svc.stop()
+                        self._status[name] = "paused"
+                        logger.info("Paused %s for ALERT_SLEEP", name.value)
+                    except Exception:
+                        logger.warning("Failed to pause %s", name.value)
+
+        elif new_state == PowerState.AWAKE and old_state in (
+            PowerState.ALERT_SLEEP,
+            PowerState.DEEP_SLEEP,
+        ):
+            # Resume paused services
+            for name in (ServiceName.FEDERATION, ServiceName.STORE):
+                if self._status.get(name) == "paused":
+                    await self._start_service(name)
+                    logger.info("Resumed %s after wake", name.value)

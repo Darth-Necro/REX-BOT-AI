@@ -65,6 +65,7 @@ class ScopeEnforcer:
         "rex", "report", "status", "health", "dashboard", "plugin",
         "service", "config", "configuration", "update", "upgrade",
         "mode", "basic", "advanced", "schedule", "backup", "restore",
+        "reputation",
     })
 
     # Regex patterns that match clearly out-of-scope requests.
@@ -76,7 +77,7 @@ class ScopeEnforcer:
             r"\b(?:email|calendar|contact|appointment|meeting|schedule\s+meeting)\b",
             r"\b(?:dating|tinder|bumble|match\.com|relationship|romance)\b",
             r"\b(?:music|spotify|playlist|song|album|concert|lyrics)\b",
-            r"\b(?:movie|film|netflix|hulu|stream(?:ing)?|watch(?:ing)?|show|series)\b",
+            r"\b(?:movie|film|netflix|hulu|tv\s*show|binge\s*watch|series\s+finale)\b",
             r"\b(?:recipe|cook(?:ing)?|bake|baking|food|restaurant|menu|ingredients)\b",
             r"\b(?:weather|forecast|temperature|rain|snow|sunny|cloudy)\b",
             r"\b(?:stock|invest(?:ment|ing)?|crypto|bitcoin|ethereum|trading|portfolio)\b",
@@ -139,23 +140,25 @@ class ScopeEnforcer:
         if text.startswith(("!", "/")):
             return True, ""
 
-        # Very short messages (fewer than 3 words) are likely greetings
-        # or simple queries -- let them through to the LLM.
+        text_lower = text.lower()
         word_count = len(text.split())
+
+        # Check for out-of-scope patterns FIRST.  These are strong negative
+        # signals that override keyword presence — an attacker can trivially
+        # wrap an off-topic request in security language, so pattern matches
+        # must always reject regardless of keywords.
+        for pattern in self.OUT_OF_SCOPE_PATTERNS:
+            if pattern.search(text_lower):
+                logger.info(
+                    "Out-of-scope request rejected (pattern match): %s",
+                    text[:100],
+                )
+                return False, self._REJECTION_TEMPLATE
+
+        # Very short messages (fewer than 3 words) that passed the pattern
+        # check are likely greetings or simple queries — let them through.
         if word_count < 3:
             return True, ""
-
-        text_lower = text.lower()
-
-        # Check for out-of-scope patterns first. These are strong negative
-        # signals that override keyword matches.
-        for pattern in self.OUT_OF_SCOPE_PATTERNS:
-            if pattern.search(text_lower) and not self._has_security_keyword(text_lower):
-                    logger.info(
-                        "Out-of-scope request rejected (pattern match): %s",
-                        text[:100],
-                    )
-                    return False, self._REJECTION_TEMPLATE
 
         # If the message has security keywords, it's in scope.
         if self._has_security_keyword(text_lower):

@@ -1,5 +1,5 @@
 # REX-BOT-AI — pinned production dependencies
-# Generated for rex-bot-ai 1.0.0 | Python >=3.11
+# Generated for rex-bot-ai 0.2.0-beta | Python >=3.11
 
 fastapi==0.115.8
 uvicorn[standard]==0.34.0

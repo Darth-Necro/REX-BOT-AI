@@ -62,10 +62,16 @@ class WebSocketManager:
         logger.info("WebSocket client disconnected (total: %d)", len(self._connections))
 
     async def subscribe(self, websocket: WebSocket, channels: list[str]) -> None:
-        """Add channel subscriptions for a connection."""
+        """Add channel subscriptions for a connection.
+
+        Only channels present in ``_DEFAULT_CHANNELS`` are accepted;
+        unknown channel names are silently ignored to prevent clients
+        from subscribing to arbitrary internal topics.
+        """
         async with self._lock:
             if websocket in self._connections:
-                self._connections[websocket].update(channels)
+                valid = [c for c in channels if c in _DEFAULT_CHANNELS]
+                self._connections[websocket].update(valid)
 
     async def unsubscribe(self, websocket: WebSocket, channels: list[str]) -> None:
         """Remove channel subscriptions for a connection."""

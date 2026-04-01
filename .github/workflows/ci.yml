@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: '20'
       - run: cd frontend && npm ci
-      - run: cd frontend && npx eslint src/ || true
+      - run: cd frontend && npx eslint src/
 
   security-check:
     runs-on: ubuntu-latest
@@ -68,6 +68,30 @@ jobs:
       - run: cd frontend && npm ci
       - run: cd frontend && npm run build
 
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: [test-python]
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pip install -e .
+      - run: python -m pytest tests/ -v -m integration --tb=short
+        env:
+          REX_DATA_DIR: /tmp/rex-test
+
   build-docker:
     runs-on: ubuntu-latest
     needs: [test-python, build-frontend]
@@ -75,6 +99,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - run: docker build -t rex-bot-ai:test .
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    needs: [build-docker]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start services
+        run: docker compose up -d --wait --wait-timeout 60
+      - name: Verify containers are healthy
+        run: docker compose ps --format json | python3 -c "import sys,json; data=json.loads(sys.stdin.read()); sys.exit(0 if all(s.get('State')=='running' for s in (data if isinstance(data,list) else [data])) else 1)"
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
 
   compile-check:
     runs-on: ubuntu-latest
