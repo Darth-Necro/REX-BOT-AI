@@ -1,13 +1,15 @@
 /**
  * SidebarNav -- left-side navigation rail.
  *
- * Items: Overview, Devices, Threats, Firewall, Knowledge Base, Scheduler, Plugins, Diagnostics.
+ * Mode-aware: basic mode shows a reduced set of items.
+ * Advanced mode shows all items including settings sub-pages.
  * Active state uses cyan highlight bar + text.
  * Disabled state for pages not yet implemented (grayed, no click).
  */
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import useModeGuard from '../hooks/useModeGuard';
 
 /* ---------- icon components ---------- */
 
@@ -75,22 +77,61 @@ function DiagnosticsIcon({ className }) {
   );
 }
 
+function PrivacyIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function OnboardingIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+    </svg>
+  );
+}
+
 /* ---------- nav items ---------- */
 
+/**
+ * Full nav items list. `mode` indicates minimum mode required.
+ * 'basic' items appear in both modes; 'advanced' items only in advanced mode.
+ */
 const NAV_ITEMS = [
-  { to: '/overview', label: 'Overview',        Icon: OverviewIcon,       disabled: false },
-  { to: '/devices',  label: 'Devices',         Icon: DevicesIcon,        disabled: false },
-  { to: '/threats',  label: 'Threats',          Icon: ThreatsIcon,        disabled: false },
-  { to: '/firewall', label: 'Firewall',         Icon: FirewallIcon,       disabled: false },
-  { to: '/knowledge', label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false },
-  { to: '/scheduler', label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false },
-  { to: '/plugins',   label: 'Plugins',         Icon: PluginsIcon,        disabled: false },
-  { to: '/diagnostics', label: 'Diagnostics',   Icon: DiagnosticsIcon,    disabled: false },
+  { to: '/overview',    label: 'Overview',        Icon: OverviewIcon,       disabled: false, mode: 'basic' },
+  { to: '/devices',     label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'advanced' },
+  { to: '/threats',     label: 'Threats',          Icon: ThreatsIcon,        disabled: false, mode: 'advanced' },
+  { to: '/firewall',    label: 'Firewall',         Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
+  { to: '/knowledge',   label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false, mode: 'advanced' },
+  { to: '/scheduler',   label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'advanced' },
+  { to: '/plugins',     label: 'Plugins',         Icon: PluginsIcon,        disabled: false, mode: 'advanced' },
+  { to: '/diagnostics', label: 'Diagnostics',     Icon: DiagnosticsIcon,    disabled: false, mode: 'advanced' },
+  { to: '/privacy',     label: 'Privacy',         Icon: PrivacyIcon,        disabled: false, mode: 'advanced' },
+  { to: '/settings',    label: 'Settings',        Icon: SettingsIcon,       disabled: false, mode: 'basic' },
+  { to: '/onboarding',  label: 'Setup',           Icon: OnboardingIcon,     disabled: false, mode: 'basic' },
 ];
 
 /* ---------- component ---------- */
 
 export default function SidebarNav() {
+  const { mode, isBasic } = useModeGuard();
+
+  // Filter nav items based on mode
+  const visibleItems = isBasic
+    ? NAV_ITEMS.filter((item) => item.mode === 'basic')
+    : NAV_ITEMS;
+
   return (
     <nav
       className="w-56 shrink-0 bg-rex-surface border-r border-rex-card flex flex-col h-full"
@@ -99,12 +140,14 @@ export default function SidebarNav() {
       {/* Brand */}
       <div className="h-16 flex items-center gap-2 px-4 border-b border-rex-card">
         <span className="text-cyan-400 font-bold text-lg tracking-wider">REX</span>
-        <span className="text-[10px] text-rex-muted font-mono bg-rex-card/50 px-1.5 py-0.5 rounded">v0.1</span>
+        <span className="text-[10px] text-rex-muted font-mono bg-rex-card/50 px-1.5 py-0.5 rounded">
+          {isBasic ? 'basic' : 'v0.1'}
+        </span>
       </div>
 
       {/* Navigation links */}
       <div className="flex-1 py-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ to, label, Icon, disabled }) => {
+        {visibleItems.map(({ to, label, Icon, disabled }) => {
           if (disabled) {
             return (
               <div
@@ -144,6 +187,15 @@ export default function SidebarNav() {
           );
         })}
       </div>
+
+      {/* Mode indicator for basic mode */}
+      {isBasic && (
+        <div className="px-4 py-2">
+          <span className="text-[10px] text-slate-600">
+            Basic mode -- fewer options shown
+          </span>
+        </div>
+      )}
 
       {/* Bottom section */}
       <div className="border-t border-rex-card px-4 py-3">

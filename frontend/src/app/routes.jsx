@@ -2,7 +2,9 @@
  * Route map for the REX dashboard.
  *
  * Public:        /login
- * Auth-gated:    / (redirects to /overview), /overview, /devices, /threats
+ * Auth-gated:    / (redirects to /overview), /overview, /devices, /threats,
+ *                /firewall, /knowledge, /scheduler, /plugins, /diagnostics,
+ *                /onboarding, /settings/*, /privacy
  *
  * The ProtectedRoute wrapper checks for auth token and redirects
  * unauthenticated users to /login. Uses the existing AppShell layout
@@ -21,12 +23,20 @@ const DevicesPage = lazy(() => import('../pages/devices/DevicesPage'));
 const ThreatsPage = lazy(() => import('../pages/threats/ThreatsPage'));
 const AdvancedOverviewPage = lazy(() => import('../pages/overview/AdvancedOverviewPage'));
 
-/* Batch 3 — operational pages */
+/* Batch 3 -- operational pages */
 const FirewallPage = lazy(() => import('../pages/firewall/FirewallPage'));
 const KnowledgeBasePage = lazy(() => import('../pages/knowledge/KnowledgeBasePage'));
 const SchedulerPage = lazy(() => import('../pages/scheduler/SchedulerPage'));
 const PluginsPage = lazy(() => import('../pages/plugins/PluginsPage'));
 const DiagnosticsPage = lazy(() => import('../pages/diagnostics/DiagnosticsPage'));
+
+/* Batch 4 -- settings, notifications, privacy, onboarding, basic mode */
+const BasicOverviewPage = lazy(() => import('../pages/overview/BasicOverviewPage'));
+const InterviewPage = lazy(() => import('../pages/onboarding/InterviewPage'));
+const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
+const NotificationsPage = lazy(() => import('../pages/settings/NotificationsPage'));
+const AboutPage = lazy(() => import('../pages/settings/AboutPage'));
+const PrivacyPage = lazy(() => import('../pages/privacy/PrivacyPage'));
 
 /* Fallback for legacy basic mode */
 const BasicView = lazy(() => import('../views/BasicView'));
@@ -64,16 +74,21 @@ function ProtectedRoute({ children }) {
 /* ---------- route-to-page mapping for AppShell nav ---------- */
 
 const PAGE_ID_FROM_PATH = {
-  '/overview':    'overview',
-  '/':            'overview',
-  '/threats':     'threats',
-  '/devices':     'devices',
-  '/chat':        'chat',
-  '/firewall':    'firewall',
-  '/knowledge':   'knowledge',
-  '/scheduler':   'scheduler',
-  '/plugins':     'plugins',
-  '/diagnostics': 'diagnostics',
+  '/overview':              'overview',
+  '/':                      'overview',
+  '/threats':               'threats',
+  '/devices':               'devices',
+  '/chat':                  'chat',
+  '/firewall':              'firewall',
+  '/knowledge':             'knowledge',
+  '/scheduler':             'scheduler',
+  '/plugins':               'plugins',
+  '/diagnostics':           'diagnostics',
+  '/onboarding':            'onboarding',
+  '/settings':              'settings',
+  '/settings/notifications': 'settings',
+  '/settings/about':        'settings',
+  '/privacy':               'privacy',
 };
 
 /* ---------- shell wrapper that hooks AppShell to routes ---------- */
@@ -94,6 +109,9 @@ function AuthenticatedShell() {
       scheduler: '/scheduler',
       plugins: '/plugins',
       diagnostics: '/diagnostics',
+      onboarding: '/onboarding',
+      settings: '/settings',
+      privacy: '/privacy',
     }[id];
     if (route) navigate(route);
   };
@@ -105,12 +123,18 @@ function AuthenticatedShell() {
           <Route path="/overview" element={<OverviewPage />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/threats" element={<ThreatsPage />} />
-          {/* Batch 3 — operational pages */}
+          {/* Batch 3 -- operational pages */}
           <Route path="/firewall" element={<FirewallPage />} />
           <Route path="/knowledge" element={<KnowledgeBasePage />} />
           <Route path="/scheduler" element={<SchedulerPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/diagnostics" element={<DiagnosticsPage />} />
+          {/* Batch 4 -- settings, onboarding, privacy */}
+          <Route path="/onboarding" element={<InterviewPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/notifications" element={<NotificationsPage />} />
+          <Route path="/settings/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           {/* Legacy chat route -- falls back to overview until chat page exists */}
           <Route path="/chat" element={<AdvancedOverviewPage />} />
           {/* Root redirects to overview */}
@@ -127,7 +151,7 @@ function AuthenticatedShell() {
 
 function OverviewPage() {
   const mode = useSystemStore((s) => s.mode);
-  return mode === 'basic' ? <BasicView /> : <AdvancedOverviewPage />;
+  return mode === 'basic' ? <BasicOverviewPage /> : <AdvancedOverviewPage />;
 }
 
 /* ---------- exported route tree ---------- */
