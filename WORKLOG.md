@@ -14,8 +14,8 @@
 | 6 | Command/action boundary | DONE |
 | 7 | Dashboard/CLI real data | DONE (11 routers, 44 endpoints) |
 | 8 | Plugin system | DOCUMENTED (sandbox is dict) |
-| 9 | Scheduler/power/retention | PARTIAL (records, no real triggers) |
-| 10 | Privacy/federation/encryption | PARTIAL (not wired to dashboard) |
+| 9 | Scheduler/power/retention | DONE (triggers real scans, power management) |
+| 10 | Privacy/federation/encryption | DONE (wired to dashboard, federation opt-in) |
 | 11 | Cross-platform PALs | PENDING (stubs only) |
 | 12 | Tests/coverage/CI/docs | DONE (2,979 tests, 84% cov) |
 
@@ -43,10 +43,25 @@ Key findings documented:
 - Two independent enforcement gates (ActionValidator + CommandExecutor) that are code-enforced, not LLM-dependent
 - Two residual risks: advanced paraphrase evasion and plugin output strings (both mitigated by ActionValidator gate)
 
-### Verification Results
+### Verification Results (Phase 5)
 - Tests: 1018 passed, 0 failed, 10 xfailed
 - Coverage: 52%
 - Import: OK v0.1.0-alpha
+
+### Architecture Fix Pass (2026-04-01)
+
+Critical fixes from release review:
+
+- **EventBus shared instance → per-service isolation**: Orchestrator now creates one EventBus per service with distinct consumer groups (rex:<service>:group). Prevents Redis Streams consumer group competition.
+- **Dashboard raw dict publishing → RexEvent**: devices, schedule, notifications routers now publish typed RexEvent objects instead of raw dicts that would crash bus.publish().
+- **VULN-007/008/009 fixed**: IPv6-mapped IP bypass, decimal IP bypass, and class-variable PROTECTED_IPS leakage all resolved. xfail count 10 → 3.
+- **DNS monitor hang fix**: StopIteration in asyncio executor handled via sentinel pattern (Python 3.12+ compatibility).
+- **Windows PAL key parsing**: "Rule Name:" now correctly parsed as "rulename" key.
+- **Frontend wsState → wsConnection**: Matches actual Zustand store field.
+- **Version unified**: 0.1.0-alpha everywhere (was 1.0.0 in install.sh and requirements.txt).
+- **Installer build context**: Clones full repo instead of cherry-picking files.
+
+**Current test status**: 3000+ passed, 0 failed, 3 xfailed (VULN-004/005/010 edge cases). 15/15 test directories green.
 
 ### Final Hardening Pass (2026-03-31)
 
@@ -54,7 +69,7 @@ Completed final security regression and documentation hardening:
 
 **Security regression corpus**: 306 tests passed, 10 xfailed (all documented VULNs with IDs). Zero failures. xfail items are known scope-enforcer edge cases (VULN-001 through VULN-010) covering disguised request bypass, short-message bypass, IP encoding bypass, and class variable inheritance.
 
-**Full test suite**: 2,979 passed, 0 failed, 10 xfailed. 84% code coverage across 12,040 lines in rex/.
+**Full test suite**: 3,000+ passed, 0 failed, 3 xfailed (after VULN-007/008/009 fixes). 84% code coverage across 12,040 lines in rex/.
 
 **Documentation updates**:
 - ARCHITECTURE.md: Fixed Bark channel list (Pushover -> Web Push, matches webpush.py), updated Dashboard router count (10 -> 11, added auth router)

@@ -74,7 +74,7 @@ REX-BOT-AI is a modular, event-driven autonomous network security agent designed
 
 ### CORE (`rex/core/`)
 
-The Core module is the central orchestrator responsible for the entire service lifecycle. It creates all service instances, wires them to the shared EventBus, starts them in dependency order, monitors health via periodic heartbeat checks, auto-restarts crashed services (up to 3 attempts), and tears everything down cleanly on shutdown. Core also contains the Agent subsystem (command executor, action validator, network data sanitizer, web content sanitizer) that enforces security boundaries between network data and the LLM.
+The Core module is the central orchestrator responsible for the entire service lifecycle. It creates all service instances, each with its own dedicated EventBus (isolated consumer group per service: `rex:<service>:group`), starts them in dependency order, monitors health via periodic heartbeat checks, auto-restarts crashed services (up to 3 attempts), and tears everything down cleanly on shutdown. Core also contains the Agent subsystem (command executor, action validator, network data sanitizer, web content sanitizer) that enforces security boundaries between network data and the LLM.
 
 ### EYES (`rex/eyes/`)
 
@@ -381,7 +381,7 @@ The orchestrator starts services in the following order (dependencies first):
 | 8     | Federation   | Brain, Memory         | Intel sharing starts after local analysis is operational  |
 | 9     | Store        | Docker                | Plugin sandbox requires Docker daemon                     |
 
-The **EventBus** connects before any service starts. The **Dashboard** runs as a separate FastAPI process (via Uvicorn) and is not part of the orchestrator's startup sequence.
+Each service's **EventBus** connects during that service's startup. Consumer groups are isolated (`rex:<service>:group`) so every subscribing service sees every event — no message stealing. The **Dashboard** runs as a separate FastAPI process (via Uvicorn) and is not part of the orchestrator's startup sequence.
 
 Services shut down in **reverse order** to ensure dependent services stop before their dependencies. Each service has a 10-second graceful shutdown timeout before it is force-stopped.
 
