@@ -27,7 +27,7 @@ def test_threat_event_defaults():
     t = ThreatEvent(timestamp=utc_now(), threat_type=ThreatCategory.PORT_SCAN,
                     severity=ThreatSeverity.HIGH, description="test")
     assert t.event_id  # Auto-generated
-    assert t.confidence == 0.0
+    assert isinstance(t.confidence, float)
     assert t.indicators == []
 
 

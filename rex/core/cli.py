@@ -1,9 +1,15 @@
 """REX CLI -- Typer-based command-line interface.
 
-Provides: rex start, rex stop, rex status, rex version, rex scan, rex sleep, rex wake.
+Provides all rex commands: start, stop, status, scan, sleep, wake, diag, version.
+The ``start`` command initializes the full orchestrator and runs until SIGINT/SIGTERM.
 """
 
 from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import sys
 
 import typer
 
@@ -16,13 +22,23 @@ app = typer.Typer(
 )
 
 
+def _setup_logging(level: str = "info") -> None:
+    """Configure structured JSON logging."""
+    numeric = getattr(logging, level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=numeric,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+        stream=sys.stderr,
+    )
+
+
 @app.command()
-def start() -> None:
-    """Start all REX services."""
-    import asyncio
-    from rex.shared.config import get_config
-    from rex.shared.bus import EventBus
-    from rex.core.orchestrator import ServiceOrchestrator
+def start(
+    log_level: str = typer.Option("info", help="Log level: debug, info, warning, error"),
+) -> None:
+    """Start all REX services (blocks until Ctrl+C)."""
+    _setup_logging(log_level)
 
     typer.echo(r"""
   /\_/\
@@ -31,29 +47,66 @@ def start() -> None:
  /|   |\
 (_|   |_)
 """)
+
+    from rex.shared.config import get_config
     config = get_config()
-    typer.echo(f"  Mode: {config.mode.value}")
-    typer.echo(f"  Data: {config.data_dir}")
-    typer.echo(f"  Redis: {config.redis_url}")
+    typer.echo(f"  Mode:   {config.mode.value}")
+    typer.echo(f"  Data:   {config.data_dir}")
+    typer.echo(f"  Redis:  {config.redis_url}")
     typer.echo(f"  Ollama: {config.ollama_url}")
     typer.echo("")
-    typer.echo("REX is awake and sniffing your network.")
+
+    from rex.core.orchestrator import ServiceOrchestrator
+
+    async def _run() -> None:
+        orch = ServiceOrchestrator()
+        await orch.initialize()
+        await orch.run()
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        typer.echo("\nREX is going to sleep. Goodbye.")
 
 
 @app.command()
 def stop() -> None:
-    """Stop all REX services gracefully."""
-    typer.echo("REX is going to sleep. Your network will not be monitored until REX wakes up.")
+    """Stop all REX services gracefully (sends SIGTERM to running instance)."""
+    import os
+    import signal
+    pidfile = "/tmp/rex-bot-ai.pid"
+    if os.path.exists(pidfile):
+        pid = int(open(pidfile).read().strip())
+        os.kill(pid, signal.SIGTERM)
+        typer.echo(f"Sent stop signal to REX (PID {pid})")
+    else:
+        typer.echo("REX does not appear to be running (no PID file found).")
 
 
 @app.command()
 def status() -> None:
-    """Show the health status of all REX services."""
+    """Show health status of all REX services."""
+    import httpx
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("")
-    services = ["core", "eyes", "brain", "teeth", "bark", "memory", "scheduler", "store", "federation"]
-    for svc in services:
-        typer.echo(f"  rex-{svc:12s} [pending]")
+    try:
+        resp = httpx.get("http://localhost:8443/api/status", timeout=5)
+        data = resp.json()
+        typer.echo(f"  Status:     {data.get('status', 'unknown')}")
+        typer.echo(f"  Devices:    {data.get('device_count', 0)}")
+        typer.echo(f"  Threats:    {data.get('active_threats', 0)}")
+        typer.echo(f"  LLM:        {data.get('llm_status', 'unknown')}")
+        typer.echo(f"  Power:      {data.get('power_state', 'unknown')}")
+        typer.echo("")
+        services = data.get("services", {})
+        for name, info in services.items():
+            healthy = info.get("healthy", False)
+            mark = "OK" if healthy else "FAIL"
+            degraded = " (degraded)" if info.get("degraded") else ""
+            typer.echo(f"  rex-{name:12s} [{mark}]{degraded}")
+    except Exception:
+        typer.echo("  Cannot reach REX dashboard. Is REX running?")
+        typer.echo("  Start with: rex start")
 
 
 @app.command()
@@ -63,35 +116,117 @@ def version() -> None:
 
 
 @app.command()
-def scan(quick: bool = True) -> None:
+def scan(
+    quick: bool = typer.Option(True, help="Quick scan (top 100 ports) vs deep (all ports)"),
+    target: str = typer.Option("", help="Specific IP to scan (default: entire network)"),
+) -> None:
     """Trigger an immediate network scan."""
     scan_type = "quick" if quick else "deep"
-    typer.echo(f"Triggering {scan_type} network scan...")
+    msg = f"Triggering {scan_type} network scan"
+    if target:
+        msg += f" on {target}"
+    typer.echo(msg + "...")
+    try:
+        import httpx
+        resp = httpx.post("http://localhost:8443/api/devices/scan", timeout=10,
+                          headers={"Authorization": f"Bearer {_get_token()}"})
+        typer.echo(f"  {resp.json().get('status', 'unknown')}")
+    except Exception:
+        typer.echo("  Cannot reach REX. Is it running?")
 
 
 @app.command()
 def sleep() -> None:
     """Put REX into ALERT_SLEEP mode (lightweight watchdog only)."""
     typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
+    try:
+        import httpx
+        httpx.post("http://localhost:8443/api/schedule/sleep", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"})
+    except Exception:
+        pass
 
 
 @app.command()
 def wake() -> None:
     """Wake REX to full AWAKE mode."""
-    typer.echo("REX is awake! Full monitoring and protection active.")
+    typer.echo("REX is awake. Full monitoring and protection active.")
+    try:
+        import httpx
+        httpx.post("http://localhost:8443/api/schedule/wake", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"})
+    except Exception:
+        pass
 
 
 @app.command()
 def diag() -> None:
     """Full diagnostic dump for bug reports."""
-    from rex.pal.detector import detect_os, detect_hardware
+    from rex.pal.detector import detect_os, detect_hardware, recommend_llm_model
+    from rex.pal.docker_helper import is_docker_installed, is_docker_running, get_docker_version
+
     typer.echo(f"REX-BOT-AI v{VERSION}")
-    typer.echo("")
+    typer.echo("=" * 40)
+
     os_info = detect_os()
-    typer.echo(f"OS: {os_info.name} {os_info.version} ({os_info.architecture})")
+    typer.echo(f"OS:     {os_info.name} {os_info.version} ({os_info.architecture})")
+    typer.echo(f"WSL:    {os_info.is_wsl}")
+    typer.echo(f"Docker: {os_info.is_docker}")
+    typer.echo(f"VM:     {os_info.is_vm}")
+    typer.echo(f"Pi:     {os_info.is_raspberry_pi}")
+
     hw = detect_hardware()
-    typer.echo(f"CPU: {hw.cpu_model} ({hw.cpu_cores} cores)")
-    typer.echo(f"RAM: {hw.ram_total_mb} MB total, {hw.ram_available_mb} MB available")
-    typer.echo(f"Disk: {hw.disk_free_gb:.1f} GB free of {hw.disk_total_gb:.1f} GB")
+    typer.echo(f"CPU:    {hw.cpu_model} ({hw.cpu_cores} cores, {hw.cpu_percent:.0f}%)")
+    typer.echo(f"RAM:    {hw.ram_available_mb}/{hw.ram_total_mb} MB available")
+    typer.echo(f"Disk:   {hw.disk_free_gb:.1f}/{hw.disk_total_gb:.1f} GB free")
     if hw.gpu_model:
-        typer.echo(f"GPU: {hw.gpu_model} ({hw.gpu_vram_mb} MB VRAM)")
+        typer.echo(f"GPU:    {hw.gpu_model} ({hw.gpu_vram_mb} MB VRAM)")
+    else:
+        typer.echo("GPU:    None detected")
+
+    typer.echo(f"LLM:    {recommend_llm_model(hw)}")
+    typer.echo(f"Docker: {'installed' if is_docker_installed() else 'NOT installed'}, "
+               f"{'running' if is_docker_running() else 'NOT running'}, "
+               f"v{get_docker_version() or 'N/A'}")
+
+
+@app.command()
+def backup() -> None:
+    """Create an immediate backup of REX data."""
+    typer.echo("Creating backup...")
+    from rex.shared.config import get_config
+    import shutil
+    from datetime import datetime, timezone
+    config = get_config()
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    backup_dir = config.data_dir / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    archive = shutil.make_archive(
+        str(backup_dir / f"rex-backup-{ts}"), "gztar",
+        root_dir=str(config.data_dir),
+        base_dir=".",
+    )
+    typer.echo(f"Backup created: {archive}")
+
+
+@app.command()
+def privacy() -> None:
+    """Run a privacy audit and display results."""
+    typer.echo("Running privacy audit...")
+    from rex.shared.config import get_config
+    from rex.pal import get_adapter
+    from rex.core.privacy.audit import PrivacyAuditor
+    config = get_config()
+    pal = get_adapter()
+    auditor = PrivacyAuditor(config=config, pal=pal)
+    report = auditor.generate_privacy_report()
+    typer.echo(report)
+
+
+def _get_token() -> str:
+    """Read cached auth token."""
+    import os
+    token_file = os.path.expanduser("~/.rex-token")
+    if os.path.exists(token_file):
+        return open(token_file).read().strip()
+    return ""

@@ -292,7 +292,7 @@ class DecisionEngine:
             action=DecisionAction.MONITOR,
             severity=event.severity,
             reasoning="[default] All layers inconclusive — monitoring",
-            confidence=0.3, layer=0,
+            confidence=0.3, layer=1,
             auto_executed=False, rollback_possible=True,
         )
 
