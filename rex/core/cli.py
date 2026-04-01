@@ -9,9 +9,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+import warnings
 from datetime import UTC
 
 import typer
+
+# Suppress InsecureRequestWarning for self-signed TLS certs used by the dashboard.
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except ImportError:
+    pass
+# httpx equivalent
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 from rex.shared.constants import VERSION
 
@@ -106,7 +116,7 @@ def status() -> None:
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("")
     try:
-        resp = httpx.get("http://localhost:8443/api/status", timeout=5)
+        resp = httpx.get("https://localhost:8443/api/status", timeout=5, verify=False)
         data = resp.json()
         typer.echo(f"  Status:     {data.get('status', 'unknown')}")
         typer.echo(f"  Devices:    {data.get('device_count', 0)}")
@@ -144,8 +154,8 @@ def scan(
     typer.echo(msg + "...")
     try:
         import httpx
-        resp = httpx.post("http://localhost:8443/api/devices/scan", timeout=10,
-                          headers={"Authorization": f"Bearer {_get_token()}"})
+        resp = httpx.post("https://localhost:8443/api/devices/scan", timeout=10,
+                          headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
         typer.echo(f"  {resp.json().get('status', 'unknown')}")
     except Exception:
         typer.echo("  Cannot reach REX. Is it running?")
@@ -157,8 +167,8 @@ def sleep() -> None:
     typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
     try:
         import httpx
-        httpx.post("http://localhost:8443/api/schedule/sleep", timeout=5,
-                    headers={"Authorization": f"Bearer {_get_token()}"})
+        httpx.post("https://localhost:8443/api/schedule/sleep", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
     except Exception:
         pass
 
@@ -169,8 +179,8 @@ def wake() -> None:
     typer.echo("REX is awake. Full monitoring and protection active.")
     try:
         import httpx
-        httpx.post("http://localhost:8443/api/schedule/wake", timeout=5,
-                    headers={"Authorization": f"Bearer {_get_token()}"})
+        httpx.post("https://localhost:8443/api/schedule/wake", timeout=5,
+                    headers={"Authorization": f"Bearer {_get_token()}"}, verify=False)
     except Exception:
         pass
 

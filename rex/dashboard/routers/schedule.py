@@ -106,10 +106,11 @@ async def trigger_sleep(user: dict = Depends(get_current_user)) -> dict[str, Any
         await bus.publish("rex:core:commands", event)
         return {"status": "sleep_requested", "delivered": True, "mode": "alert_sleep"}
     except Exception as e:
+        log.exception("Failed to trigger sleep: %s", e)
         return {
             "status": "not_available",
             "delivered": False,
-            "detail": str(e),
+            "detail": "Event bus unavailable",
         }
 
 
@@ -130,8 +131,9 @@ async def trigger_wake(user: dict = Depends(get_current_user)) -> dict[str, Any]
         await bus.publish("rex:core:commands", event)
         return {"status": "wake_requested", "delivered": True, "mode": "awake"}
     except Exception as e:
+        log.exception("Failed to trigger wake: %s", e)
         return {
             "status": "not_available",
             "delivered": False,
-            "detail": str(e),
+            "detail": "Event bus unavailable",
         }

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user
+
+logger = logging.getLogger(__name__)
+
+_MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:\-]){5}[0-9a-fA-F]{2}$")
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -37,11 +43,18 @@ async def list_devices(user: dict = Depends(get_current_user)) -> dict[str, Any]
     }
 
 
+def _validate_mac(mac: str) -> None:
+    """Raise HTTPException if mac is not a valid MAC address."""
+    if not _MAC_RE.match(mac):
+        raise HTTPException(status_code=422, detail="Invalid MAC address format")
+
+
 @router.get("/{mac}")
 async def get_device(
     mac: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Return details for a specific device by MAC address."""
+    _validate_mac(mac)
     from rex.dashboard.data_registry import get_device_store
 
     device_store = get_device_store()
@@ -64,6 +77,7 @@ async def trust_device(
     mac: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Mark a device as trusted. Publishes via event bus."""
+    _validate_mac(mac)
     try:
         from rex.dashboard.deps import get_bus
         from rex.shared.enums import ServiceName
@@ -78,7 +92,8 @@ async def trust_device(
         await bus.publish("rex:core:commands", event)
         return {"mac": mac, "action": "trust", "status": "requested", "delivered": True}
     except Exception as e:
-        return {"mac": mac, "action": "trust", "status": "not_available", "delivered": False, "detail": str(e)}
+        logger.exception("Failed to trust device %s: %s", mac, e)
+        return {"mac": mac, "action": "trust", "status": "not_available", "delivered": False, "detail": "Event bus unavailable"}
 
 
 @router.post("/{mac}/block")
@@ -86,6 +101,7 @@ async def block_device(
     mac: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Block/quarantine a device. Publishes via event bus."""
+    _validate_mac(mac)
     try:
         from rex.dashboard.deps import get_bus
         from rex.shared.enums import ServiceName
@@ -100,7 +116,8 @@ async def block_device(
         await bus.publish("rex:core:commands", event)
         return {"mac": mac, "action": "block", "status": "requested", "delivered": True}
     except Exception as e:
-        return {"mac": mac, "action": "block", "status": "not_available", "delivered": False, "detail": str(e)}
+        logger.exception("Failed to block device %s: %s", mac, e)
+        return {"mac": mac, "action": "block", "status": "not_available", "delivered": False, "detail": "Event bus unavailable"}
 
 
 @router.post("/scan")
@@ -123,5 +140,5 @@ async def trigger_scan(user: dict = Depends(get_current_user)) -> dict[str, Any]
         return {
             "status": "scan_not_available",
             "delivered": False,
-            "detail": str(e),
+            "detail": "Event bus unavailable",
         }

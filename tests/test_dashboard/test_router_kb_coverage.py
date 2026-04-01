@@ -229,7 +229,7 @@ class TestRevertCoverage:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "error"
-        assert "disk full" in data["detail"]
+        assert "detail" in data  # Generic error message (no internal details leaked)
 
 
 # ---------------------------------------------------------------------------
@@ -302,4 +302,4 @@ class TestUpdateKBCoverage:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "error"
-        assert "permission denied" in data["detail"]
+        assert "detail" in data  # Generic error message (no internal details leaked)

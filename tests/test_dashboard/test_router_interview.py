@@ -52,7 +52,7 @@ class TestGetStatus:
     """Tests for GET /api/interview/status."""
 
     def test_status_no_state_file(self, tmp_path) -> None:
-        """When no interview_state.json exists, returns defaults."""
+        """When no interview_state.json exists, returns minimal status."""
         app = _make_app()
         test_cfg = _make_test_config(tmp_path)
         (tmp_path / "rex-data").mkdir(parents=True, exist_ok=True)
@@ -64,10 +64,8 @@ class TestGetStatus:
         assert response.status_code == 200
         data = response.json()
         assert data["complete"] is False
-        assert data["progress"]["total"] == 6
-        assert data["progress"]["answered"] == 0
-        assert data["mode"] == "basic"
-        assert "not started" in data.get("note", "")
+        # Unauthenticated response only includes 'complete' to prevent info disclosure
+        assert "mode" not in data
 
     def test_status_with_complete_state(self, tmp_path) -> None:
         """When interview_state.json exists and complete=True, returns completed status."""
@@ -89,11 +87,9 @@ class TestGetStatus:
         assert response.status_code == 200
         data = response.json()
         assert data["complete"] is True
-        assert data["progress"]["answered"] == 6
-        assert data["mode"] == "advanced"
 
     def test_status_with_partial_state(self, tmp_path) -> None:
-        """Partial interview state returns correct progress."""
+        """Partial interview state returns correct completion status."""
         app = _make_app()
         test_cfg = _make_test_config(tmp_path)
         data_dir = tmp_path / "rex-data"
@@ -111,10 +107,9 @@ class TestGetStatus:
         assert response.status_code == 200
         data = response.json()
         assert data["complete"] is False
-        assert data["progress"]["answered"] == 3
 
     def test_status_corrupted_state_file(self, tmp_path) -> None:
-        """Corrupted state file falls back to defaults."""
+        """Corrupted state file falls back to incomplete."""
         app = _make_app()
         test_cfg = _make_test_config(tmp_path)
         data_dir = tmp_path / "rex-data"
@@ -128,7 +123,6 @@ class TestGetStatus:
         assert response.status_code == 200
         data = response.json()
         assert data["complete"] is False
-        assert data["progress"]["answered"] == 0
 
     def test_status_no_auth_required(self, tmp_path) -> None:
         """Interview status endpoint does not require authentication."""

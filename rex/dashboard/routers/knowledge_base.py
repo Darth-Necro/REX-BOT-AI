@@ -170,7 +170,8 @@ async def update_kb(
             result["previous_version"] = snapshot_id
         return result
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        logger.exception("Failed to update knowledge base: %s", e)
+        return {"status": "error", "detail": "Failed to update knowledge base"}
 
 
 @router.get("/history")
@@ -223,4 +224,5 @@ async def revert(
             "bytes_restored": len(old_content),
         }
     except Exception as e:
-        return {"status": "error", "commit": commit_hash, "detail": str(e)}
+        logger.exception("Failed to revert KB to %s: %s", commit_hash, e)
+        return {"status": "error", "commit": commit_hash, "detail": "Failed to revert knowledge base"}

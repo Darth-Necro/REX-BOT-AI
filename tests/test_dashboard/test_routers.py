@@ -13,9 +13,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from rex.dashboard import deps
 from rex.dashboard.deps import get_current_user
 from rex.dashboard.routers import devices, firewall, health, threats
 from rex.shared.constants import VERSION
+
+
+def _mock_auth_manager() -> MagicMock:
+    """Return a mock AuthManager that accepts any token."""
+    mgr = MagicMock()
+    mgr.verify_token.return_value = {"sub": "admin"}
+    return mgr
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +83,24 @@ class TestHealthRouter:
         data = response.json()
         assert data["status"] == "ok"
 
-    def test_status_endpoint(self, client: TestClient) -> None:
-        """GET /api/status should return 200 with version and services."""
+    def test_status_endpoint_unauthenticated(self, client: TestClient) -> None:
+        """GET /api/status without auth returns minimal info."""
         response = client.get("/api/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert "version" in data
+        assert data["version"] == VERSION
+        assert "status" in data
+        assert "timestamp" in data
+        # Unauthenticated should NOT include internal details
+        assert "services" not in data
+
+    def test_status_endpoint(self, client: TestClient) -> None:
+        """GET /api/status with auth should return full details."""
+        with patch.object(deps, "_auth_manager", _mock_auth_manager()):
+            response = client.get(
+                "/api/status", headers={"Authorization": "Bearer test-token"}
+            )
         assert response.status_code == 200
         data = response.json()
         assert "version" in data
@@ -88,7 +111,10 @@ class TestHealthRouter:
 
     def test_status_reports_service_health(self, client: TestClient) -> None:
         """GET /api/status should include redis and ollama in services."""
-        response = client.get("/api/status")
+        with patch.object(deps, "_auth_manager", _mock_auth_manager()):
+            response = client.get(
+                "/api/status", headers={"Authorization": "Bearer test-token"}
+            )
         data = response.json()
         services = data["services"]
         assert "redis" in services
@@ -96,14 +122,20 @@ class TestHealthRouter:
 
     def test_status_includes_device_count(self, client: TestClient) -> None:
         """GET /api/status should include a device_count field."""
-        response = client.get("/api/status")
+        with patch.object(deps, "_auth_manager", _mock_auth_manager()):
+            response = client.get(
+                "/api/status", headers={"Authorization": "Bearer test-token"}
+            )
         data = response.json()
         assert "device_count" in data
         assert isinstance(data["device_count"], int)
 
     def test_status_includes_active_threats(self, client: TestClient) -> None:
         """GET /api/status should include an active_threats field."""
-        response = client.get("/api/status")
+        with patch.object(deps, "_auth_manager", _mock_auth_manager()):
+            response = client.get(
+                "/api/status", headers={"Authorization": "Bearer test-token"}
+            )
         data = response.json()
         assert "active_threats" in data
         assert isinstance(data["active_threats"], int)

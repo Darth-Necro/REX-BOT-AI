@@ -216,8 +216,8 @@ class AuthManager:
         if not verify_password(old_password, self._password_hash):
             raise ValueError("Current password is incorrect")
 
-        if len(new_password) < 8:
-            raise ValueError("New password must be at least 8 characters")
+        if len(new_password) < 12:
+            raise ValueError("New password must be at least 12 characters")
 
         self._password_hash = hash_password(new_password)
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens

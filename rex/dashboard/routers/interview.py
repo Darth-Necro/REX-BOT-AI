@@ -14,33 +14,23 @@ router = APIRouter(prefix="/api/interview", tags=["interview"])
 
 @router.get("/status")
 async def get_status() -> dict[str, Any]:
-    """Return interview status by checking config state. No auth needed."""
+    """Return interview completion status. Details (mode, progress) omitted
+    without authentication to prevent information disclosure."""
     from rex.shared.config import get_config
 
     config = get_config()
-    # Check if interview data file exists
     interview_file = config.data_dir / "interview_state.json"
+    complete = False
     if interview_file.exists():
         import json
 
         try:
             state = json.loads(interview_file.read_text())
-            return {
-                "complete": state.get("complete", False),
-                "progress": state.get(
-                    "progress", {"total": 6, "answered": 0, "remaining": 6}
-                ),
-                "mode": state.get("mode", config.mode.value),
-            }
+            complete = state.get("complete", False)
         except Exception:
             pass
 
-    return {
-        "complete": False,
-        "progress": {"total": 6, "answered": 0, "remaining": 6},
-        "mode": config.mode.value,
-        "note": "No interview state found; onboarding not started",
-    }
+    return {"complete": complete}
 
 
 @router.get("/question")
