@@ -507,7 +507,7 @@ class TestWindowsRegisterAutostart:
     @patch("rex.pal.windows._run")
     @patch("rex.pal.windows.shutil.which", return_value=None)
     @patch("rex.pal.windows.sys.executable", "C:\\Python\\python.exe")
-    def test_fallback_to_python(self, mock_run, _which):
+    def test_fallback_to_python(self, _which, mock_run):
         from rex.pal.windows import WindowsAdapter
         mock_run.return_value = subprocess.CompletedProcess(
             ["schtasks"], 0, stdout="SUCCESS", stderr="",

@@ -35,7 +35,8 @@ _DEFAULT_CHANNELS = {
 
 # Allowed channel names -- subscribe requests for unknown channels are silently dropped.
 _ALLOWED_CHANNELS = {
-    "status.update", "threat.new", "threat.resolved",
+    "status.update", "status_change",
+    "threat.new", "threat.resolved",
     "device.new", "device.update", "device.departed",
     "scan.complete", "log.entry",
 }

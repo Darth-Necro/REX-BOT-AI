@@ -101,7 +101,8 @@ class ActionValidator:
 
     # IPs that must never be the target of a blocking / isolation action.
     # Populated at runtime by :meth:`set_protected_ips`.
-    PROTECTED_IPS: set[str] = set()
+    # NOTE: This is an instance variable set in __init__, NOT a class variable.
+    # A class-level mutable set would be shared between instances (VULN-009).
 
     # Action parameters that refer to target hosts.
     _TARGET_PARAMS: frozenset[str] = frozenset({
@@ -119,6 +120,8 @@ class ActionValidator:
     def __init__(self, registry: ActionRegistry, config: RexConfig) -> None:
         self.registry = registry
         self.config = config
+        # Instance-level protected IPs (fixes VULN-009: class variable sharing)
+        self.PROTECTED_IPS: set[str] = set()
         # Sliding window: action_type -> list of epoch timestamps
         self._action_counts: dict[str, list[float]] = defaultdict(list)
 
@@ -282,20 +285,47 @@ class ActionValidator:
 
     @staticmethod
     def _normalize_ip_string(ip_str: str) -> str:
-        """Strip leading zeros from IPv4 octets so ``ipaddress`` accepts them.
+        """Normalize an IP string so all equivalent representations resolve
+        to a single canonical form before comparison.
 
-        Python's ``ipaddress.ip_address`` rejects zero-padded octets
-        (e.g. ``"192.168.001.001"``) because of historical octal ambiguity.
-        This helper converts them to plain decimal before parsing.
+        Handles:
+        - Zero-padded IPv4 octets (``192.168.001.001`` → ``192.168.1.1``)
+        - IPv4-mapped IPv6 (``::ffff:192.168.1.1`` → ``192.168.1.1``)
+          (fixes VULN-007)
+        - Decimal IPv4 (``3232235777`` → ``192.168.1.1``)
+          (fixes VULN-008)
 
-        Non-IPv4 strings are returned unchanged (IPv6, hostnames, etc.).
+        Non-IP strings are returned unchanged.
         """
-        parts = ip_str.split(".")
+        stripped = ip_str.strip()
+
+        # Handle decimal IP notation (e.g. 3232235777 for 192.168.1.1)
+        if stripped.isdigit():
+            num = int(stripped)
+            if 0 <= num <= 0xFFFFFFFF:
+                try:
+                    return str(ipaddress.IPv4Address(num))
+                except (ValueError, OverflowError):
+                    pass
+
+        # Handle zero-padded octets (192.168.001.001)
+        parts = stripped.split(".")
         if len(parts) == 4:
             try:
-                return ".".join(str(int(p)) for p in parts)
+                stripped = ".".join(str(int(p)) for p in parts)
             except ValueError:
                 pass
+
+        # Parse through ipaddress to canonicalize IPv6-mapped addresses
+        try:
+            addr = ipaddress.ip_address(stripped)
+            # Convert IPv4-mapped IPv6 to plain IPv4
+            if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+                return str(addr.ipv4_mapped)
+            return str(addr)
+        except ValueError:
+            pass
+
         return ip_str
 
     def _needs_confirmation(

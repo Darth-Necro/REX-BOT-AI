@@ -69,7 +69,9 @@ class ServiceOrchestrator:
         self._config = get_config()
         self._config.data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create event bus
+        # The orchestrator's own bus -- used only for health monitoring.
+        # Each service gets its own EventBus (see _create_services) so that
+        # consumer groups are isolated: rex:<service>:group.
         self._bus = EventBus(
             redis_url=self._config.redis_url,
             service_name=ServiceName.CORE,
@@ -82,31 +84,41 @@ class ServiceOrchestrator:
         )
 
     def _create_services(self) -> None:
-        """Instantiate all service classes and register them."""
-        config = self._config
-        bus = self._bus
-        assert config is not None
-        assert bus is not None
+        """Instantiate all service classes, each with its own EventBus.
 
-        service_classes: list[tuple[str, str]] = [
-            ("rex.memory.service", "MemoryService"),
-            ("rex.eyes.service", "EyesService"),
-            ("rex.scheduler.service", "SchedulerService"),
-            ("rex.interview.service", "InterviewService"),
-            ("rex.brain.service", "BrainService"),
-            ("rex.bark.service", "BarkService"),
-            ("rex.teeth.service", "TeethService"),
-            ("rex.federation.service", "FederationService"),
-            ("rex.store.service", "StoreService"),
-            ("rex.dashboard.service", "DashboardService"),
+        Every service gets a dedicated EventBus instance whose
+        ``service_name`` matches the service.  This ensures that each
+        service creates its own consumer group (``rex:<service>:group``)
+        so that Redis Streams delivers a full copy of every message to
+        every subscribing service instead of making them compete.
+        """
+        config = self._config
+        assert config is not None
+
+        service_classes: list[tuple[str, str, ServiceName]] = [
+            ("rex.memory.service", "MemoryService", ServiceName.MEMORY),
+            ("rex.eyes.service", "EyesService", ServiceName.EYES),
+            ("rex.scheduler.service", "SchedulerService", ServiceName.SCHEDULER),
+            ("rex.interview.service", "InterviewService", ServiceName.INTERVIEW),
+            ("rex.brain.service", "BrainService", ServiceName.BRAIN),
+            ("rex.bark.service", "BarkService", ServiceName.BARK),
+            ("rex.teeth.service", "TeethService", ServiceName.TEETH),
+            ("rex.federation.service", "FederationService", ServiceName.FEDERATION),
+            ("rex.store.service", "StoreService", ServiceName.STORE),
+            ("rex.dashboard.service", "DashboardService", ServiceName.DASHBOARD),
         ]
 
-        for module_path, class_name in service_classes:
+        for module_path, class_name, svc_name in service_classes:
             try:
                 import importlib
                 module = importlib.import_module(module_path)
                 cls = getattr(module, class_name)
-                instance = cls(config=config, bus=bus)
+                # Each service gets its own bus with its own consumer group
+                svc_bus = EventBus(
+                    redis_url=config.redis_url,
+                    service_name=svc_name,
+                )
+                instance = cls(config=config, bus=svc_bus)
                 self.register(instance)
             except Exception:
                 logger.exception("Failed to create %s", class_name)

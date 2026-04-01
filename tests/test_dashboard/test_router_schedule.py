@@ -199,7 +199,7 @@ class TestTriggerWake:
         assert response.status_code == 401
 
     def test_sleep_publishes_correct_command(self) -> None:
-        """Sleep publishes the correct command payload to the bus."""
+        """Sleep publishes the correct RexEvent to the bus."""
         app = _make_app()
         app.dependency_overrides[get_current_user] = _fake_user
         mock_bus = AsyncMock()
@@ -211,11 +211,12 @@ class TestTriggerWake:
 
         call_args = mock_bus.publish.call_args
         assert call_args[0][0] == "rex:core:commands"
-        assert call_args[0][1]["command"] == "set_power_state"
-        assert call_args[0][1]["state"] == "alert_sleep"
+        event = call_args[0][1]
+        assert event.payload["command"] == "set_power_state"
+        assert event.payload["state"] == "alert_sleep"
 
     def test_wake_publishes_correct_command(self) -> None:
-        """Wake publishes the correct command payload to the bus."""
+        """Wake publishes the correct RexEvent to the bus."""
         app = _make_app()
         app.dependency_overrides[get_current_user] = _fake_user
         mock_bus = AsyncMock()
@@ -227,5 +228,6 @@ class TestTriggerWake:
 
         call_args = mock_bus.publish.call_args
         assert call_args[0][0] == "rex:core:commands"
-        assert call_args[0][1]["command"] == "set_power_state"
-        assert call_args[0][1]["state"] == "awake"
+        event = call_args[0][1]
+        assert event.payload["command"] == "set_power_state"
+        assert event.payload["state"] == "awake"

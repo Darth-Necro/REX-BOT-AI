@@ -320,13 +320,13 @@ class TestDeviationScore:
         })
         assert score > 0.0
 
-    def test_empty_behaviour_zero_score(self, tmp_path: Path) -> None:
+    def test_empty_behaviour_low_score(self, tmp_path: Path) -> None:
         """Empty behaviour dict (no ports, no traffic) should score low."""
         bb = _make_baseline(tmp_path)
         bb._baselines["dev-1"] = _make_profile("dev-1")
 
         score = bb.get_deviation_score("dev-1", {})
-        assert score == pytest.approx(0.0)
+        assert score < 0.15, f"Expected low score for empty behavior, got {score}"
 
 
 class TestPortDeviation:

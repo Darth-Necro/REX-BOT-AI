@@ -94,12 +94,16 @@ async def trigger_sleep(user: dict = Depends(get_current_user)) -> dict[str, Any
     """Put REX into ALERT_SLEEP mode via event bus."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish(
-            "rex:core:commands",
-            {"command": "set_power_state", "state": "alert_sleep"},
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="command",
+            payload={"command": "set_power_state", "state": "alert_sleep"},
         )
+        await bus.publish("rex:core:commands", event)
         return {"status": "sleep_requested", "delivered": True, "mode": "alert_sleep"}
     except Exception as e:
         return {
@@ -114,12 +118,16 @@ async def trigger_wake(user: dict = Depends(get_current_user)) -> dict[str, Any]
     """Wake REX to AWAKE mode via event bus."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish(
-            "rex:core:commands",
-            {"command": "set_power_state", "state": "awake"},
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="command",
+            payload={"command": "set_power_state", "state": "awake"},
         )
+        await bus.publish("rex:core:commands", event)
         return {"status": "wake_requested", "delivered": True, "mode": "awake"}
     except Exception as e:
         return {

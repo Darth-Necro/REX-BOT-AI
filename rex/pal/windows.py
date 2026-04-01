@@ -596,7 +596,7 @@ class WindowsAdapter(PlatformAdapter):
             line = line.strip()
             if not line:
                 # End of a rule block -- process it
-                if current.get("name", "").startswith(_REX_RULE_PREFIX):
+                if current.get("rulename", "").startswith(_REX_RULE_PREFIX):
                     direction = current.get("direction", "in")
                     dir_str = "inbound" if direction.lower() == "in" else "outbound"
                     action = "drop" if current.get("action", "").lower() == "block" else "accept"
@@ -604,7 +604,7 @@ class WindowsAdapter(PlatformAdapter):
                         ip=current.get("remoteip"),
                         direction=dir_str,
                         action=action,
-                        reason=current.get("name", "REX rule"),
+                        reason=current.get("rulename", "REX rule"),
                     ))
                 current = {}
                 continue
@@ -614,7 +614,7 @@ class WindowsAdapter(PlatformAdapter):
                 current[key.strip().lower().replace(" ", "")] = value.strip()
 
         # Process final block
-        if current.get("name", "").startswith(_REX_RULE_PREFIX):
+        if current.get("rulename", "").startswith(_REX_RULE_PREFIX):
             direction = current.get("direction", "in")
             dir_str = "inbound" if direction.lower() == "in" else "outbound"
             action = "drop" if current.get("action", "").lower() == "block" else "accept"
@@ -622,7 +622,7 @@ class WindowsAdapter(PlatformAdapter):
                 ip=current.get("remoteip"),
                 direction=dir_str,
                 action=action,
-                reason=current.get("name", "REX rule"),
+                reason=current.get("rulename", "REX rule"),
             ))
 
         return rules

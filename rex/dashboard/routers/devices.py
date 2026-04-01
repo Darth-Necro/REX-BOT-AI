@@ -66,12 +66,16 @@ async def trust_device(
     """Mark a device as trusted. Publishes via event bus."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish(
-            "rex:core:commands",
-            {"command": "set_device_trust", "mac": mac, "trust_level": "trusted"},
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="command",
+            payload={"command": "set_device_trust", "mac": mac, "trust_level": "trusted"},
         )
+        await bus.publish("rex:core:commands", event)
         return {"mac": mac, "action": "trust", "status": "requested", "delivered": True}
     except Exception as e:
         return {"mac": mac, "action": "trust", "status": "not_available", "delivered": False, "detail": str(e)}
@@ -84,12 +88,16 @@ async def block_device(
     """Block/quarantine a device. Publishes via event bus."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish(
-            "rex:core:commands",
-            {"command": "isolate_device", "mac": mac},
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="command",
+            payload={"command": "isolate_device", "mac": mac},
         )
+        await bus.publish("rex:core:commands", event)
         return {"mac": mac, "action": "block", "status": "requested", "delivered": True}
     except Exception as e:
         return {"mac": mac, "action": "block", "status": "not_available", "delivered": False, "detail": str(e)}
@@ -100,9 +108,16 @@ async def trigger_scan(user: dict = Depends(get_current_user)) -> dict[str, Any]
     """Trigger an immediate network scan via the event bus."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish("rex:core:commands", {"command": "scan_now"})
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="command",
+            payload={"command": "scan_now"},
+        )
+        await bus.publish("rex:core:commands", event)
         return {"status": "scan_requested", "delivered": True}
     except Exception as e:
         return {

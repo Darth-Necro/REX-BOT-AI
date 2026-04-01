@@ -321,23 +321,23 @@ class TestGetActiveRules:
         # processing also catches trailing rules.  Let's test with a format
         # that actually works with the code.
 
-        # Use format where the key normalises to match what the code expects.
-        # "Name:" -> key "name" -- this matches current.get("name").
+        # Use the real netsh output format: "Rule Name:" normalises to
+        # key "rulename" which matches get_active_rules() logic.
         netsh_out = (
-            "Name:                            REX-BLOCK-192.168.1.100-in\n"
-            "Direction:                        In\n"
-            "Action:                           Block\n"
-            "RemoteIP:                         192.168.1.100\n"
+            "Rule Name:                            REX-BLOCK-192.168.1.100-in\n"
+            "Direction:                             In\n"
+            "Action:                                Block\n"
+            "RemoteIP:                              192.168.1.100\n"
             "\n"
-            "Name:                            SomeOtherRule\n"
-            "Direction:                        Out\n"
-            "Action:                           Allow\n"
-            "RemoteIP:                         0.0.0.0\n"
+            "Rule Name:                            SomeOtherRule\n"
+            "Direction:                             Out\n"
+            "Action:                                Allow\n"
+            "RemoteIP:                              0.0.0.0\n"
             "\n"
-            "Name:                            REX-BLOCK-10.0.0.5-out\n"
-            "Direction:                        Out\n"
-            "Action:                           Block\n"
-            "RemoteIP:                         10.0.0.5\n"
+            "Rule Name:                            REX-BLOCK-10.0.0.5-out\n"
+            "Direction:                             Out\n"
+            "Action:                                Block\n"
+            "RemoteIP:                              10.0.0.5\n"
         )
         adapter = _make_adapter()
         with patch("rex.pal.windows._run", return_value=_completed(stdout=netsh_out)):

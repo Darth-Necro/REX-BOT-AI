@@ -83,7 +83,7 @@ class BaseService(ABC):
         """Start the service.
 
         1. Run prerequisite checks.
-        2. Connect the event bus.
+        2. Connect the service's own event bus.
         3. Spawn heartbeat and consumer background tasks.
         4. Call the subclass ``_on_start()`` hook.
         """
@@ -107,7 +107,7 @@ class BaseService(ABC):
         1. Signal loops to stop.
         2. Call the subclass ``_on_stop()`` hook.
         3. Cancel background tasks.
-        4. Disconnect the event bus.
+        4. Disconnect the service's own bus.
         """
         self._log.info("Stopping %s service...", self.service_name)
         self._running = False
@@ -121,6 +121,8 @@ class BaseService(ABC):
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
 
+        # Disconnect this service's own bus.  Each service owns its bus
+        # instance (created by the orchestrator), so this is safe.
         await self.bus.disconnect()
         self._log.info("%s service stopped.", self.service_name)
 

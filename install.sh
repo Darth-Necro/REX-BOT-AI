@@ -12,14 +12,14 @@ cat << 'BANNER'
  ( o.o )  REX-BOT-AI Installer
   > ^ <   Autonomous Security Agent
  /|   |\
-(_|   |_) v1.0.0
+(_|   |_) v0.1.0-alpha
 
 BANNER
 
 # ============================================================
 # Configuration
 # ============================================================
-REX_VERSION="1.0.0"
+REX_VERSION="0.1.0-alpha"
 REX_INSTALL_DIR="/opt/rex-bot-ai"
 REX_DATA_DIR="/etc/rex-bot-ai"
 REX_LOG_DIR="/var/log/rex-bot-ai"
@@ -200,26 +200,22 @@ install_rex() {
         -out "${REX_DATA_DIR}/certs/cert.pem" -days 365 -nodes \
         -subj "/CN=rex.local/O=REX-BOT-AI" 2>/dev/null
 
-    # Clone the repo to get docker-compose.yml and configs
-    if [ -f "$(pwd)/docker-compose.yml" ]; then
+    # Clone the full repo -- Docker needs the complete build context
+    # (Dockerfile, rex/, requirements.txt, pyproject.toml, frontend/).
+    if [ -f "$(pwd)/docker-compose.yml" ] && [ -d "$(pwd)/rex" ]; then
         info "Installing from local checkout..."
-        cp -r "$(pwd)/docker-compose.yml" "${REX_INSTALL_DIR}/"
-        cp -r "$(pwd)/.env.example" "${REX_INSTALL_DIR}/.env" 2>/dev/null || true
-        cp -r "$(pwd)/Dockerfile" "${REX_INSTALL_DIR}/" 2>/dev/null || true
+        cp -a "$(pwd)/." "${REX_INSTALL_DIR}/"
+        rm -rf "${REX_INSTALL_DIR}/.git" "${REX_INSTALL_DIR}/node_modules" \
+               "${REX_INSTALL_DIR}/frontend/node_modules" \
+               "${REX_INSTALL_DIR}/.pytest_cache" \
+               "${REX_INSTALL_DIR}/.ruff_cache" \
+               "${REX_INSTALL_DIR}/.coverage" 2>/dev/null || true
     else
-        info "Downloading REX-BOT-AI files..."
-        git clone --depth 1 https://github.com/Darth-Necro/REX-BOT-AI.git "${REX_INSTALL_DIR}/repo" 2>/dev/null || {
-            # Fallback: download individual files
-            curl -sSL https://raw.githubusercontent.com/Darth-Necro/REX-BOT-AI/main/docker-compose.yml \
-                -o "${REX_INSTALL_DIR}/docker-compose.yml"
-            curl -sSL https://raw.githubusercontent.com/Darth-Necro/REX-BOT-AI/main/.env.example \
-                -o "${REX_INSTALL_DIR}/.env"
-        }
-        if [ -d "${REX_INSTALL_DIR}/repo" ]; then
-            cp "${REX_INSTALL_DIR}/repo/docker-compose.yml" "${REX_INSTALL_DIR}/"
-            cp "${REX_INSTALL_DIR}/repo/.env.example" "${REX_INSTALL_DIR}/.env" 2>/dev/null || true
-            rm -rf "${REX_INSTALL_DIR}/repo"
-        fi
+        info "Downloading REX-BOT-AI..."
+        git clone --depth 1 https://github.com/Darth-Necro/REX-BOT-AI.git \
+            "${REX_INSTALL_DIR}" 2>/dev/null || \
+            die "Failed to clone repository" $EXIT_NETWORK_FAILURE
+        rm -rf "${REX_INSTALL_DIR}/.git"
     fi
 
     # Write .env

@@ -213,6 +213,18 @@ class DNSMonitor:
 
         loop = asyncio.get_running_loop()
 
+        # Sentinel returned by _next_packet when the generator is exhausted.
+        # StopIteration cannot be raised through asyncio Futures (Python 3.12+
+        # raises TypeError), so we catch it in the executor thread and return
+        # a sentinel value instead.
+        _EXHAUSTED = object()
+
+        def _next_packet(g):  # noqa: ANN001, ANN202
+            try:
+                return next(g)
+            except StopIteration:
+                return _EXHAUSTED
+
         try:
             gen = self.pal.capture_packets(
                 interface=interface,
@@ -222,14 +234,15 @@ class DNSMonitor:
             while self._running:
                 try:
                     packet = await asyncio.wait_for(
-                        loop.run_in_executor(None, next, gen),
+                        loop.run_in_executor(None, _next_packet, gen),
                         timeout=2.0,
                     )
-                except StopIteration:
-                    self._logger.info("DNS capture generator exhausted")
-                    break
                 except TimeoutError:
                     continue
+
+                if packet is _EXHAUSTED:
+                    self._logger.info("DNS capture generator exhausted")
+                    break
 
                 await self._process_dns_packet(packet)
 

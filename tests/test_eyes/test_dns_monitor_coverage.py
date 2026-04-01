@@ -317,22 +317,24 @@ class TestStartCapture:
         """Setting _running=False should exit the capture loop."""
         monitor = _make_monitor(dns_config)
 
-        async def _stop_soon() -> None:
-            await asyncio.sleep(0.05)
-            monitor.stop()
+        packets_yielded = 0
 
         def _gen() -> Any:
-            import time
-            while True:
-                time.sleep(0.1)
+            nonlocal packets_yielded
+            while packets_yielded < 50:
+                packets_yielded += 1
                 yield {"src_ip": "192.168.1.10", "dst_port": 53, "src_port": 12345}
 
         monitor.pal.capture_packets = MagicMock(return_value=_gen())
 
+        async def _stop_soon() -> None:
+            await asyncio.sleep(0.05)
+            monitor.stop()
+
         task = asyncio.create_task(monitor.start_capture("eth0"))
         stop_task = asyncio.create_task(_stop_soon())
 
-        await asyncio.wait([task, stop_task], timeout=2.0)
+        await asyncio.wait([task, stop_task], timeout=5.0)
 
         assert not monitor._running
 

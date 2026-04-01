@@ -37,7 +37,7 @@ export default function useRealtimeSync(token) {
     on('__close', () => setConnected(false));
     on('__state', (state) => {
       // Expose WS state to system store for UI
-      useSystemStore.setState({ wsState: state });
+      useSystemStore.setState({ wsConnection: state });
     });
 
     // Wildcard: every message goes through the event router
