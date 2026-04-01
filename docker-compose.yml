@@ -114,6 +114,7 @@ services:
       # Privacy
       OLLAMA_NOTELEMETRY: "1"
       REX_FEDERATION_ENABLED: ${REX_FEDERATION_ENABLED:-false}
+      REX_ADMIN_PASSWORD: ${REX_ADMIN_PASSWORD:-}
     # Host network required for packet capture and firewall management.
     # This means REX reaches Redis/Ollama/ChromaDB via localhost (they
     # publish their ports to the host via the ports: directive below).

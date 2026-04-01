@@ -35,3 +35,4 @@ export const getThreats = (params) => api.get('/threats/', { params });
 export const login = (password) => api.post('/config/auth/login', { password });
 export const triggerScan = () => api.post('/devices/scan');
 export const panicButton = () => api.post('/firewall/panic');
+export const setMode = (mode) => api.put('/config/mode', { mode });

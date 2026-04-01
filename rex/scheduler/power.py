@@ -10,11 +10,15 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from rex.shared.enums import PowerState
+from rex.shared.constants import STREAM_CORE_COMMANDS
+from rex.shared.enums import PowerState, ServiceName
+from rex.shared.events import RexEvent
 from rex.shared.utils import utc_now
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from rex.shared.bus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +33,8 @@ _VALID_TRANSITIONS = {
 class PowerManager:
     """Controls the system's power state to balance security and resource usage."""
 
-    def __init__(self) -> None:
+    def __init__(self, bus: EventBus | None = None) -> None:
+        self._bus = bus
         self._state = PowerState.AWAKE
         self._transition_time = utc_now()
         self._scheduled_wake: datetime | None = None
@@ -51,6 +56,21 @@ class PowerManager:
         self._state = target_state
         self._transition_time = utc_now()
         logger.info("Power state: %s -> %s", old.value, target_state.value)
+        await self._publish_power_state(target_state)
+
+    async def _publish_power_state(self, state: PowerState) -> None:
+        """Broadcast power state change so services can throttle/pause."""
+        if self._bus is None:
+            return
+        try:
+            event = RexEvent(
+                source=ServiceName.SCHEDULER,
+                event_type="power_state_changed",
+                payload={"state": state.value},
+            )
+            await self._bus.publish(STREAM_CORE_COMMANDS, event)
+        except Exception:
+            logger.exception("Failed to publish power state change")
 
     def get_state(self) -> PowerState:
         """Return the current power state."""

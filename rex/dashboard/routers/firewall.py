@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/firewall", tags=["firewall"])
 
 
@@ -26,6 +28,7 @@ async def list_rules(user: dict = Depends(get_current_user)) -> dict[str, Any]:
             "total": len(rules),
         }
     except Exception as e:
+        logger.warning("Failed to query firewall rules: %s", e)
         return {
             "rules": [],
             "total": 0,
@@ -54,6 +57,7 @@ async def add_rule(
             "rule": rule.model_dump() if hasattr(rule, "model_dump") else str(rule),
         }
     except Exception as e:
+        logger.warning("Failed to add firewall rule for %s: %s", ip, e)
         return {"status": "error", "ip": ip, "detail": str(e)}
 
 
@@ -72,6 +76,7 @@ async def remove_rule(
             "rule_id": rule_id,
         }
     except Exception as e:
+        logger.warning("Failed to remove firewall rule %s: %s", rule_id, e)
         return {"status": "error", "rule_id": rule_id, "detail": str(e)}
 
 
@@ -88,4 +93,5 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
             "action": "panic_restore",
         }
     except Exception as e:
+        logger.exception("Panic restore failed")
         return {"status": "error", "detail": str(e)}

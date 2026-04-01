@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge-base", tags=["knowledge-base"])
 
 
@@ -79,6 +81,7 @@ async def update_kb(
         kb_file.write_text(content)
         return {"status": "updated", "bytes_written": len(content)}
     except Exception as e:
+        logger.exception("Failed to update knowledge base")
         return {"status": "error", "detail": str(e)}
 
 

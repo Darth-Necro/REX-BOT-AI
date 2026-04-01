@@ -2,30 +2,35 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
+
+_SETTINGS_FILE = "notification_settings.json"
+
+
+def _settings_file():
+    from rex.shared.config import get_config
+    return get_config().data_dir / _SETTINGS_FILE
 
 
 @router.get("/settings")
 async def get_settings(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Return current notification channel settings from config."""
-    from rex.shared.config import get_config
-
-    config = get_config()
-    settings_file = config.data_dir / "notification_settings.json"
-    if settings_file.exists():
-        import json
-
+    sf = _settings_file()
+    if sf.exists():
         try:
-            data = json.loads(settings_file.read_text())
+            data = json.loads(sf.read_text())
             return data
         except Exception:
-            pass
+            logger.exception("Failed to read notification settings")
 
     return {
         "channels": {},
@@ -39,12 +44,15 @@ async def get_settings(user: dict = Depends(get_current_user)) -> dict[str, Any]
 async def update_settings(
     settings: dict = Body(...), user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Update notification settings. Persistence not yet implemented."""
-    return {
-        "status": "not_available",
-        "note": "Notification settings persistence not yet implemented",
-        "requested": settings,
-    }
+    """Persist notification settings to data directory."""
+    sf = _settings_file()
+    try:
+        sf.parent.mkdir(parents=True, exist_ok=True)
+        sf.write_text(json.dumps(settings, indent=2))
+        return {"status": "saved", "settings": settings}
+    except Exception:
+        logger.exception("Failed to save notification settings")
+        return {"status": "error", "note": "Could not persist notification settings"}
 
 
 @router.post("/test/{channel}")
@@ -62,6 +70,7 @@ async def test_notification(
         )
         return {"status": "sent", "channel": channel, "delivered_to_bus": True}
     except Exception as e:
+        logger.warning("Test notification failed for channel %s: %s", channel, e)
         return {
             "status": "not_sent",
             "channel": channel,

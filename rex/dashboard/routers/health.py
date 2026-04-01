@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter
@@ -9,6 +10,7 @@ from fastapi import APIRouter
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["health"])
 
 
@@ -21,7 +23,7 @@ def _get_device_count() -> int:
         try:
             return device_store.count()
         except Exception:
-            pass
+            logger.debug("device_store.count() failed", exc_info=True)
     return 0
 
 
@@ -34,7 +36,7 @@ def _get_active_threats() -> int:
         try:
             return threat_log.active_count()
         except Exception:
-            pass
+            logger.debug("threat_log.active_count() failed", exc_info=True)
     return 0
 
 
@@ -54,7 +56,7 @@ async def get_status() -> dict[str, Any]:
         r.ping()
         redis_ok = True
     except Exception:
-        pass
+        logger.debug("Redis health check failed", exc_info=True)
 
     # Check Ollama
     ollama_ok = False
@@ -64,7 +66,7 @@ async def get_status() -> dict[str, Any]:
         resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
         ollama_ok = resp.status_code == 200
     except Exception:
-        pass
+        logger.debug("Ollama health check failed", exc_info=True)
 
     if redis_ok and ollama_ok:
         status = "operational"

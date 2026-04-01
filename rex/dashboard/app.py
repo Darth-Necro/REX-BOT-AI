@@ -91,6 +91,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize shared dependencies on startup, clean up on shutdown."""
+    from rex.core.mode_manager import ModeManager
     from rex.dashboard.auth import AuthManager
     from rex.shared.config import get_config
 
@@ -107,6 +108,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     deps.set_auth_manager(auth_mgr)
     deps.set_ws_manager(_ws_manager)
+
+    # Initialize mode manager from current config
+    mode_mgr = ModeManager(initial_mode=config.mode)
+    deps.set_mode_manager(mode_mgr)
+    logger.info("ModeManager initialized (mode: %s)", mode_mgr.get_mode().value)
 
     # Try to connect event bus (non-fatal if Redis unavailable)
     try:

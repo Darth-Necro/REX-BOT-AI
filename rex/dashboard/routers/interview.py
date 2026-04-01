@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
 from rex.dashboard.deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/interview", tags=["interview"])
 
 
@@ -32,7 +34,7 @@ async def get_status() -> dict[str, Any]:
                 "mode": state.get("mode", config.mode.value),
             }
         except Exception:
-            pass
+            logger.warning("Failed to read interview state file", exc_info=True)
 
     return {
         "complete": False,

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _bus_instance: Any = None
 _auth_manager: Any = None
 _ws_manager: Any = None
+_mode_manager: Any = None
 
 
 def set_bus(bus: Any) -> None:
@@ -37,6 +38,19 @@ def set_ws_manager(ws: Any) -> None:
     """Set the global WebSocketManager instance."""
     global _ws_manager
     _ws_manager = ws
+
+
+def set_mode_manager(mode_mgr: Any) -> None:
+    """Set the global ModeManager instance (called during app startup)."""
+    global _mode_manager
+    _mode_manager = mode_mgr
+
+
+def get_mode_manager() -> Any:
+    """Provide the ModeManager instance."""
+    if _mode_manager is None:
+        raise HTTPException(status_code=503, detail="ModeManager not initialized")
+    return _mode_manager
 
 
 async def get_bus() -> Any:
