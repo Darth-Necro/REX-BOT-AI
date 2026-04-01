@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/firewall", tags=["firewall"])
+
+# Rate limit panic button: max 1 call per 10 seconds
+_last_panic_time: float = 0.0
+_PANIC_COOLDOWN = 10.0  # seconds
 
 
 @router.get("/rules")
@@ -83,6 +88,14 @@ async def remove_rule(
 @router.post("/panic")
 async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """EMERGENCY: Remove ALL REX firewall rules immediately."""
+    global _last_panic_time
+    now = time.time()
+    if now - _last_panic_time < _PANIC_COOLDOWN:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Panic button rate limited. Wait {_PANIC_COOLDOWN:.0f}s between calls.",
+        )
+    _last_panic_time = now
     try:
         from rex.pal import get_adapter
 

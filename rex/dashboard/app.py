@@ -47,15 +47,35 @@ _ws_manager = WebSocketManager()
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple sliding-window rate limiter per client IP."""
 
+    _MAX_TRACKED_IPS = 10_000
+    _EVICTION_INTERVAL = 300  # seconds
+
     def __init__(self, app: FastAPI, max_requests: int = 60, window_seconds: int = 60) -> None:
         super().__init__(app)
         self.max_requests = max_requests
         self.window = window_seconds
         self._requests: dict[str, list[float]] = defaultdict(list)
+        self._last_eviction: float = 0.0
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
+
+        # Periodic eviction of stale entries to prevent memory leak
+        if now - self._last_eviction > self._EVICTION_INTERVAL:
+            self._last_eviction = now
+            stale = [
+                ip for ip, ts in self._requests.items()
+                if not ts or now - ts[-1] > self.window
+            ]
+            for ip in stale:
+                del self._requests[ip]
+            # Hard cap
+            if len(self._requests) > self._MAX_TRACKED_IPS:
+                excess = len(self._requests) - self._MAX_TRACKED_IPS
+                for ip in list(self._requests)[:excess]:
+                    del self._requests[ip]
+
         self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self.window]
         if len(self._requests[client_ip]) >= self.max_requests:
             from starlette.responses import JSONResponse
@@ -156,10 +176,19 @@ def create_app() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS — read allowed origins from config
+    # CORS — read allowed origins from config (validate URLs)
+    from urllib.parse import urlparse
+
     from rex.shared.config import get_config
     rex_cfg = get_config()
-    origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
+    raw_origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
+    origins = []
+    for origin in raw_origins:
+        parsed = urlparse(origin)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            origins.append(origin)
+        else:
+            logger.warning("Ignoring invalid CORS origin: %s", origin)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins or ["http://localhost:3000"],

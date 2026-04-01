@@ -68,6 +68,11 @@ class AuthManager:
     Single admin user. No external identity provider.
     """
 
+    # Evict tracking entries older than this (prevents unbounded memory growth)
+    _EVICTION_TTL = 3600.0  # 1 hour
+    _EVICTION_INTERVAL = 300  # run eviction every 5 minutes
+    _MAX_TRACKED_IPS = 10_000  # hard cap on tracked IPs
+
     def __init__(self, data_dir: Path) -> None:
         self._creds_file = data_dir / ".credentials"
         self._jwt_secret = ""
@@ -75,6 +80,7 @@ class AuthManager:
         self._failed_attempts: dict[str, list[float]] = {}
         self._lockout_until: dict[str, float] = {}
         self._initialized = False
+        self._last_eviction: float = 0.0
         self._secrets_manager: Any = None
         try:
             from rex.core.privacy.encryption import SecretsManager
@@ -150,8 +156,12 @@ class AuthManager:
         if not self._initialized:
             raise RuntimeError("AuthManager not initialized")
 
-        # Check per-IP lockout
+        # Periodic eviction of stale rate-limit entries (prevents OOM)
         now = time.time()
+        if now - self._last_eviction > self._EVICTION_INTERVAL:
+            self._evict_stale_entries(now)
+
+        # Check per-IP lockout
         lockout_until = self._lockout_until.get(client_ip, 0.0)
         if now < lockout_until:
             remaining = int(lockout_until - now)
@@ -228,6 +238,32 @@ class AuthManager:
 
         logger.info("Password changed for user %s", username)
         return True
+
+    def _evict_stale_entries(self, now: float) -> None:
+        """Remove expired rate-limit tracking entries to bound memory usage."""
+        self._last_eviction = now
+
+        # Evict expired lockouts
+        expired_lockouts = [ip for ip, until in self._lockout_until.items() if now >= until]
+        for ip in expired_lockouts:
+            del self._lockout_until[ip]
+
+        # Evict stale failed attempts
+        stale_ips = []
+        for ip, timestamps in self._failed_attempts.items():
+            fresh = [t for t in timestamps if now - t < self._EVICTION_TTL]
+            if fresh:
+                self._failed_attempts[ip] = fresh
+            else:
+                stale_ips.append(ip)
+        for ip in stale_ips:
+            del self._failed_attempts[ip]
+
+        # Hard cap: if still too many IPs tracked, drop oldest
+        if len(self._failed_attempts) > self._MAX_TRACKED_IPS:
+            excess = len(self._failed_attempts) - self._MAX_TRACKED_IPS
+            for ip in list(self._failed_attempts)[:excess]:
+                del self._failed_attempts[ip]
 
     def verify_token(self, token: str) -> dict[str, Any] | None:
         """Verify a JWT token. Returns payload or None if invalid/expired."""

@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_CHANNELS = {"status.update", "threat.new", "device.new", "device.update", "scan.complete"}
 
 
+_MAX_CONNECTIONS = 100  # Reject new clients beyond this limit
+
+
 class WebSocketManager:
     """Manages WebSocket connections for real-time dashboard updates.
 
@@ -39,12 +42,18 @@ class WebSocketManager:
         self._connections: dict[WebSocket, set[str]] = {}  # ws -> subscribed channels
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> None:
-        """Accept a new WebSocket connection."""
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket) -> bool:
+        """Accept a new WebSocket connection.
+
+        Returns False if the connection limit has been reached.
+        """
         async with self._lock:
+            if len(self._connections) >= _MAX_CONNECTIONS:
+                return False
+            await websocket.accept()
             self._connections[websocket] = set(_DEFAULT_CHANNELS)
         logger.info("WebSocket client connected (total: %d)", len(self._connections))
+        return True
 
     async def disconnect(self, websocket: WebSocket) -> None:
         """Remove a WebSocket from the active pool."""
@@ -103,9 +112,9 @@ class WebSocketManager:
         """Main handler loop for a WebSocket client.
 
         Authenticates via JWT token in the ``token`` query parameter
-        before accepting the connection.
+        BEFORE accepting the connection (prevents unauthenticated access).
         """
-        # --- Authentication gate ---
+        # --- Authentication gate (before accept) ---
         token = websocket.query_params.get("token")
         if not token:
             await websocket.close(code=4001, reason="Missing auth token")
@@ -116,7 +125,6 @@ class WebSocketManager:
         try:
             auth = get_auth()
         except Exception:
-            # AuthManager not initialised yet (app still starting up)
             await websocket.close(code=4003, reason="Auth service unavailable")
             return
 
@@ -125,8 +133,12 @@ class WebSocketManager:
             await websocket.close(code=4003, reason="Invalid or expired token")
             return
 
-        # --- Token valid -- accept and serve ---
-        await self.connect(websocket)
+        # --- Token valid -- accept (with connection limit) and serve ---
+        accepted = await self.connect(websocket)
+        if not accepted:
+            await websocket.close(code=4008, reason="Too many connections")
+            return
+
         try:
             while True:
                 data = await websocket.receive_text()

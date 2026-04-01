@@ -93,9 +93,17 @@ class BaseService(ABC):
         self._running = True
         self._start_time = time.monotonic()
 
-        # Spawn background loops
-        self._tasks.append(asyncio.create_task(self._heartbeat_loop()))
-        consume_task = asyncio.create_task(self._consume_loop())
+        # Spawn background loops (with exception logging callbacks)
+        heartbeat_task = asyncio.create_task(
+            self._heartbeat_loop(), name=f"{self.service_name}:heartbeat"
+        )
+        heartbeat_task.add_done_callback(self._task_done_callback)
+        self._tasks.append(heartbeat_task)
+
+        consume_task = asyncio.create_task(
+            self._consume_loop(), name=f"{self.service_name}:consume"
+        )
+        consume_task.add_done_callback(self._task_done_callback)
         self._tasks.append(consume_task)
 
         await self._on_start()
@@ -194,6 +202,24 @@ class BaseService(ABC):
         """
         while self._running:
             await asyncio.sleep(1)
+
+    # ------------------------------------------------------------------
+    # Task monitoring
+    # ------------------------------------------------------------------
+
+    def _task_done_callback(self, task: asyncio.Task[None]) -> None:
+        """Log unhandled exceptions from background tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._logger.error(
+                "Background task %s failed with %s: %s",
+                task.get_name(),
+                type(exc).__name__,
+                exc,
+                exc_info=exc,
+            )
 
     # ------------------------------------------------------------------
     # Logging

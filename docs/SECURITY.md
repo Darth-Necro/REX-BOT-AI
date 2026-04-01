@@ -41,9 +41,22 @@ When REX starts, it performs and enforces the following security measures:
 - Redis runs locally on a Docker-internal bridge network.
 - The knowledge base is a local git repository.
 
+### Known Privacy Exceptions
+
+The following commands in the agent's whitelist can send queries to external servers:
+
+- **`dig`**: Performs DNS lookups against configured resolvers (may be external).
+- **`whois`**: Queries external WHOIS servers for IP/domain registration data.
+
+These are used for threat investigation and device identification. They do not transmit raw network captures or user data, but they do reveal that REX is investigating a particular IP or domain. To mitigate this:
+
+- Configure a local DNS resolver (e.g., Unbound, Pi-hole) and point `dig` at `127.0.0.1`.
+- Consider disabling `whois` in the command executor config if strict privacy is required.
+- Future versions will add a proxy/local-cache option for these lookups.
+
 ### No Cloud, No Telemetry
 
-- REX makes zero external API calls by default.
+- REX makes zero external API calls by default (with the exceptions noted above).
 - Ollama telemetry is disabled via environment variable.
 - ChromaDB anonymized telemetry is disabled.
 - Federation (peer-to-peer intel sharing) is disabled by default and must be explicitly enabled.

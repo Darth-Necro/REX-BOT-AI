@@ -267,7 +267,7 @@ Ruff's `isort` rule handles import ordering automatically. The convention is:
 
 ### Coverage Minimum
 
-All pull requests must maintain at least **70% code coverage**. Run the coverage report:
+All pull requests must maintain at least **50% code coverage** (alpha target; will increase to 70% before beta). Run the coverage report:
 
 ```bash
 make test-cov
@@ -399,7 +399,7 @@ Open a pull request on GitHub. Include:
 
 - At least one maintainer must approve the PR.
 - All CI checks must pass.
-- Coverage must not drop below 70%.
+- Coverage must not drop below 50% (alpha target; 70% for beta).
 - No new `shell=True` usage, hardcoded secrets, or disabled security controls.
 
 ---

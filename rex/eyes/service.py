@@ -216,10 +216,8 @@ class EyesService(BaseService):
 
     async def _run_scan_cycle(self) -> None:
         """Execute a single scan-enrich-update-publish cycle."""
-        assert self._scanner is not None
-        assert self._fingerprinter is not None
-        assert self._device_store is not None
-        assert self._port_scanner is not None
+        if not all([self._scanner, self._fingerprinter, self._device_store, self._port_scanner]):
+            raise RuntimeError("Eyes subsystems not initialized; call _on_start() first")
 
         # Publish scan-triggered event
         await self._publish_safe(
@@ -309,7 +307,8 @@ class EyesService(BaseService):
         device:
             Device to enrich.
         """
-        assert self._fingerprinter is not None
+        if self._fingerprinter is None:
+            return
         try:
             await self._fingerprinter.enrich_device(device)
         except Exception as exc:
@@ -327,8 +326,9 @@ class EyesService(BaseService):
 
         Automatically restarts on error with exponential backoff.
         """
-        assert self._dns_monitor is not None
-        assert self._interface is not None
+        if self._dns_monitor is None or self._interface is None:
+            self._log.error("DNS monitor or interface not initialized")
+            return
 
         backoff = 5
         while self._running:
@@ -354,8 +354,9 @@ class EyesService(BaseService):
         Automatically restarts on error with exponential backoff.
         Also periodically runs anomaly detection on all tracked devices.
         """
-        assert self._traffic_monitor is not None
-        assert self._interface is not None
+        if self._traffic_monitor is None or self._interface is None:
+            self._log.error("Traffic monitor or interface not initialized")
+            return
 
         # Start a parallel anomaly detection sweep
         self._anomaly_task = asyncio.create_task(
@@ -382,7 +383,8 @@ class EyesService(BaseService):
         Runs every scan_interval seconds (same cadence as device scans)
         but offset by half the interval.
         """
-        assert self._traffic_monitor is not None
+        if self._traffic_monitor is None:
+            return
 
         await asyncio.sleep(self.config.scan_interval / 2)
 

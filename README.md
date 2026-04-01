@@ -94,6 +94,20 @@ These are enforced in code, not just policy:
 - **Firewall safety**: gateway and REX IPs are hardcoded as untargetable.
 - **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 
+## Known Limitations (Alpha)
+
+Before using REX-BOT-AI, be aware of these current limitations:
+
+- **Linux only**: macOS, Windows, and BSD platform adapters are stubs (`NotImplementedError`). Only Linux is supported.
+- **Single admin user**: No role-based access control. One admin account with bcrypt + JWT auth.
+- **No plugin signing**: Plugins are loaded without cryptographic integrity verification. The plugin sandbox is not yet real container isolation.
+- **External DNS leakage**: The command executor whitelist includes `whois` and `dig`, which send queries to external DNS/WHOIS servers. This is a known exception to the "no external connections" privacy claim.
+- **End-to-end integration not fully validated**: Individual services are tested, but the full `docker compose up` -> event pipeline has not been integration-tested.
+- **Test coverage ~52%**: Critical security paths are well-tested (252 pentest tests), but overall coverage is below the 70% target.
+- **Dashboard partially stubbed**: Some API endpoints return placeholder data. The React frontend is functional but not feature-complete.
+
+**Do not rely on REX-BOT-AI as your sole network security solution.**
+
 ## Contributing
 
 This project needs help. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).

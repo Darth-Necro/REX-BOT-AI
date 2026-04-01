@@ -268,10 +268,9 @@ class TeethService(BaseService):
         params = self._build_action_params(decision_data, decision_action)
 
         try:
-            assert self.catalog is not None
-            assert self.firewall is not None
-            assert self.dns_blocker is not None
-            assert self.isolator is not None
+            if not all([self.catalog, self.firewall, self.dns_blocker, self.isolator]):
+                self._log.error("Teeth subsystems not initialized, cannot execute action")
+                return
 
             success = await self.catalog.execute(
                 action_id=action_id,

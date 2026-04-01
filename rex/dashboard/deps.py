@@ -91,7 +91,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = authorization[7:]  # Strip "Bearer "
+    token = authorization.split(" ", 1)[1]  # Strip "Bearer " safely
     auth = get_auth()
     payload = auth.verify_token(token)
 

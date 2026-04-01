@@ -157,13 +157,14 @@ class EventBus:
                 return msg_id
             except (ConnectionError, OSError, aioredis.RedisError) as exc:
                 logger.warning("Redis publish failed for %s: %s", stream, exc)
+                # WAL-first: persist before raising so the event is never lost
                 await self._write_to_wal(stream, event)
                 raise RexBusUnavailableError(
                     message=f"Failed to publish to {stream}: {exc}",
                     service=self._service_name,
                 ) from exc
 
-        # Redis was never available
+        # Redis was never available — write to WAL first
         await self._write_to_wal(stream, event)
         raise RexBusUnavailableError(
             message=f"Redis unavailable; event written to WAL for {stream}",
@@ -352,8 +353,8 @@ class EventBus:
 
     async def _drain_wal_inner(self) -> None:
         """Inner drain loop (must be called under ``_drain_lock``)."""
-        assert self._redis is not None
-        assert self._wal_db is not None
+        if self._redis is None or self._wal_db is None:
+            return
 
         cursor = await self._wal_db.execute(
             "SELECT id, stream, payload FROM wal WHERE replayed = 0 ORDER BY id ASC LIMIT 100"
@@ -404,7 +405,11 @@ class EventBus:
         group_name:
             Consumer group name (e.g. ``rex:eyes:group``).
         """
-        assert self._redis is not None
+        if self._redis is None:
+            raise RexBusUnavailableError(
+                message="Cannot create consumer group: Redis not connected",
+                service=self._service_name,
+            )
         try:
             await self._redis.xgroup_create(
                 name=stream,

@@ -83,8 +83,10 @@ class ServiceOrchestrator:
         """Instantiate all service classes and register them."""
         config = self._config
         bus = self._bus
-        assert config is not None
-        assert bus is not None
+        if config is None:
+            raise RuntimeError("Orchestrator.initialize() must be called before _create_services()")
+        if bus is None:
+            raise RuntimeError("EventBus must be created before _create_services()")
 
         service_classes: list[tuple[str, str]] = [
             ("rex.memory.service", "MemoryService"),
