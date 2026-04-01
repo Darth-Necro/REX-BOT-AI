@@ -284,7 +284,15 @@ class ServiceOrchestrator:
             "Auto-restarting %s (attempt %d/%d)",
             name.value, count + 1, _MAX_RESTART_ATTEMPTS,
         )
-        await self._start_service(name)
+        # Stop the service first to avoid duplicate tasks / port conflicts
+        svc = self._services.get(name)
+        if svc and self._status.get(name) == "running":
+            with contextlib.suppress(Exception):
+                await svc.stop()
+        success = await self._start_service(name)
+        if success:
+            # Reset restart count on successful restart
+            self._restart_counts[name] = 0
 
     @property
     def health_aggregator(self) -> HealthAggregator:

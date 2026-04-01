@@ -23,7 +23,7 @@ import json
 import logging
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.utils import generate_id, utc_now
@@ -141,12 +141,16 @@ class PairedUser:
         paired_at = data.get("paired_at")
         if isinstance(paired_at, str):
             paired_at = datetime.fromisoformat(paired_at)
+            if paired_at.tzinfo is None:
+                paired_at = paired_at.replace(tzinfo=UTC)
         elif paired_at is None:
             paired_at = utc_now()
 
         last_msg = data.get("last_message_at")
         if isinstance(last_msg, str):
             last_msg = datetime.fromisoformat(last_msg)
+            if last_msg.tzinfo is None:
+                last_msg = last_msg.replace(tzinfo=UTC)
 
         return cls(
             user_id=data.get("user_id", generate_id()),

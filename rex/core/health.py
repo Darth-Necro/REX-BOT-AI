@@ -22,11 +22,17 @@ class HealthAggregator:
         return dict(self._health)
 
     def is_system_healthy(self) -> bool:
-        """Return True if all critical services report healthy status."""
+        """Return True if all reported critical services are healthy.
+
+        Services that have not yet submitted a health report are skipped
+        to avoid false negatives during startup.
+        """
         critical = {ServiceName.EYES, ServiceName.BRAIN, ServiceName.TEETH, ServiceName.MEMORY}
-        for svc in critical:
-            health = self._health.get(svc, {})
-            if not health.get("healthy", False):
+        reported = [svc for svc in critical if svc in self._health]
+        if not reported:
+            return True  # No critical services have reported yet
+        for svc in reported:
+            if not self._health[svc].get("healthy", False):
                 return False
         return True
 

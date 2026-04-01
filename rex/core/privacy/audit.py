@@ -680,13 +680,19 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
-        local_hosts = (
+        from urllib.parse import urlparse
+
+        local_hosts = {
             "localhost",
             "127.0.0.1",
             "::1",
             "0.0.0.0",
-        )
-        return any(host in url for host in local_hosts)
+        }
+        try:
+            hostname = urlparse(url).hostname or ""
+        except Exception:
+            hostname = ""
+        return hostname in local_hosts
 
     @staticmethod
     def _is_local_ip(ip: str) -> bool:

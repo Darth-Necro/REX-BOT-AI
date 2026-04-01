@@ -253,7 +253,7 @@ class KnowledgeBase:
             })
 
             sections[_SECTION_THREAT_LOG] = rows
-            self._flush_sections(sections)
+            await self._flush_sections(sections)
 
     async def update_device(self, device: Device) -> None:
         """Add or update a device in the KNOWN DEVICES table.
@@ -299,7 +299,7 @@ class KnowledgeBase:
                 rows.append(row_data)
 
             sections[_SECTION_KNOWN_DEVICES] = rows
-            self._flush_sections(sections)
+            await self._flush_sections(sections)
 
     async def add_observation(self, text: str) -> None:
         """Append a timestamped observation to the REX OBSERVATIONS section.
@@ -328,7 +328,7 @@ class KnowledgeBase:
             new_content = f"{cleaned}\n{line}\n" if cleaned else f"{line}\n"
 
             sections[_SECTION_REX_OBSERVATIONS] = new_content
-            self._flush_sections(sections)
+            await self._flush_sections(sections)
 
     async def add_changelog_entry(self, change: str, source: str = "REX-AUTO") -> None:
         """Append a row to the CHANGELOG table.
@@ -355,7 +355,7 @@ class KnowledgeBase:
             })
 
             sections[_SECTION_CHANGELOG] = rows
-            self._flush_sections(sections)
+            await self._flush_sections(sections)
 
     # ------------------------------------------------------------------
     # LLM context builder
@@ -693,10 +693,8 @@ class KnowledgeBase:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _flush_sections(self, sections: dict[str, Any]) -> None:
-        """Render and write sections to disk with file locking.
-
-        Must be called while ``self._lock`` is held.
+    def _flush_sections_sync(self, sections: dict[str, Any]) -> None:
+        """Render and write sections to disk with file locking (sync I/O).
 
         Parameters
         ----------
@@ -713,3 +711,15 @@ class KnowledgeBase:
             finally:
                 if fcntl is not None:
                     fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+    async def _flush_sections(self, sections: dict[str, Any]) -> None:
+        """Render and write sections to disk without blocking the event loop.
+
+        Must be called while ``self._lock`` is held.
+
+        Parameters
+        ----------
+        sections:
+            The full parsed sections dict to render and persist.
+        """
+        await asyncio.to_thread(self._flush_sections_sync, sections)

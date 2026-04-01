@@ -29,6 +29,7 @@ import useUiStore from '../stores/useUiStore';
  */
 export default function useSafeMutation(action, messages = {}, callbacks = {}) {
   const [isPending, setIsPending] = useState(false);
+  const inflightRef = useRef(false);
   const toastIdRef = useRef(null);
 
   const pushToast = useUiStore((s) => s.pushToast);
@@ -37,7 +38,9 @@ export default function useSafeMutation(action, messages = {}, callbacks = {}) {
 
   const mutate = useCallback(
     async (...args) => {
-      if (isPending) return undefined;
+      // Synchronous ref guard prevents double-fire from rapid clicks
+      if (inflightRef.current) return undefined;
+      inflightRef.current = true;
       setIsPending(true);
 
       // Show pending toast
@@ -62,6 +65,7 @@ export default function useSafeMutation(action, messages = {}, callbacks = {}) {
         }
 
         toastIdRef.current = null;
+        inflightRef.current = false;
         setIsPending(false);
         callbacks.onSuccess?.(result);
         return result;
@@ -82,12 +86,13 @@ export default function useSafeMutation(action, messages = {}, callbacks = {}) {
         }
 
         toastIdRef.current = null;
+        inflightRef.current = false;
         setIsPending(false);
         callbacks.onError?.(err);
         return undefined;
       }
     },
-    [action, messages, callbacks, isPending, pushToast, replaceToast, dismissToast]
+    [action, messages, callbacks, pushToast, replaceToast, dismissToast]
   );
 
   return { mutate, isPending };

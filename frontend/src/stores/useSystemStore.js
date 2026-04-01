@@ -120,8 +120,12 @@ const useSystemStore = create((set, get) => ({
     // Drop the update if it carries a timestamp older than what we already have
     if (incomingTs && currentTs && incomingTs < currentTs) return;
 
+    // Only spread known status fields to avoid overwriting store internals
+    const { status, powerState, llmStatus, deviceCount, activeThreats,
+            threatsBlocked24h, uptimeSeconds, version } = data;
     set({
-      ...data,
+      status, powerState, llmStatus, deviceCount, activeThreats,
+      threatsBlocked24h, uptimeSeconds, version,
       threatPosture: posture,
       _lastStatusTimestamp: incomingTs || currentTs,
     });

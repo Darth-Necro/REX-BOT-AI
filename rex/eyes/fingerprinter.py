@@ -222,12 +222,11 @@ class DeviceFingerprinter:
             await self._ensure_oui_db()
 
         try:
-            conn = sqlite3.connect(str(self.OUI_CACHE_PATH))
-            cursor = conn.execute(
-                "SELECT vendor FROM oui WHERE prefix = ?", (oui_prefix,)
-            )
-            row = cursor.fetchone()
-            conn.close()
+            with sqlite3.connect(str(self.OUI_CACHE_PATH)) as conn:
+                cursor = conn.execute(
+                    "SELECT vendor FROM oui WHERE prefix = ?", (oui_prefix,)
+                )
+                row = cursor.fetchone()
             if row:
                 return row[0]
         except sqlite3.Error as exc:

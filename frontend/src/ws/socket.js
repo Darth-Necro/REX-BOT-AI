@@ -19,6 +19,7 @@ let intentionalClose = false;
 
 const MAX_DELAY = 30000;
 const BASE_DELAY = 1000;
+/** @type {Map<string, Set<Function>>} */
 const handlers = new Map();
 
 /* ---------- connection state constants ---------- */
@@ -77,13 +78,13 @@ export function connect(token, url) {
       const data = JSON.parse(event.data);
       const type = data.type || 'unknown';
 
-      // Specific handler
-      const handler = handlers.get(type);
-      if (handler) handler(data);
+      // Specific handlers
+      const typeHandlers = handlers.get(type);
+      if (typeHandlers) typeHandlers.forEach((h) => h(data));
 
-      // Wildcard
-      const wildcard = handlers.get('*');
-      if (wildcard) wildcard(data);
+      // Wildcard handlers
+      const wildcardHandlers = handlers.get('*');
+      if (wildcardHandlers) wildcardHandlers.forEach((h) => h(data));
     } catch (e) {
       console.error('[WS] parse error:', e);
     }
@@ -141,24 +142,36 @@ export function send(data) {
 
 /**
  * Register an event handler.
+ * Multiple handlers per event type are supported.
  * @param {string}   type     Event type or '__open' / '__close' / '__state' / '*'.
  * @param {Function} handler  Callback.
  */
 export function on(type, handler) {
-  handlers.set(type, handler);
+  if (!handlers.has(type)) handlers.set(type, new Set());
+  handlers.get(type).add(handler);
 }
 
 /**
- * Unregister an event handler.
- * @param {string} type
+ * Unregister a specific handler for an event type.
+ * If handler is omitted, all handlers for that type are removed.
+ * @param {string}    type
+ * @param {Function}  [handler]
  */
-export function off(type) {
-  handlers.delete(type);
+export function off(type, handler) {
+  if (!handler) {
+    handlers.delete(type);
+  } else {
+    const set = handlers.get(type);
+    if (set) {
+      set.delete(handler);
+      if (set.size === 0) handlers.delete(type);
+    }
+  }
 }
 
 /* ---------- internal ---------- */
 
 function emit(type, data) {
-  const handler = handlers.get(type);
-  if (handler) handler(data);
+  const set = handlers.get(type);
+  if (set) set.forEach((h) => h(data));
 }

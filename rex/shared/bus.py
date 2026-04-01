@@ -34,9 +34,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Type alias for the user-supplied message handler
-MessageHandler = Callable[[str, str, dict[str, Any]], Coroutine[Any, Any, None]]
-"""Signature: async handler(stream_name, message_id, fields) -> None"""
+# Type alias for the user-supplied message handler.
+# Handlers receive a fully parsed RexEvent (see subscribe / _consume_loop).
+MessageHandler = Callable[["RexEvent"], Coroutine[Any, Any, None]]
+"""Signature: async handler(event: RexEvent) -> None"""
 
 
 class EventBus:
@@ -67,6 +68,7 @@ class EventBus:
         self._wal_db: aiosqlite.Connection | None = None
         self._consumer_name = f"rex:{service_name}:consumer:{int(time.time())}"
         self._drain_lock = asyncio.Lock()
+        self._drain_task: asyncio.Task[None] | None = None
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -110,6 +112,11 @@ class EventBus:
     async def disconnect(self) -> None:
         """Gracefully close Redis and WAL connections."""
         self._running = False
+        if self._drain_task is not None and not self._drain_task.done():
+            self._drain_task.cancel()
+            with contextlib.suppress(Exception):
+                await self._drain_task
+            self._drain_task = None
         if self._redis is not None:
             with contextlib.suppress(Exception):
                 await self._redis.aclose()
@@ -352,9 +359,12 @@ class EventBus:
         if self._redis is None or self._wal_db is None:
             return
 
-        if not self._drain_lock.locked():
-            async with self._drain_lock:
-                await self._drain_wal_inner()
+        # Use non-blocking acquire to skip if another drain is in progress,
+        # avoiding the TOCTOU race of check-then-lock.
+        if self._drain_lock.locked():
+            return
+        async with self._drain_lock:
+            await self._drain_wal_inner()
 
     async def _drain_wal_inner(self) -> None:
         """Inner drain loop (must be called under ``_drain_lock``)."""
