@@ -7,18 +7,26 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
-from rex.dashboard.deps import get_current_user
+from rex.dashboard.deps import get_current_user, get_interview_service
 
 router = APIRouter(prefix="/api/interview", tags=["interview"])
 
 
 @router.get("/status")
 async def get_status() -> dict[str, Any]:
-    """Return interview status by checking config state. No auth needed."""
+    """Return interview status. No auth needed."""
+    # Try the live service first
+    svc = get_interview_service()
+    if svc is not None:
+        try:
+            return await svc.get_status()
+        except Exception:
+            pass
+
+    # Fallback: check config state from disk
     from rex.shared.config import get_config
 
     config = get_config()
-    # Check if interview data file exists
     interview_file = config.data_dir / "interview_state.json"
     if interview_file.exists():
         import json
@@ -46,6 +54,16 @@ async def get_status() -> dict[str, Any]:
 @router.get("/question")
 async def get_current_question() -> dict[str, Any]:
     """Return the current question to display."""
+    svc = get_interview_service()
+    if svc is not None:
+        try:
+            question = await svc.get_current_question()
+            if question is None:
+                return {"question": None, "complete": True}
+            return {"question": question, "complete": False}
+        except Exception:
+            pass
+
     return {
         "question": None,
         "complete": False,
@@ -58,6 +76,16 @@ async def submit_answer(
     question_id: str = Body(...), answer: Any = Body(...)
 ) -> dict[str, Any]:
     """Submit an answer. Interview service must be running to process."""
+    svc = get_interview_service()
+    if svc is not None:
+        try:
+            return await svc.submit_answer(question_id, answer)
+        except Exception as e:
+            return {
+                "accepted": False,
+                "error": str(e),
+            }
+
     return {
         "accepted": False,
         "next_question": None,
@@ -100,6 +128,14 @@ async def chat(
 @router.post("/restart")
 async def restart(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Restart the interview from the beginning."""
+    svc = get_interview_service()
+    if svc is not None:
+        try:
+            await svc.restart()
+            return {"status": "restarted"}
+        except Exception as e:
+            return {"status": "error", "detail": str(e)}
+
     return {
         "status": "not_available",
         "note": "Interview service not connected",

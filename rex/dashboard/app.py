@@ -19,15 +19,18 @@ from starlette.responses import JSONResponse
 
 from rex.dashboard import deps
 from rex.dashboard.routers import (
+    agent,
     auth,
     config,
     devices,
+    federation,
     firewall,
     health,
     interview,
     knowledge_base,
     notifications,
     plugins,
+    privacy,
     schedule,
     threats,
 )
@@ -113,12 +116,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from rex.shared.bus import EventBus
         from rex.shared.enums import ServiceName
 
-        bus = EventBus(redis_url=config.redis_url, service_name=ServiceName.DASHBOARD)
+        bus = EventBus(redis_url=config.redis_url, service_name=ServiceName.DASHBOARD, data_dir=config.data_dir)
         await bus.connect()
         deps.set_bus(bus)
         logger.info("Event bus connected")
     except Exception:
         logger.warning("Event bus not available — dashboard running without real-time events")
+
+    # Initialize interview service (non-fatal if dependencies unavailable)
+    try:
+        from rex.interview.service import InterviewService
+
+        interview_bus_instance = deps._bus_instance
+        interview_svc = InterviewService(config=config, bus=interview_bus_instance)
+        await interview_svc.start()
+        deps.set_interview_service(interview_svc)
+        logger.info("Interview service connected to dashboard")
+    except Exception:
+        logger.warning("Interview service not available in dashboard context")
 
     logger.info("Dashboard initialized (port %d)", config.dashboard_port)
 
@@ -187,6 +202,9 @@ def create_app() -> FastAPI:
     app.include_router(firewall.router)
     app.include_router(notifications.router)
     app.include_router(schedule.router)
+    app.include_router(privacy.router)
+    app.include_router(agent.router)
+    app.include_router(federation.router)
 
     # Static frontend files (served if the build exists)
     import os

@@ -49,11 +49,26 @@ class ScanScheduler:
 
     async def run_scan_now(self, scan_type: str = "quick") -> dict[str, Any]:
         """Trigger an immediate scan (publishes event to bus)."""
+        status = "triggered"
+        if self._bus:
+            try:
+                from rex.shared.enums import ServiceName
+                from rex.shared.events import RexEvent
+
+                await self._bus.publish("rex:core:commands", RexEvent(
+                    source=ServiceName.SCHEDULER,
+                    event_type="command",
+                    payload={"command": "scan_now", "scan_type": scan_type, "triggered_by": "manual"},
+                ))
+            except Exception:
+                logger.warning("Failed to publish scan_now event to bus")
+                status = "trigger_failed"
+
         result = {
             "scan_id": generate_id()[:8],
             "scan_type": scan_type,
             "started_at": utc_now().isoformat(),
-            "status": "triggered",
+            "status": status,
         }
         self._history.append(result)
         logger.info("Immediate %s scan triggered", scan_type)
@@ -77,16 +92,18 @@ class ScanScheduler:
             spec["last_run"] = utc_now().isoformat()
             spec["run_count"] += 1
 
-            # Actually trigger the scan via event bus
+            # Trigger the scan via event bus using the standard command format
+            # that EyesService._consume_loop expects.
             status = "scheduled"
             if self._bus:
                 try:
-                    from rex.shared.events import ScanTriggeredEvent
                     from rex.shared.enums import ServiceName
-                    await self._bus.publish("rex:core:commands", ScanTriggeredEvent(
+                    from rex.shared.events import RexEvent
+
+                    await self._bus.publish("rex:core:commands", RexEvent(
                         source=ServiceName.SCHEDULER,
-                        event_type="scan_now",
-                        payload={"scan_type": spec["scan_type"], "triggered_by": "scheduler"},
+                        event_type="command",
+                        payload={"command": "scan_now", "scan_type": spec["scan_type"], "triggered_by": "scheduler"},
                     ))
                     status = "triggered"
                 except Exception:

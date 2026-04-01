@@ -88,8 +88,21 @@ class SecretsManager:
         # Fernet requires URL-safe base64 encoding of exactly 32 bytes
         return base64.urlsafe_b64encode(raw_key)
 
+    def _is_docker(self) -> bool:
+        """Detect whether we are running inside a Docker container."""
+        return (
+            Path("/.dockerenv").exists()
+            or os.environ.get("REX_DOCKER", "").lower() in ("true", "1")
+        )
+
     def _get_machine_id(self) -> str:
         """Read the unique machine identifier.
+
+        In Docker containers, ``/etc/machine-id`` and MAC addresses
+        change between container recreations, which would corrupt
+        encrypted secrets.  When running in Docker, we prefer a
+        mounted secret file or the ``REX_SECRET_KEY`` environment
+        variable as stable identity material.
 
         Reads ``/etc/machine-id`` on Linux/BSD.  Falls back to
         :func:`platform.node` (hostname) on systems where the file
@@ -100,6 +113,39 @@ class SecretsManager:
         str
             A stable string identifying this machine.
         """
+        # Docker-aware: prefer stable mounted secret or env var
+        if self._is_docker():
+            env_key = os.environ.get("REX_SECRET_KEY", "")
+            if env_key:
+                return env_key
+
+            # Check for a mounted secret file (e.g., Docker secret or bind mount)
+            secret_path = self._data_dir / ".rex_machine_key"
+            try:
+                content = secret_path.read_text(encoding="utf-8").strip()
+                if content:
+                    return content
+            except OSError:
+                pass
+
+            # Generate and persist a stable key for this installation
+            import secrets
+
+            new_key = secrets.token_hex(32)
+            try:
+                secret_path.parent.mkdir(parents=True, exist_ok=True)
+                secret_path.write_text(new_key, encoding="utf-8")
+                logger.info(
+                    "Docker detected: generated stable machine key at %s",
+                    secret_path,
+                )
+                return new_key
+            except OSError:
+                logger.warning(
+                    "Docker detected but could not persist machine key; "
+                    "falling back to hostname"
+                )
+
         machine_id_path = Path("/etc/machine-id")
         try:
             content = machine_id_path.read_text(encoding="utf-8").strip()

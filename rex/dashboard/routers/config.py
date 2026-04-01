@@ -121,7 +121,29 @@ async def set_mode(
     from rex.shared.config import get_config as _get_config
 
     config = _get_config()
+    old_mode = config.mode
     config.mode = OperatingMode(mode)
+
+    # Publish mode change event so all services can react
+    try:
+        from rex.dashboard.deps import get_bus
+        from rex.shared.constants import STREAM_CORE_COMMANDS
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import ModeChangeEvent
+
+        bus = await get_bus()
+        await bus.publish(
+            STREAM_CORE_COMMANDS,
+            ModeChangeEvent(
+                source=ServiceName.DASHBOARD,
+                payload={
+                    "old_mode": old_mode.value,
+                    "new_mode": mode,
+                },
+            ),
+        )
+    except Exception:
+        logger.warning("Failed to publish mode change event (bus unavailable)")
 
     return {"status": "updated", "mode": config.mode.value}
 

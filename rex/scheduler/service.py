@@ -55,14 +55,50 @@ class SchedulerService(BaseService):
         logger.info("SchedulerService stopped")
 
     async def _consume_loop(self) -> None:
-        """Listen for schedule commands."""
+        """Listen for schedule commands from dashboard and other services.
+
+        Handles both legacy event_type-based routing and the standard
+        ``event_type="command"`` + ``payload.command`` pattern used by
+        dashboard routers.
+        """
         async def handler(event: RexEvent) -> None:
-            if event.event_type == "schedule_sleep":
+            et = event.event_type
+            payload = event.payload
+
+            # Standard command dispatch (matches dashboard router format)
+            if et == "command":
+                command = payload.get("command", "")
+                if command == "set_power_state":
+                    state_str = payload.get("state", "")
+                    state_map = {
+                        "alert_sleep": PowerState.ALERT_SLEEP,
+                        "deep_sleep": PowerState.DEEP_SLEEP,
+                        "awake": PowerState.AWAKE,
+                        "off": PowerState.OFF,
+                    }
+                    target = state_map.get(state_str)
+                    if target:
+                        await self._power.transition(target, bus=self.bus)
+                    else:
+                        logger.warning("Unknown power state: %s", state_str)
+                elif command == "scan_now":
+                    scan_type = payload.get("scan_type", "quick")
+                    await self._scans.run_scan_now(scan_type)
+                return
+
+            # Legacy event_type routing (kept for backward compatibility)
+            if et == "schedule_sleep":
                 await self._power.transition(PowerState.ALERT_SLEEP, bus=self.bus)
-            elif event.event_type == "schedule_wake":
+            elif et == "schedule_wake":
                 await self._power.transition(PowerState.AWAKE, bus=self.bus)
-            elif event.event_type == "scan_now":
-                await self._scans.run_scan_now(event.payload.get("scan_type", "quick"))
+            elif et == "scan_now":
+                await self._scans.run_scan_now(payload.get("scan_type", "quick"))
+            elif et == "mode_change":
+                logger.info(
+                    "Mode changed: %s -> %s",
+                    payload.get("old_mode", "?"),
+                    payload.get("new_mode", "?"),
+                )
 
         await self.bus.subscribe([STREAM_CORE_COMMANDS], handler)
 

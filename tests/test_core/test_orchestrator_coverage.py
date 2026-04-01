@@ -186,6 +186,7 @@ class TestInitialize:
         mock_bus_cls.assert_called_once_with(
             redis_url=mock_config.redis_url,
             service_name=ServiceName.CORE,
+            data_dir=mock_config.data_dir,
         )
         mock_create.assert_called_once()
 
@@ -610,8 +611,8 @@ class TestRunMethod:
         ):
             await orch.run()
 
-        # create_task should have been called (for health monitor)
-        mock_ct.assert_called_once()
+        # create_task should have been called (for power consumer + health monitor)
+        assert mock_ct.call_count == 2
         assert orch._health_task is mock_task
 
 

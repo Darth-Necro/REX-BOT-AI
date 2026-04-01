@@ -75,6 +75,7 @@ class ServiceOrchestrator:
         self._bus = EventBus(
             redis_url=self._config.redis_url,
             service_name=ServiceName.CORE,
+            data_dir=self._config.data_dir,
         )
 
         # Import and create all services
@@ -117,6 +118,7 @@ class ServiceOrchestrator:
                 svc_bus = EventBus(
                     redis_url=config.redis_url,
                     service_name=svc_name,
+                    data_dir=config.data_dir,
                 )
                 instance = cls(config=config, bus=svc_bus)
                 self.register(instance)
@@ -173,6 +175,9 @@ class ServiceOrchestrator:
 
         if self._health_task:
             self._health_task.cancel()
+        power_task = getattr(self, "_power_task", None)
+        if power_task:
+            power_task.cancel()
 
         for name in reversed(_START_ORDER):
             if name in self._services and self._status.get(name) == "running":
@@ -206,12 +211,79 @@ class ServiceOrchestrator:
             logger.info("Restarted %s", name.value)
         return success
 
+    async def _power_event_consumer(self) -> None:
+        """Subscribe to power_state_change events and suspend/resume services."""
+        if not self._bus:
+            return
+        try:
+            await self._bus.connect()
+        except Exception:
+            logger.warning("Power event consumer: bus connection failed")
+            return
+
+        from rex.shared.constants import STREAM_CORE_COMMANDS
+        from rex.shared.events import RexEvent
+
+        async def handler(event: RexEvent) -> None:
+            if event.event_type != "power_state_change":
+                return
+            new_state = event.payload.get("new_state", "")
+            old_state = event.payload.get("old_state", "")
+            logger.info("Power state change: %s -> %s", old_state, new_state)
+
+            # Determine which services to suspend/resume
+            from rex.shared.enums import PowerState as PS
+
+            suspend_map = {
+                PS.ALERT_SLEEP.value: {
+                    ServiceName.STORE, ServiceName.FEDERATION, ServiceName.INTERVIEW,
+                },
+                PS.DEEP_SLEEP.value: {
+                    ServiceName.STORE, ServiceName.FEDERATION, ServiceName.INTERVIEW,
+                    ServiceName.BARK, ServiceName.BRAIN, ServiceName.TEETH,
+                    ServiceName.SCHEDULER,
+                },
+            }
+
+            to_suspend = suspend_map.get(new_state, set())
+
+            if new_state in (PS.AWAKE.value,):
+                # Resume all previously suspended services
+                for name in _START_ORDER:
+                    if name in self._services and self._status.get(name) == "suspended":
+                        logger.info("Resuming service %s", name.value)
+                        if await self._start_service(name):
+                            self._restart_counts[name] = 0
+            elif to_suspend:
+                # Suspend non-essential services
+                for name in to_suspend:
+                    if name in self._services and self._status.get(name) == "running":
+                        logger.info("Suspending service %s for %s", name.value, new_state)
+                        with contextlib.suppress(Exception):
+                            await self._services[name].stop()
+                        self._status[name] = "suspended"
+
+        try:
+            await self._bus.subscribe([STREAM_CORE_COMMANDS], handler)
+        except Exception:
+            logger.warning("Power event consumer: subscription failed")
+
     async def run(self) -> None:
         """Main run loop. Blocks until shutdown signal received."""
         await self.start_all()
         self._running = True
 
-        # Start health monitor
+        # Write PID file for CLI `rex stop` command
+        _pid_path = "/tmp/rex-bot-ai.pid"  # noqa: S108
+        try:
+            import os
+            with open(_pid_path, "w") as f:
+                f.write(str(os.getpid()))
+        except OSError:
+            logger.warning("Could not write PID file")
+
+        # Start power event consumer and health monitor
+        self._power_task = asyncio.create_task(self._power_event_consumer())
         self._health_task = asyncio.create_task(self._health_monitor())
 
         # Wait for shutdown signal
@@ -229,6 +301,11 @@ class ServiceOrchestrator:
         logger.info("REX-BOT-AI is running. Press Ctrl+C to stop.")
         await stop_event.wait()
         await self.stop_all()
+
+        # Clean up PID file
+        with contextlib.suppress(OSError):
+            import os
+            os.unlink(_pid_path)
 
     async def _health_monitor(self) -> None:
         """Periodically check service health and auto-restart crashed services."""
