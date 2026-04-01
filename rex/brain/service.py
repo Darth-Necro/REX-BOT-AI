@@ -84,11 +84,21 @@ class BrainService(BaseService):
             logger.exception("Failed to initialise LLM — degraded mode")
             self._degraded = True
 
+        # Try to wire knowledge base for LLM context
+        kb = None
+        try:
+            from rex.memory.knowledge import KnowledgeBase
+            kb = KnowledgeBase(config=self.config)
+            await kb.initialize()
+        except Exception:
+            logger.warning("Knowledge base not available for LLM context")
+
         # Decision engine
         self._engine = DecisionEngine(
             llm_router=self._llm_router,
             classifier=self._classifier,
             baseline=self._baseline,
+            knowledge_base=kb,
             bus=self.bus,
         )
 

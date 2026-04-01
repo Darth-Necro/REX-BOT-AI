@@ -10,8 +10,13 @@ of this file before making LLM calls.
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import logging
+import sys
+
+if sys.platform != "win32":
+    import fcntl
+else:
+    fcntl = None  # File locking not available on Windows
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -178,12 +183,14 @@ class KnowledgeBase:
         rendered = self._render_full(sections)
 
         with open(self._kb_file, "w", encoding="utf-8") as fh:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
             try:
                 fh.write(rendered)
                 fh.flush()
             finally:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
     # ------------------------------------------------------------------
     # Section access
@@ -674,9 +681,11 @@ class KnowledgeBase:
         """
         rendered = self._render_full(sections)
         with open(self._kb_file, "w", encoding="utf-8") as fh:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
             try:
                 fh.write(rendered)
                 fh.flush()
             finally:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)

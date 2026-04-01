@@ -35,17 +35,23 @@ class TelegramChannel(BaseChannel):
         text = f"*{title}* ({severity.upper()})\n\n{message[:4000]}"
         url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         payload = {"chat_id": self._chat_id, "text": text, "parse_mode": "Markdown"}
+        import asyncio
         try:
-            req = Request(
-                url,
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-            with urlopen(req, timeout=10) as resp:
-                return resp.status == 200
+            result = await asyncio.to_thread(self._send_sync, url, payload)
+            return result
         except Exception:
             logger.exception("Telegram send failed")
             return False
+
+    def _send_sync(self, url: str, payload: dict[str, Any]) -> bool:
+        """Synchronous send - runs in thread pool."""
+        req = Request(
+            url,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urlopen(req, timeout=10) as resp:
+            return resp.status == 200
 
     async def test(self) -> bool:
         return await self.send(

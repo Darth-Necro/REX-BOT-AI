@@ -60,6 +60,9 @@ class RexConfig(BaseSettings):
     dashboard_host: str = "0.0.0.0"
     """Network interface address the dashboard binds to."""
 
+    cors_origins: str = "http://localhost:3000"
+    """Comma-separated list of allowed CORS origins."""
+
     # -- Redis ----------------------------------------------------------------
     redis_url: str = "redis://localhost:6379"
     """Redis connection URI used by the EventBus."""

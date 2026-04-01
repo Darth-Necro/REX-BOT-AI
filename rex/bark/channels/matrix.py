@@ -58,18 +58,24 @@ class MatrixChannel(BaseChannel):
                 f"<br><br>{message}"
             ),
         }
+        import asyncio
         try:
-            req = Request(
-                url,
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-                method="PUT",
-            )
-            with urlopen(req, timeout=10) as resp:
-                return resp.status == 200
+            result = await asyncio.to_thread(self._send_sync, url, payload)
+            return result
         except Exception:
             logger.exception("Matrix send failed")
             return False
+
+    def _send_sync(self, url: str, payload: dict[str, Any]) -> bool:
+        """Synchronous send - runs in thread pool."""
+        req = Request(
+            url,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="PUT",
+        )
+        with urlopen(req, timeout=10) as resp:
+            return resp.status == 200
 
     async def test(self) -> bool:
         return await self.send(

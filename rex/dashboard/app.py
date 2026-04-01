@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +32,8 @@ from rex.dashboard.websocket import WebSocketManager
 from rex.shared.constants import VERSION
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from starlette.requests import Request
     from starlette.responses import Response
 
@@ -120,10 +122,13 @@ def create_app() -> FastAPI:
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # CORS — restrict to same-origin by default
+    # CORS — read allowed origins from config
+    from rex.shared.config import get_config
+    rex_cfg = get_config()
+    origins = [o.strip() for o in rex_cfg.cors_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # TODO: read from config for production
+        allow_origins=origins or ["http://localhost:3000"],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],

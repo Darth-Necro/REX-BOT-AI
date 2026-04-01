@@ -11,7 +11,7 @@ class TestScopeEnforcerInScope:
     def test_network_scan_request(self) -> None:
         """Network scan requests should be in scope."""
         enforcer = ScopeEnforcer()
-        in_scope, msg = enforcer.is_in_scope("scan my network for vulnerabilities")
+        in_scope, _msg = enforcer.is_in_scope("scan my network for vulnerabilities")
         assert in_scope is True
 
     def test_threat_analysis_request(self) -> None:
@@ -86,13 +86,13 @@ class TestScopeEnforcerOutOfScope:
     def test_weather_rejected(self) -> None:
         """Weather requests should be rejected."""
         enforcer = ScopeEnforcer()
-        in_scope, msg = enforcer.is_in_scope("what is the weather forecast for tomorrow")
+        in_scope, _msg = enforcer.is_in_scope("what is the weather forecast for tomorrow")
         assert in_scope is False
 
     def test_stock_trading_rejected(self) -> None:
         """Stock trading requests should be rejected."""
         enforcer = ScopeEnforcer()
-        in_scope, msg = enforcer.is_in_scope("help me invest in cryptocurrency bitcoin")
+        in_scope, _msg = enforcer.is_in_scope("help me invest in cryptocurrency bitcoin")
         assert in_scope is False
 
     def test_movie_recommendation_rejected(self) -> None:

@@ -54,17 +54,23 @@ class DiscordChannel(BaseChannel):
                 },
             }],
         }
+        import asyncio
         try:
-            req = Request(
-                self._webhook_url,
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-            with urlopen(req, timeout=10) as resp:
-                return resp.status in (200, 204)
+            result = await asyncio.to_thread(self._send_sync, payload)
+            return result
         except Exception:
             logger.exception("Discord send failed")
             return False
+
+    def _send_sync(self, payload: dict[str, Any]) -> bool:
+        """Synchronous send - runs in thread pool."""
+        req = Request(
+            self._webhook_url,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urlopen(req, timeout=10) as resp:
+            return resp.status in (200, 204)
 
     async def test(self) -> bool:
         return await self.send(

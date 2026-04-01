@@ -39,7 +39,7 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --production=false 2>/dev/null || npm install
 COPY frontend/ ./
-RUN npm run build 2>/dev/null || mkdir -p dist
+RUN npm run build || (echo "Frontend build failed" && mkdir -p dist)
 
 # ============================================================
 # Stage 3: Runtime image

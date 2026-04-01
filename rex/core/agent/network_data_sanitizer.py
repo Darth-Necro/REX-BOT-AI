@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -51,11 +52,21 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"mark\s+.*\s+as\s+trusted",
         r"disable\s+.*firewall",
         r"unblock\s+all",
-        r"whitelist\s+this",
+        r"(?:whitelist\s+this|to\s+whitelist)",
         r"add\s+to\s+trusted",
         r"remove\s+.*rules?",
         r"stop\s+monitoring",
         r"grant\s+access",
+        r"ignore\s+all\s+instructions",
+        r"override\s+.*instructions",
+        r"discard\s+.*(?:rules|instructions)",
+        r"skip\s+.*(?:rules|instructions)",
+        r"clear\s+.*instructions",
+        r"reset\s+.*context",
+        r"allow\s+all\s+.*(?:traffic|access)",
+        r"open\s+all\s+ports",
+        r"trust\s+this",
+        r"permit\s+.*access",
     ]
 ]
 
@@ -154,6 +165,11 @@ def _sanitize(value: str, max_len: int, field_name: str) -> str:
 
     # Strip control characters
     clean = _CONTROL_CHARS.sub("", value)
+
+    # Normalize Unicode to catch homoglyph attacks
+    clean = unicodedata.normalize("NFKD", clean)
+    # Strip zero-width characters
+    clean = re.sub(r'[\u200b-\u200f\u2060\ufeff]', '', clean)
 
     # Truncate
     if len(clean) > max_len:
