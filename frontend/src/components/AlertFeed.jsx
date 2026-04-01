@@ -1,5 +1,6 @@
 import React from 'react';
 import useThreatStore from '../stores/useThreatStore';
+import useSystemStore from '../stores/useSystemStore';
 
 const severityColors = {
   critical: 'border-rex-threat bg-rex-threat/10',
@@ -25,9 +26,10 @@ export default function AlertFeed() {
   const recent = threats.slice(0, 5);
 
   if (recent.length === 0) {
+    const connected = useSystemStore.getState().connected;
     return (
       <div className="w-full max-w-xl text-center text-rex-muted py-8">
-        All quiet. No recent alerts.
+        {connected ? 'No recent alerts.' : 'Waiting for backend connection...'}
       </div>
     );
   }

@@ -235,7 +235,35 @@ class EventBus:
             for stream_name, messages in results:
                 for msg_id, fields in messages:
                     try:
-                        await handler(stream_name, msg_id, fields)
+                        # Deserialize fields into RexEvent so consumers
+                        # get a typed object, not raw Redis fields.
+                        from rex.shared.events import RexEvent
+                        import json as _json
+
+                        event_data = {}
+                        for k, v in fields.items():
+                            key = k.decode() if isinstance(k, bytes) else k
+                            val = v.decode() if isinstance(v, bytes) else v
+                            # Try to parse JSON payload
+                            if key == "data":
+                                try:
+                                    event_data = _json.loads(val)
+                                except (ValueError, TypeError):
+                                    event_data = {"raw": val}
+                            else:
+                                event_data[key] = val
+
+                        try:
+                            event = RexEvent(**event_data)
+                        except Exception:
+                            # Fallback: wrap raw fields in a minimal event
+                            event = RexEvent(
+                                source="unknown",
+                                event_type="raw",
+                                payload=event_data,
+                            )
+
+                        await handler(event)
                         await self._redis.xack(stream_name, group_name, msg_id)
                     except Exception:
                         logger.exception(

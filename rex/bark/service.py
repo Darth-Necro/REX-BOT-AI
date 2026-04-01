@@ -75,8 +75,7 @@ class BarkService(BaseService):
         # Web push is always available
         self._manager.register_channel(WebPushChannel())
 
-        # Background digest sender
-        self._tasks: list[asyncio.Task[Any]] = []
+        # Background digest sender (append, don't replace BaseService tasks)
         self._tasks.append(asyncio.create_task(self._digest_loop()))
 
         logger.info("BarkService started with %d channels", len(self._manager._channels))

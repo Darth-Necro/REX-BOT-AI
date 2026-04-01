@@ -42,8 +42,7 @@ class SchedulerService(BaseService):
         self._cron.add_job("backup_kb", "rex.memory.service:backup", "0 3 * * *")
         self._cron.add_job("prune_data", "rex.memory.threat_log:archive_old", "0 4 * * *")
 
-        # Background tasks
-        self._tasks: list[asyncio.Task[Any]] = []
+        # Background tasks (append, don't replace BaseService tasks)
         self._tasks.append(asyncio.create_task(self._power_check_loop()))
         self._tasks.append(asyncio.create_task(self._eco_mode_loop()))
 

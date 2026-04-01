@@ -6,6 +6,7 @@ const stateColors = {
   alert_sleep: 'text-rex-warn',
   deep_sleep: 'text-rex-muted',
   off: 'text-rex-muted',
+  unknown: 'text-rex-warn',
 };
 
 const stateMessages = {
@@ -13,6 +14,7 @@ const stateMessages = {
   alert_sleep: 'REX is sleeping with one ear open',
   deep_sleep: 'REX is in deep sleep',
   off: 'REX is off',
+  unknown: 'Connecting to REX backend...',
 };
 
 const stateAnimations = {
@@ -20,6 +22,7 @@ const stateAnimations = {
   alert_sleep: 'animate-pulse-slow',
   deep_sleep: '',
   off: 'opacity-50',
+  unknown: 'animate-pulse',
 };
 
 export default function RexGuardDog() {

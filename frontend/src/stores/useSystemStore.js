@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 
 const useSystemStore = create((set) => ({
-  status: 'operational',
-  powerState: 'awake',
+  // Defaults are HONEST — unknown until backend confirms.
+  // Do NOT default to "operational" or "awake" — that is operator deception.
+  status: 'unknown',
+  powerState: 'unknown',
   mode: 'basic',
   deviceCount: 0,
   activeThreats: 0,
   threatsBlocked24h: 0,
-  llmStatus: 'ready',
+  llmStatus: 'unknown',
   uptimeSeconds: 0,
-  version: '1.0.0',
+  version: '0.1.0-alpha',
   connected: false,
 
   // Auth state

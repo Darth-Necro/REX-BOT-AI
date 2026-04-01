@@ -102,8 +102,8 @@ class BrainService(BaseService):
             bus=self.bus,
         )
 
-        # Background tasks
-        self._tasks: list[asyncio.Task[Any]] = []
+        # Background tasks (APPEND to self._tasks, don't replace — BaseService
+        # already added heartbeat and consume_loop tasks)
         self._tasks.append(asyncio.create_task(self._ollama_health_loop()))
 
         logger.info(

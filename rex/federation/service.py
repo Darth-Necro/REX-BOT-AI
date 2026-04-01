@@ -44,7 +44,7 @@ class FederationService(BaseService):
         else:
             logger.info("Federation disabled (opt-in: set REX_FEDERATION_ENABLED=true)")
 
-        self._tasks: list[asyncio.Task[Any]] = []
+        # Append, don't replace BaseService tasks
         if self._sharing._enabled:
             self._tasks.append(asyncio.create_task(self._peer_discovery_loop()))
             self._tasks.append(asyncio.create_task(self._receive_loop()))

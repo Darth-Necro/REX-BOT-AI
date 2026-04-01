@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import useSystemStore from './stores/useSystemStore';
-import { connect, on, disconnect } from './ws/socket';
+import { connect, on, off, disconnect } from './ws/socket';
+import api from './api/client';
 import BasicView from './views/BasicView';
 import AdvancedView from './views/AdvancedView';
 import LoginView from './views/LoginView';
@@ -50,17 +51,33 @@ export default function App() {
 
   useEffect(() => {
     if (!token) return;
+
+    // Fetch real state from API on mount — do NOT rely solely on WebSocket
+    api.get('/status').then((res) => {
+      updateFromStatus(res.data);
+      setConnected(true);
+    }).catch(() => {
+      // Backend unreachable — state stays "unknown" (honest default)
+      setConnected(false);
+    });
+
+    // WebSocket for real-time updates
     connect();
     on('__open', () => setConnected(true));
     on('__close', () => setConnected(false));
     on('status.update', (data) => updateFromStatus(data.payload || data));
     on('threat.new', (data) => {
-      // Import dynamically to avoid circular deps
       import('./stores/useThreatStore').then(({ default: store }) => {
         store.getState().addThreat(data.payload || data);
       });
     });
-    return () => disconnect();
+    return () => {
+      off('__open');
+      off('__close');
+      off('status.update');
+      off('threat.new');
+      disconnect();
+    };
   }, [token]);
 
   if (!token) {
