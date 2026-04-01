@@ -29,6 +29,17 @@ _MAX_LOGIN_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
+def _reject_null_bytes(password: str) -> None:
+    """Raise ValueError if password contains NUL bytes.
+
+    Some bcrypt versions silently truncate at the first NUL byte, which
+    would allow ``"pass\\x00word"`` to match ``"pass"`` -- a classic
+    truncation-at-null attack.  Reject them explicitly.
+    """
+    if "\x00" in password:
+        raise ValueError("Password must not contain NUL bytes")
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
 
@@ -37,11 +48,13 @@ def hash_password(password: str) -> str:
     Argon2id should be adopted before a production release due to its
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
+    _reject_null_bytes(password)
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
+    _reject_null_bytes(password)
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
