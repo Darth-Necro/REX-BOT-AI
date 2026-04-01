@@ -63,10 +63,12 @@ async def test_subscribe_adds_channels(ws_manager):
     ws = _make_mock_ws()
     await ws_manager.connect(ws)
 
-    await ws_manager.subscribe(ws, ["custom.channel", "another.channel"])
+    # Only valid channels from _DEFAULT_CHANNELS are accepted;
+    # unknown channels are silently ignored.
+    await ws_manager.subscribe(ws, ["threat.new", "custom.channel"])
     subs = ws_manager._connections[ws]
-    assert "custom.channel" in subs
-    assert "another.channel" in subs
+    assert "threat.new" in subs
+    assert "custom.channel" not in subs  # rejected as unknown
     # Default channels should still be present
     for ch in _DEFAULT_CHANNELS:
         assert ch in subs

@@ -55,12 +55,31 @@ class DashboardService(BaseService):
             self._server.should_exit = True
         logger.info("Dashboard stopped")
 
+    # Explicit mapping from backend event_type to frontend WS channel.
+    # The frontend subscribes to dotted channel names; backend events use
+    # snake_case.  This table is the single source of truth for the
+    # translation so that changes are auditable and testable.
+    _EVENT_CHANNEL_MAP: dict[str, str] = {
+        "threat_detected": "threat.new",
+        "device_discovered": "device.new",
+        "device_update": "device.update",
+        "scan_triggered": "scan.complete",
+        "health_heartbeat": "status.update",
+        "decision_made": "status.update",
+        "mode_change": "status.update",
+    }
+
     async def _consume_loop(self) -> None:
         """Subscribe to key event streams and forward to WebSocket clients."""
         from rex.dashboard.app import _ws_manager
 
+        event_map = self._EVENT_CHANNEL_MAP
+
         async def handler(event: Any) -> None:
-            channel = event.event_type.replace("_", ".")
+            channel = event_map.get(event.event_type)
+            if channel is None:
+                logger.debug("Unmapped event type %s — skipping WS broadcast", event.event_type)
+                return
             timestamp = (
                 event.timestamp.isoformat()
                 if hasattr(event.timestamp, "isoformat")

@@ -30,16 +30,15 @@ async def get_config(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     }
 
 
-@router.put("/")
+@router.put("/", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 async def update_config(
     config: dict = Body(...), user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Update REX configuration. Not yet implemented (config is env-driven)."""
     return {
-        "status": "not_available",
+        "status": "not_implemented",
         "note": "Configuration is currently driven by environment variables; "
         "runtime updates not yet implemented",
-        "requested": config,
     }
 
 

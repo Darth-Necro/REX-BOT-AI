@@ -62,12 +62,16 @@ async def test_notification(
     """Send a test notification through the specified channel."""
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.enums import ServiceName
+        from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        await bus.publish(
-            "rex:bark:notifications",
-            {"type": "test", "channel": channel, "message": "REX test notification"},
+        event = RexEvent(
+            source=ServiceName.DASHBOARD,
+            event_type="notification_test",
+            payload={"type": "test", "channel": channel, "message": "REX test notification"},
         )
+        await bus.publish("rex:bark:notifications", event)
         return {"status": "sent", "channel": channel, "delivered_to_bus": True}
     except Exception as e:
         logger.warning("Test notification failed for channel %s: %s", channel, e)

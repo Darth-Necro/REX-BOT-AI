@@ -1,9 +1,9 @@
 """Service orchestrator -- manages the full lifecycle of all REX services.
 
 The orchestrator is the single entry point that ``rex start`` invokes.
-It creates all service instances, wires them to the shared EventBus,
-starts them in dependency order, monitors health via heartbeats,
-auto-restarts crashed services, and tears everything down cleanly.
+It creates all service instances (each with its own EventBus), starts
+them in dependency order, monitors health via heartbeats, auto-restarts
+crashed services, and tears everything down cleanly.
 """
 
 from __future__ import annotations
@@ -80,31 +80,40 @@ class ServiceOrchestrator:
         )
 
     def _create_services(self) -> None:
-        """Instantiate all service classes and register them."""
-        config = self._config
-        bus = self._bus
-        assert config is not None
-        assert bus is not None
+        """Instantiate all service classes with per-service event buses.
 
-        service_classes: list[tuple[str, str]] = [
-            ("rex.memory.service", "MemoryService"),
-            ("rex.eyes.service", "EyesService"),
-            ("rex.scheduler.service", "SchedulerService"),
-            ("rex.interview.service", "InterviewService"),
-            ("rex.brain.service", "BrainService"),
-            ("rex.bark.service", "BarkService"),
-            ("rex.teeth.service", "TeethService"),
-            ("rex.federation.service", "FederationService"),
-            ("rex.store.service", "StoreService"),
-            ("rex.dashboard.service", "DashboardService"),
+        Each service gets its own :class:`EventBus` instance so that:
+        1. Consumer groups are scoped per-service (``rex:<svc>:group``),
+           preventing services from stealing each other's messages.
+        2. Stopping or restarting one service disconnects only its own bus,
+           leaving every other service unaffected.
+        """
+        config = self._config
+        assert config is not None
+
+        service_classes: list[tuple[str, str, ServiceName]] = [
+            ("rex.memory.service", "MemoryService", ServiceName.MEMORY),
+            ("rex.eyes.service", "EyesService", ServiceName.EYES),
+            ("rex.scheduler.service", "SchedulerService", ServiceName.SCHEDULER),
+            ("rex.interview.service", "InterviewService", ServiceName.INTERVIEW),
+            ("rex.brain.service", "BrainService", ServiceName.BRAIN),
+            ("rex.bark.service", "BarkService", ServiceName.BARK),
+            ("rex.teeth.service", "TeethService", ServiceName.TEETH),
+            ("rex.federation.service", "FederationService", ServiceName.FEDERATION),
+            ("rex.store.service", "StoreService", ServiceName.STORE),
+            ("rex.dashboard.service", "DashboardService", ServiceName.DASHBOARD),
         ]
 
-        for module_path, class_name in service_classes:
+        for module_path, class_name, svc_name in service_classes:
             try:
                 import importlib
                 module = importlib.import_module(module_path)
                 cls = getattr(module, class_name)
-                instance = cls(config=config, bus=bus)
+                svc_bus = EventBus(
+                    redis_url=config.redis_url,
+                    service_name=svc_name,
+                )
+                instance = cls(config=config, bus=svc_bus)
                 self.register(instance)
             except Exception:
                 logger.exception("Failed to create %s", class_name)
