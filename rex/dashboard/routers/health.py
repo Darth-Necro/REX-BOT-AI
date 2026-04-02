@@ -183,7 +183,30 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
 
 @router.get("/health")
 async def health_check() -> dict[str, str]:
-    """Simple health check endpoint for load balancers and monitoring."""
+    """Simple health check for load balancers and monitoring.
+
+    Returns ``{"status": "ok"}`` only when Redis (the critical event
+    bus) is reachable.  Returns 503 otherwise so load balancers don't
+    route traffic to an inoperable instance.
+    """
+    from rex.shared.config import get_config
+
+    config = get_config()
+    try:
+        import redis as redis_lib
+
+        r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
+        try:
+            r.ping()
+        finally:
+            r.close()
+    except Exception:
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(  # type: ignore[return-value]
+            {"status": "degraded", "reason": "event bus unreachable"},
+            status_code=503,
+        )
     return {"status": "ok"}
 
 

@@ -41,6 +41,7 @@ _START_ORDER = [
 
 _MAX_RESTART_ATTEMPTS = 3
 _HEALTH_CHECK_INTERVAL = 30  # seconds
+_RESTART_WINDOW_SECONDS = 300  # restart budget resets after 5 minutes of stability
 
 
 class ServiceOrchestrator:
@@ -57,6 +58,7 @@ class ServiceOrchestrator:
         self._services: dict[ServiceName, BaseService] = {}
         self._status: dict[ServiceName, str] = {}
         self._restart_counts: dict[ServiceName, int] = {}
+        self._restart_timestamps: dict[ServiceName, list[float]] = {}
         self._start_time: float = 0
         self._running = False
         self._config: RexConfig | None = None
@@ -271,20 +273,33 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service."""
-        count = self._restart_counts.get(name, 0)
-        if count >= _MAX_RESTART_ATTEMPTS:
+        """Attempt to auto-restart a failed service with anti-flapping.
+
+        Uses a sliding window: only restarts within the last
+        ``_RESTART_WINDOW_SECONDS`` count toward the budget.  Once
+        ``_MAX_RESTART_ATTEMPTS`` are exhausted within the window the
+        service is disabled until the next window expires.
+        """
+        now = time.monotonic()
+        timestamps = self._restart_timestamps.get(name, [])
+        # Prune restarts outside the sliding window
+        timestamps = [t for t in timestamps if now - t < _RESTART_WINDOW_SECONDS]
+        self._restart_timestamps[name] = timestamps
+
+        if len(timestamps) >= _MAX_RESTART_ATTEMPTS:
             self._status[name] = "disabled"
             logger.error(
-                "Service %s exceeded max restarts (%d) — disabled",
-                name.value, _MAX_RESTART_ATTEMPTS,
+                "Service %s exceeded max restarts (%d in %ds window) — disabled",
+                name.value, _MAX_RESTART_ATTEMPTS, _RESTART_WINDOW_SECONDS,
             )
             return
 
-        self._restart_counts[name] = count + 1
+        timestamps.append(now)
+        count = len(timestamps)
+        self._restart_counts[name] = count
         logger.info(
-            "Auto-restarting %s (attempt %d/%d)",
-            name.value, count + 1, _MAX_RESTART_ATTEMPTS,
+            "Auto-restarting %s (attempt %d/%d in %ds window)",
+            name.value, count, _MAX_RESTART_ATTEMPTS, _RESTART_WINDOW_SECONDS,
         )
         # Stop the service first to avoid duplicate tasks / port conflicts
         svc = self._services.get(name)

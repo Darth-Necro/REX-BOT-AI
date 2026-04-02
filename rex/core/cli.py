@@ -28,6 +28,23 @@ if _DEV_INSECURE:
 
 from rex.shared.constants import VERSION
 
+
+def _redact_url(url: str) -> str:
+    """Redact password from a URL for safe display (e.g. redis://:***@host)."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.password:
+            # Replace password with '***', preserve username if present
+            netloc = f"{parsed.username or ''}:***@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(parsed._replace(netloc=netloc))
+    except Exception:
+        pass
+    return url
+
 app = typer.Typer(
     name="rex",
     help="REX-BOT-AI -- Open-source autonomous AI security agent.",
@@ -65,7 +82,7 @@ def start(
     config = get_config()
     typer.echo(f"  Mode:   {config.mode.value}")
     typer.echo(f"  Data:   {config.data_dir}")
-    typer.echo(f"  Redis:  {config.redis_url}")
+    typer.echo(f"  Redis:  {_redact_url(config.redis_url)}")
     typer.echo(f"  Ollama: {config.ollama_url}")
     typer.echo("")
 

@@ -442,7 +442,7 @@ class TestRestartService:
 # ------------------------------------------------------------------
 
 class TestAutoRestart:
-    """Test auto-restart with exponential back-off."""
+    """Test auto-restart with sliding-window anti-flapping."""
 
     @pytest.mark.asyncio
     async def test_auto_restart_increments_count(self) -> None:
@@ -458,10 +458,13 @@ class TestAutoRestart:
     @pytest.mark.asyncio
     async def test_auto_restart_second_attempt(self) -> None:
         """Second auto-restart should set count to 2."""
+        import time as _time
+
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
-        orch._restart_counts[ServiceName.STORE] = 1
+        # Simulate one recent restart in the sliding window
+        orch._restart_timestamps[ServiceName.STORE] = [_time.monotonic() - 1]
 
         await orch._auto_restart(ServiceName.STORE)
 
@@ -469,11 +472,14 @@ class TestAutoRestart:
 
     @pytest.mark.asyncio
     async def test_auto_restart_disables_at_max(self) -> None:
-        """After MAX_RESTART_ATTEMPTS, service should be disabled."""
+        """After MAX_RESTART_ATTEMPTS within the window, service should be disabled."""
+        import time as _time
+
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
-        orch._restart_counts[ServiceName.STORE] = _MAX_RESTART_ATTEMPTS
+        now = _time.monotonic()
+        orch._restart_timestamps[ServiceName.STORE] = [now - 10, now - 5, now - 1]
 
         await orch._auto_restart(ServiceName.STORE)
 

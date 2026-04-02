@@ -47,7 +47,7 @@ class WebSocketManager:
 
     Supports channel-based subscriptions so clients only receive events
     they care about (e.g., threat.new, device.update, status.update).
-    Requires a valid JWT token in the ``token`` query parameter.
+    Requires first-message JWT authentication (no token in URL).
     """
 
     def __init__(self) -> None:
@@ -134,6 +134,12 @@ class WebSocketManager:
             return
 
         # --- Authentication gate: first-message auth only ---
+        # Check connection limit BEFORE accepting to avoid resource waste
+        if self.active_count >= MAX_CONNECTIONS:
+            await websocket.close(code=4029, reason="Connection limit reached")
+            logger.warning("WebSocket connection rejected: limit of %d reached", MAX_CONNECTIONS)
+            return
+
         await websocket.accept()
         token: str | None = None
         try:

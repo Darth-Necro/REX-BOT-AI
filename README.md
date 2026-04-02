@@ -51,7 +51,7 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
 | Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test suite | 2,979 tests, 5 xfail (known edge cases), 0 failures |
+| Test suite | 4,000+ tests, 0 failures |
 
 ## Architecture
 
@@ -80,6 +80,9 @@ These are enforced in code, not just policy:
 - **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 - **Scope enforcement**: out-of-scope request patterns override security keyword matches to prevent disguised-request bypass.
 - **CORS safety**: wildcard origins are stripped when `allow_credentials=True`.
+- **WebSocket first-message auth**: JWTs are never sent in URL query parameters to prevent log leakage.
+- **Health fail-closed**: the `/api/health` endpoint returns 503 when the event bus is unreachable.
+- **Plugin permissions**: registered plugins are restricted to declared permissions; unregistered tokens are rejected once any plugin is registered.
 
 ## Development Setup
 

@@ -680,13 +680,12 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
+        import ipaddress as _ipaddress
         from urllib.parse import urlparse
 
         local_hosts = {
             "localhost",
-            "127.0.0.1",
-            "::1",
-            "0.0.0.0",
+            "localhost.",  # FQDN form
         }
         try:
             parsed = urlparse(url)
@@ -694,21 +693,25 @@ class PrivacyAuditor:
         except Exception:
             hostname = ""
 
-        if hostname in local_hosts:
+        if hostname.lower() in local_hosts:
             return True
+
+        # Try parsing as IP address (handles IPv4, IPv6, bracketed forms)
+        if hostname:
+            try:
+                addr = _ipaddress.ip_address(hostname)
+                return addr.is_loopback or addr.is_private or addr.is_link_local
+            except ValueError:
+                pass
 
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
         if not hostname:
             import re
-            # Extract host portion between :// and the next /
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
                 if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
                     for local in ("::1",):
                         if host_port == local or host_port.startswith(local + ":"):
                             return True

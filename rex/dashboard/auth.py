@@ -40,6 +40,21 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prepare_password(password: str) -> bytes:
+    """Prepare a password for bcrypt, handling the 72-byte limit.
+
+    bcrypt silently truncates input at 72 bytes.  To avoid silent
+    collisions for passwords longer than 72 bytes, we SHA-256 hash the
+    password first and encode the digest as hex (always 64 bytes, well
+    within the limit).  Short passwords are passed through directly.
+    """
+    pw_bytes = password.encode("utf-8")
+    if len(pw_bytes) > 72:
+        import hashlib
+        return hashlib.sha256(pw_bytes).hexdigest().encode("ascii")
+    return pw_bytes
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
 
@@ -49,13 +64,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prepare_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prepare_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -124,8 +139,13 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Migrated credentials to SecretsManager; removed plaintext file")
+                    except OSError:
+                        logger.warning("Migrated to SecretsManager but could not remove plaintext file")
                 self._initialized = True
                 return None
             except Exception:
