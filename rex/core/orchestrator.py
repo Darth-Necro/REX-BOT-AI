@@ -204,8 +204,10 @@ class ServiceOrchestrator:
             return False
         svc = self._services[name]
         if self._status.get(name) == "running":
-            with contextlib.suppress(Exception):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before restart", name.value, exc_info=True)
         success = await self._start_service(name)
         if success:
             logger.info("Restarted %s", name.value)
@@ -312,8 +314,10 @@ class ServiceOrchestrator:
         # Stop the service first to avoid duplicate tasks / port conflicts
         svc = self._services.get(name)
         if svc and self._status.get(name) in ("running", "failed"):
-            with contextlib.suppress(Exception):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before auto-restart", name.value, exc_info=True)
         await self._start_service(name)
 
     @property
