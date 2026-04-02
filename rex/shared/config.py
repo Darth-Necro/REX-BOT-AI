@@ -117,13 +117,13 @@ class RexConfig(BaseSettings):
             )
         return v.lower()
 
-    @field_validator("redis_url", "chroma_url")
+    @field_validator("redis_url", "chroma_url", "ollama_url")
     @classmethod
     def validate_local_url(cls, v: str) -> str:
         """Ensure service URLs point to localhost or Docker-internal names only."""
         from urllib.parse import urlparse
         parsed = urlparse(v)
-        allowed = {"127.0.0.1", "localhost", "::1", "redis", "chromadb"}
+        allowed = {"127.0.0.1", "localhost", "::1", "redis", "chromadb", "ollama"}
         if parsed.hostname and parsed.hostname not in allowed:
             raise ValueError(
                 f"URL must point to localhost or Docker service name, got: {parsed.hostname}"

@@ -17,6 +17,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rex.dashboard import deps
 from rex.dashboard.routers import (
@@ -49,32 +50,68 @@ logger = logging.getLogger(__name__)
 _ws_manager = WebSocketManager()
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple sliding-window rate limiter per client IP."""
+# ---------------------------------------------------------------------------
+# Route-specific rate limit tiers
+# ---------------------------------------------------------------------------
+_ROUTE_LIMITS: dict[str, tuple[int, int]] = {
+    "/api/auth/login": (5, 60),
+    "/api/status": (10, 60),
+    "/api/health": (10, 60),
+    "/ws": (5, 60),
+}
+_DEFAULT_RATE_LIMIT = (60, 60)
+_MAX_TRACKED_IPS = 10_000
 
-    def __init__(self, app: FastAPI, max_requests: int = 60, window_seconds: int = 60) -> None:
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP sliding-window rate limiter with route-specific tiers.
+
+    In-memory, per-process.  Not shared across workers.  Provides
+    local abuse resistance but is not a substitute for an external
+    rate-limiter in a multi-worker deployment.
+    """
+
+    def __init__(self, app: FastAPI) -> None:
         super().__init__(app)
-        self.max_requests = max_requests
-        self.window = window_seconds
-        self._requests: dict[str, list[float]] = defaultdict(list)
+        # Per-route, per-IP timestamp lists: {(route_key, ip): [timestamps]}
+        self._requests: dict[tuple[str, str], list[float]] = defaultdict(list)
         self._lock = asyncio.Lock()
+
+    def _get_limit(self, path: str) -> tuple[int, int]:
+        """Return (max_requests, window_seconds) for the given path."""
+        for prefix, limit in _ROUTE_LIMITS.items():
+            if path == prefix or path.startswith(prefix + "/"):
+                return limit
+        return _DEFAULT_RATE_LIMIT
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        max_requests, window = self._get_limit(path)
+
         async with self._lock:
             now = time.time()
-            timestamps = [t for t in self._requests[client_ip] if now - t < self.window]
+            key = (path, client_ip)
+            timestamps = [t for t in self._requests[key] if now - t < window]
+
             if not timestamps:
-                # Clean up stale IP keys to prevent unbounded dict growth
-                self._requests.pop(client_ip, None)
+                self._requests.pop(key, None)
             else:
-                self._requests[client_ip] = timestamps
-            if len(timestamps) >= self.max_requests:
+                self._requests[key] = timestamps
+
+            if len(timestamps) >= max_requests:
                 return JSONResponse(
                     {"detail": "Rate limit exceeded"}, status_code=429,
-                    headers={"Retry-After": str(self.window)},
+                    headers={"Retry-After": str(window)},
                 )
-            self._requests[client_ip].append(now)
+            self._requests[key].append(now)
+
+            # Evict oldest IPs if at capacity
+            if len(self._requests) > _MAX_TRACKED_IPS:
+                oldest = sorted(self._requests, key=lambda k: self._requests[k][-1] if self._requests[k] else 0)
+                for old_key in oldest[:len(self._requests) - _MAX_TRACKED_IPS]:
+                    del self._requests[old_key]
+
         return await call_next(request)
 
 
@@ -107,21 +144,87 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    """Reject requests with bodies exceeding the configured limit."""
+class BodySizeLimitMiddleware:
+    """Reject requests whose body exceeds the configured byte limit.
 
-    def __init__(self, app: FastAPI, max_bytes: int = 1_048_576) -> None:
-        super().__init__(app)
+    Enforces limits at two levels:
+    1. Content-Length header (fast pre-check, rejects before reading body).
+    2. Actual byte counting on the receive stream (catches chunked transfers
+       and missing/lying Content-Length).
+
+    Implemented as raw ASGI middleware (not BaseHTTPMiddleware) so we can
+    intercept the receive callable before Starlette buffers the full body.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int = 1_048_576) -> None:
+        self.app = app
         self.max_bytes = max_bytes
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.max_bytes:
-            return JSONResponse(
-                {"detail": "Request body too large"},
-                status_code=413,
-            )
-        return await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Fast path: check Content-Length header
+        headers = dict(scope.get("headers", []))
+        cl_raw = headers.get(b"content-length")
+        if cl_raw is not None:
+            try:
+                cl = int(cl_raw)
+            except (ValueError, OverflowError):
+                response = JSONResponse(
+                    {"detail": "Invalid Content-Length"}, status_code=400,
+                )
+                await response(scope, receive, send)
+                return
+            if cl > self.max_bytes:
+                response = JSONResponse(
+                    {"detail": "Request body too large"}, status_code=413,
+                )
+                await response(scope, receive, send)
+                return
+
+        # Wrap receive to count actual bytes
+        bytes_received = 0
+        body_rejected = False
+
+        async def counting_receive() -> Message:
+            nonlocal bytes_received, body_rejected
+            message = await receive()
+            if message.get("type") == "http.request":
+                body = message.get("body", b"")
+                bytes_received += len(body)
+                if bytes_received > self.max_bytes:
+                    body_rejected = True
+                    # Return empty body to stop processing
+                    return {"type": "http.request", "body": b"", "more_body": False}
+            return message
+
+        # We need to handle the rejection after the app tries to read
+        sent_response = False
+
+        async def guarded_send(message: Message) -> None:
+            nonlocal sent_response
+            if body_rejected and not sent_response and message.get("type") == "http.response.start":
+                sent_response = True
+                response = JSONResponse(
+                    {"detail": "Request body too large"}, status_code=413,
+                )
+                await response(scope, receive, send)
+                return
+            if not body_rejected:
+                await send(message)
+
+        try:
+            await self.app(scope, counting_receive, guarded_send)
+        except Exception:
+            if body_rejected:
+                response = JSONResponse(
+                    {"detail": "Request body too large"}, status_code=413,
+                )
+                await response(scope, receive, send)
+            else:
+                raise
 
 
 @asynccontextmanager
@@ -132,8 +235,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     config = get_config()
 
-    # Initialize auth manager
-    auth_mgr = AuthManager(data_dir=config.data_dir)
+    # Initialize auth manager with Redis URL for durable throttle backend
+    auth_mgr = AuthManager(data_dir=config.data_dir, redis_url=config.redis_url)
     initial_password = await auth_mgr.initialize()
     if initial_password:
         # Password is displayed only via CLI's typer.echo (stderr/tty),
@@ -208,12 +311,13 @@ def create_app() -> FastAPI:
     )
 
     # Rate limiting (applied before CORS so abuse is blocked early)
-    app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
+    app.add_middleware(RateLimitMiddleware)
 
     from rex.shared.config import get_config
     rex_cfg = get_config()
 
-    # Body size limit (1 MB) to prevent memory exhaustion via large payloads
+    # Body size limit (1 MB) to prevent memory exhaustion via large payloads.
+    # Enforces actual byte counting, not just Content-Length header.
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=1_048_576)
 
     # Security headers -- enable HSTS only when TLS certs are present

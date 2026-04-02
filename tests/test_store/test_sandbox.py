@@ -9,6 +9,11 @@ import pytest
 
 from rex.store.sandbox import PluginSandbox
 
+# Use a versioned image to satisfy the trust policy (no :latest for non-bundled)
+_TEST_IMAGE = "ghcr.io/rex-bot-ai/plugins/test-plugin:v1.0.0"
+_TEST_MANIFEST = {"resources": {"cpu": 0.5, "memory": "256m"}, "image": _TEST_IMAGE}
+_TEST_MANIFEST_MINIMAL = {"image": _TEST_IMAGE}
+
 
 def _mock_docker_success(args=None, returncode=0, stdout="", stderr="", **kwargs):
     """Return a successful CompletedProcess."""
@@ -32,7 +37,7 @@ class TestPluginSandbox:
         """create_container should return False when Docker is not running."""
         sandbox = PluginSandbox()
         with patch("rex.store.sandbox.is_docker_running", return_value=False):
-            result = await sandbox.create_container("test-plugin", {"resources": {}})
+            result = await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
             assert result is False
 
     @pytest.mark.asyncio
@@ -43,9 +48,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox.is_docker_running", return_value=True),
             patch("rex.store.sandbox._run_docker", return_value=_mock_docker_success()),
         ):
-            result = await sandbox.create_container("test-plugin", {
-                "resources": {"cpu": 0.5, "memory": "256m"},
-            })
+            result = await sandbox.create_container("test-plugin", _TEST_MANIFEST)
             assert result is True
             containers = sandbox.get_all_containers()
             assert len(containers) == 1
@@ -65,7 +68,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox.is_docker_running", return_value=True),
             patch("rex.store.sandbox._run_docker", side_effect=capture_docker),
         ):
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
 
         assert len(docker_calls) == 1
         args = docker_calls[0]
@@ -84,7 +87,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox.is_docker_running", return_value=True),
             patch("rex.store.sandbox._run_docker", return_value=_mock_docker_success()),
         ):
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
             result = await sandbox.start_container("test-plugin")
             assert result is True
             containers = sandbox.get_all_containers()
@@ -106,7 +109,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox.is_docker_running", return_value=True),
             patch("rex.store.sandbox._run_docker", return_value=_mock_docker_success()),
         ):
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
             await sandbox.start_container("test-plugin")
             result = await sandbox.stop_container("test-plugin")
             assert result is True
@@ -121,7 +124,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox.is_docker_running", return_value=True),
             patch("rex.store.sandbox._run_docker", return_value=_mock_docker_success()),
         ):
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
             result = await sandbox.remove_container("test-plugin")
             assert result is True
             assert sandbox.get_all_containers() == []
@@ -136,7 +139,7 @@ class TestPluginSandbox:
         ):
             # First call: create succeeds
             mock_docker.return_value = _mock_docker_success()
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
 
             # Monitor returns "exited" status, then start succeeds
             mock_docker.side_effect = [
@@ -155,7 +158,7 @@ class TestPluginSandbox:
             patch("rex.store.sandbox._run_docker") as mock_docker,
         ):
             mock_docker.return_value = _mock_docker_success()
-            await sandbox.create_container("test-plugin", {})
+            await sandbox.create_container("test-plugin", _TEST_MANIFEST_MINIMAL)
             sandbox._restart_counts["test-plugin"] = 3
 
             mock_docker.side_effect = [

@@ -22,7 +22,7 @@ def ws_manager() -> WebSocketManager:
 
 
 def _make_mock_ws(**kwargs):
-    """Create a mock WebSocket with query_params support."""
+    """Create a mock WebSocket with query_params and headers support."""
     ws = AsyncMock()
     ws.accept = AsyncMock()
     ws.send_text = AsyncMock()
@@ -30,6 +30,9 @@ def _make_mock_ws(**kwargs):
     ws.receive_text = AsyncMock()
     ws.close = AsyncMock()
     ws.query_params = kwargs.get("query_params", {})
+    ws.headers = kwargs.get("headers", {"origin": "http://localhost:3000"})
+    ws.client = MagicMock()
+    ws.client.host = kwargs.get("client_ip", "127.0.0.1")
     return ws
 
 
