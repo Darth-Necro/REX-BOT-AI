@@ -177,6 +177,8 @@ class ServiceOrchestrator:
 
         if self._health_task:
             self._health_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._health_task
 
         for name in reversed(_START_ORDER):
             if name in self._services and self._status.get(name) == "running":
