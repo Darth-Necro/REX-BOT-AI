@@ -14,6 +14,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 
+from rex.shared.fileutil import atomic_write_json, safe_read_json
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plugin-api", tags=["plugin-api"])
@@ -55,11 +57,11 @@ class PluginRegistry:
         self._loaded = True
         if self._path is None:
             return
-        if self._path.exists():
-            try:
-                self._entries = json.loads(self._path.read_text())
-            except Exception:
-                logger.warning("Failed to load plugin registry from %s", self._path)
+        data = safe_read_json(self._path, default={})
+        if isinstance(data, dict):
+            self._entries = data
+        else:
+            logger.warning("Plugin registry at %s has unexpected type — using empty", self._path)
 
     @staticmethod
     def hash_token(token: str) -> str:
@@ -87,13 +89,8 @@ class PluginRegistry:
         if self._path is None:
             return
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(json.dumps(self._entries, indent=2))
-            # Restrict permissions — registry contains token hashes
-            import contextlib
-            with contextlib.suppress(OSError):
-                self._path.chmod(0o600)
-        except Exception:
+            atomic_write_json(self._path, self._entries, chmod=0o600)
+        except OSError:
             logger.warning("Failed to persist plugin registry")
 
 

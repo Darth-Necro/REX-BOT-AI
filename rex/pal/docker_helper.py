@@ -26,36 +26,9 @@ def _run_docker(
     Never raises on failure -- the caller inspects ``returncode`` and
     ``stdout``/``stderr``.
     """
-    try:
-        return subprocess.run(
-            ["docker", *args],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except FileNotFoundError:
-        # Docker binary not on PATH
-        return subprocess.CompletedProcess(
-            args=["docker", *args],
-            returncode=127,
-            stdout="",
-            stderr="docker: command not found",
-        )
-    except subprocess.TimeoutExpired:
-        return subprocess.CompletedProcess(
-            args=["docker", *args],
-            returncode=124,
-            stdout="",
-            stderr="docker command timed out",
-        )
-    except OSError as exc:
-        return subprocess.CompletedProcess(
-            args=["docker", *args],
-            returncode=1,
-            stdout="",
-            stderr=str(exc),
-        )
+    from rex.shared.subprocess_util import run_subprocess
+
+    return run_subprocess(["docker", *args], timeout=timeout, label="docker")
 
 
 # ---------------------------------------------------------------------------

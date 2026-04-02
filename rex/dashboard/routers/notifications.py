@@ -11,7 +11,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
+
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 from rex.dashboard.deps import get_current_user
 
@@ -29,23 +31,21 @@ def _settings_path() -> Path:
 
 # -- Endpoints ---------------------------------------------------------------
 
+_DEFAULT_SETTINGS: dict[str, Any] = {
+    "channels": {},
+    "quiet_hours": None,
+    "detail_level": "summary",
+    "note": "No notification settings configured yet",
+}
+
+
 @router.get("/settings")
 async def get_settings(user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """Return current notification channel settings from config."""
-    settings_file = _settings_path()
-    if settings_file.exists():
-        try:
-            data = json.loads(settings_file.read_text())
-            return data
-        except Exception:
-            logger.warning("Corrupt notification_settings.json -- returning defaults")
-
-    return {
-        "channels": {},
-        "quiet_hours": None,
-        "detail_level": "summary",
-        "note": "No notification settings configured yet",
-    }
+    data = safe_read_json(_settings_path())
+    if isinstance(data, dict):
+        return data
+    return dict(_DEFAULT_SETTINGS)
 
 
 @router.put("/settings")
@@ -53,15 +53,14 @@ async def update_settings(
     settings: dict = Body(...), user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Persist notification settings to ``notification_settings.json``."""
-    settings_file = _settings_path()
     try:
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        settings_file.write_text(json.dumps(settings, indent=2))
-        logger.info("Notification settings saved (%d bytes)", settings_file.stat().st_size)
+        settings_file = _settings_path()
+        atomic_write_json(settings_file, settings)
+        logger.info("Notification settings saved to %s", settings_file)
         return settings
-    except Exception as e:
+    except OSError as e:
         logger.exception("Failed to save notification settings: %s", e)
-        return {"status": "error", "detail": "Failed to save notification settings"}
+        raise HTTPException(status_code=500, detail="Failed to save notification settings")
 
 
 @router.post("/test/{channel}")
@@ -84,9 +83,4 @@ async def test_notification(
         return {"status": "sent", "channel": channel, "delivered_to_bus": True}
     except Exception as e:
         logger.exception("Failed to send test notification to %s: %s", channel, e)
-        return {
-            "status": "not_sent",
-            "channel": channel,
-            "delivered_to_bus": False,
-            "detail": "Event bus unavailable",
-        }
+        raise HTTPException(status_code=503, detail="Event bus unavailable")

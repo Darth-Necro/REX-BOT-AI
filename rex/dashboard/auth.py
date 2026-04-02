@@ -18,6 +18,8 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import bcrypt
+
+from rex.shared.fileutil import atomic_write_json
 import jwt  # PyJWT
 
 if TYPE_CHECKING:
@@ -211,11 +213,11 @@ class AuthManager:
             # token-forging capability.  The trade-off: a restart without
             # SecretsManager generates a new JWT secret (invalidating
             # existing sessions).
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-            }))
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            atomic_write_json(
+                self._creds_file,
+                {"password_hash": self._password_hash},
+                chmod=0o600,
+            )
             logger.warning(
                 "Credentials stored WITHOUT encryption — only password hash persisted. "
                 "Install SecretsManager dependencies for full encrypted storage."
@@ -340,11 +342,11 @@ class AuthManager:
                 with contextlib.suppress(OSError):
                     self._creds_file.unlink()
         else:
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-            }))
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            atomic_write_json(
+                self._creds_file,
+                {"password_hash": self._password_hash},
+                chmod=0o600,
+            )
 
         logger.info("Password changed for user %s", username)
         return True

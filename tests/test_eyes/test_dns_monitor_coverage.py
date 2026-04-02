@@ -15,7 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.eyes.dns_monitor import DNSMonitor, _BUILTIN_MALICIOUS_DOMAINS, _safe_env
+from rex.eyes.dns_monitor import DNSMonitor, _BUILTIN_MALICIOUS_DOMAINS
+from rex.shared.subprocess_util import safe_env as _safe_env
 from rex.shared.config import RexConfig
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 
@@ -147,7 +148,7 @@ class TestFetchThreatFeed:
         mock_proc.returncode = 0
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc), \
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc), \
              patch("rex.eyes.dns_monitor.asyncio.wait_for", new_callable=AsyncMock, return_value=(feed_text.encode(), b"")):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
@@ -172,7 +173,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count >= 2
@@ -199,7 +200,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
@@ -210,7 +211,7 @@ class TestFetchThreatFeed:
         monitor = _make_monitor(dns_config)
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", side_effect=TimeoutError):
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", side_effect=TimeoutError):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
@@ -225,7 +226,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
@@ -245,7 +246,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+             patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 1  # only new-one.com

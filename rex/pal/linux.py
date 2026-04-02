@@ -81,49 +81,9 @@ _DEFAULT_SUBPROCESS_TIMEOUT = 10
 
 
 # ---------------------------------------------------------------------------
-# Subprocess helper
+# Subprocess helper — centralised in rex.shared.subprocess_util
 # ---------------------------------------------------------------------------
-def _run(
-    cmd: list[str],
-    *,
-    timeout: int = _DEFAULT_SUBPROCESS_TIMEOUT,
-    check: bool = False,
-) -> subprocess.CompletedProcess[str]:
-    """Run a subprocess with standardised parameters.
-
-    Parameters
-    ----------
-    cmd:
-        Command and arguments as a list of strings.
-    timeout:
-        Maximum seconds before the process is killed.
-    check:
-        If *True*, raise ``subprocess.CalledProcessError`` on non-zero exit.
-
-    Returns
-    -------
-    subprocess.CompletedProcess[str]
-        The completed process result.
-    """
-    try:
-        return subprocess.run(
-            cmd,
-            timeout=timeout,
-            capture_output=True,
-            text=True,
-            check=check,
-        )
-    except FileNotFoundError:
-        logger.warning("Command not found: %s", cmd[0])
-        return subprocess.CompletedProcess(
-            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found"
-        )
-    except subprocess.TimeoutExpired:
-        logger.warning("Command timed out after %ds: %s", timeout, " ".join(cmd))
-        return subprocess.CompletedProcess(cmd, returncode=-1, stdout="", stderr="timeout")
-    except subprocess.CalledProcessError as exc:
-        # Only reachable when check=True -- re-raise so callers can handle it.
-        raise exc
+from rex.shared.subprocess_util import run_subprocess as _run  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

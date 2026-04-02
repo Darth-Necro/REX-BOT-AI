@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
+
 import shutil
 
 import defusedxml.ElementTree as DefusedET
@@ -24,12 +24,7 @@ from rex.shared.utils import is_private_ip, is_valid_ipv4
 
 logger = logging.getLogger("rex.eyes.port_scanner")
 
-_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
-
-
-def _safe_env() -> dict[str, str]:
-    """Return environment with sensitive variables stripped."""
-    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
+from rex.shared.subprocess_util import run_subprocess_async
 
 
 # ---------------------------------------------------------------------------
@@ -329,29 +324,21 @@ class PortScanner:
             ip,
         ]
 
-        try:
-            logger.info("Subprocess: %s %s", cmd[0], " ".join(cmd[1:]))
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, _stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout + 10
-            )
-        except TimeoutError:
+        rc, stdout_text, _stderr = await run_subprocess_async(
+            *cmd, timeout=timeout + 10, label="nmap-port-scan",
+        )
+        if rc == -1:
             self._logger.warning("nmap scan of %s timed out", ip)
             return None
-        except (FileNotFoundError, OSError) as exc:
-            self._logger.debug("nmap execution error: %s", exc)
+        if rc == 127:
+            self._logger.debug("nmap binary not found")
             self._nmap_available = False
             return None
 
-        if proc.returncode not in (0, 1):  # nmap returns 1 when host is down
+        if rc not in (0, 1):  # nmap returns 1 when host is down
             return None
 
-        return self._parse_nmap_ports(stdout.decode(errors="replace"))
+        return self._parse_nmap_ports(stdout_text)
 
     def _parse_nmap_ports(self, xml_data: str) -> list[tuple[int, str, str]]:
         """Parse nmap XML for open ports.
