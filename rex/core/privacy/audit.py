@@ -705,12 +705,19 @@ class PrivacyAuditor:
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
-                if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
-                    for local in ("::1",):
-                        if host_port == local or host_port.startswith(local + ":"):
+                # Check for IPv6 shorthand loopback forms
+                # e.g. "::1:6379" -> host is "::1", port is 6379
+                # e.g. "::1" -> host is "::1"
+                _ipv6_local = ("::1", "::ffff:127.0.0.1")
+                for local in _ipv6_local:
+                    if host_port == local or host_port.startswith(local + ":"):
+                        return True
+                # Also handle bracketed IPv6 that urlparse might miss
+                if host_port.startswith("["):
+                    bracket_end = host_port.find("]")
+                    if bracket_end != -1:
+                        inner = host_port[1:bracket_end]
+                        if inner in local_hosts or inner in _ipv6_local:
                             return True
         return False
 

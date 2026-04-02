@@ -47,7 +47,8 @@ class WebSocketManager:
 
     Supports channel-based subscriptions so clients only receive events
     they care about (e.g., threat.new, device.update, status.update).
-    Requires a valid JWT token in the ``token`` query parameter.
+    Authentication is via first-message auth: the client sends
+    ``{"type": "auth", "token": "<jwt>"}`` as the first WebSocket message.
     """
 
     def __init__(self) -> None:

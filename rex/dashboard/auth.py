@@ -43,19 +43,39 @@ def _reject_null_bytes(password: str) -> None:
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
 
+    bcrypt has a 72-byte input limit.  Passwords longer than 72 bytes are
+    pre-hashed with SHA-256 to produce a fixed-length digest before being
+    fed to bcrypt.  This is a standard mitigation (used by e.g. Dropbox)
+    that preserves the full entropy of the password regardless of length.
+
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
     Argon2id should be adopted before a production release due to its
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
+    import hashlib
+
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    pw_bytes = password.encode()
+    # Pre-hash long passwords to avoid bcrypt's 72-byte truncation
+    if len(pw_bytes) > 72:
+        pw_bytes = hashlib.sha256(pw_bytes).hexdigest().encode()
+    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode()
+
+
+def _pre_hash_if_long(password: str) -> bytes:
+    """Return password bytes, pre-hashed if longer than 72 bytes."""
+    import hashlib
+    pw_bytes = password.encode()
+    if len(pw_bytes) > 72:
+        return hashlib.sha256(pw_bytes).hexdigest().encode()
+    return pw_bytes
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_pre_hash_if_long(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -123,9 +143,18 @@ class AuthManager:
             try:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
-                self._jwt_secret = data["jwt_secret"]
+                # JWT secret may not be in plaintext file (new policy: only
+                # hash is persisted in plaintext).  Generate a fresh secret
+                # if missing — this invalidates prior sessions but is safe.
+                self._jwt_secret = data.get("jwt_secret") or secrets.token_hex(32)
                 # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                migrated = self._store_to_secrets_manager()
+                if migrated and "jwt_secret" in data:
+                    # Remove plaintext JWT secret from legacy file after
+                    # successful migration to encrypted storage.
+                    data.pop("jwt_secret", None)
+                    self._creds_file.write_text(json.dumps(data))
+                    logger.info("Migrated JWT secret from plaintext to SecretsManager")
                 self._initialized = True
                 return None
             except Exception:
@@ -136,17 +165,24 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)
         self._password_hash = hash_password(initial_password)
 
-        # Store encrypted if possible, plaintext only as fallback
+        # Store encrypted if possible, plaintext only as last resort
         stored_encrypted = self._store_to_secrets_manager()
         if not stored_encrypted:
-            # No encrypted storage available — fall back to plaintext file
+            # No encrypted storage available — fall back to plaintext file.
+            # Only the password hash is persisted; the JWT secret stays
+            # in memory so that a local file compromise does not yield a
+            # token-forging capability.  The trade-off: a restart without
+            # SecretsManager generates a new JWT secret (invalidating
+            # existing sessions).
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
             }))
-            # Restrict permissions
             with contextlib.suppress(OSError):
                 self._creds_file.chmod(0o600)
+            logger.warning(
+                "Credentials stored WITHOUT encryption — only password hash persisted. "
+                "Install SecretsManager dependencies for full encrypted storage."
+            )
 
         self._initialized = True
         return initial_password
@@ -244,9 +280,10 @@ class AuthManager:
 
         stored_encrypted = self._store_to_secrets_manager()
         if not stored_encrypted:
+            # Same policy as initialize(): only persist the hash, not the
+            # JWT secret, when encrypted storage is unavailable.
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
             }))
             with contextlib.suppress(OSError):
                 self._creds_file.chmod(0o600)

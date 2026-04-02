@@ -7,6 +7,7 @@ The ``start`` command initializes the full orchestrator and runs until SIGINT/SI
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
 import warnings
@@ -14,17 +15,16 @@ from datetime import UTC
 
 import typer
 
-# NOTE: TLS verification is enabled by default. For local development with
-# self-signed certs, set REX_DEV_INSECURE=1 in the environment.
+# TLS verification is ENABLED by default.  For local development with
+# self-signed certs, set REX_DEV_INSECURE=1.  This is a development-only
+# escape hatch and MUST NOT be used in production or alpha deployments.
 import os as _os
 _DEV_INSECURE = _os.environ.get("REX_DEV_INSECURE", "").strip() in ("1", "true", "yes")
 if _DEV_INSECURE:
-    try:
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    except ImportError:
-        pass
-    warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+    logging.getLogger(__name__).warning(
+        "REX_DEV_INSECURE is set — TLS certificate verification DISABLED. "
+        "Do NOT use this in production or alpha deployments."
+    )
 
 from rex.shared.constants import VERSION
 
@@ -75,11 +75,34 @@ def start(
 
     initial_pw = asyncio.run(auth_mgr.initialize())
     if initial_pw:
-        typer.echo("  " + "=" * 46)
-        typer.echo(f"  ADMIN PASSWORD: {initial_pw}")
-        typer.echo("  Write this down. It will not be shown again.")
-        typer.echo("  " + "=" * 46)
-        typer.echo("")
+        # Display password only to the operator's terminal (stderr via
+        # typer.echo), never through the logging framework.  Writing to
+        # stderr avoids capture by stdout-based log pipelines.
+        import sys
+        if sys.stderr.isatty():
+            typer.echo("  " + "=" * 46, err=True)
+            typer.echo(f"  ADMIN PASSWORD: {initial_pw}", err=True)
+            typer.echo("  Write this down. It will not be shown again.", err=True)
+            typer.echo("  " + "=" * 46, err=True)
+            typer.echo("", err=True)
+        else:
+            # Non-interactive: write password to a restricted file instead
+            # of any log stream to prevent credential leakage.
+            from pathlib import Path
+            pw_file = Path(config.data_dir) / ".initial_password"
+            try:
+                pw_file.parent.mkdir(parents=True, exist_ok=True)
+                pw_file.write_text(initial_pw)
+                with contextlib.suppress(OSError):
+                    pw_file.chmod(0o600)
+                typer.echo(
+                    f"  Initial admin password saved to {pw_file} (mode 0600).",
+                    err=True,
+                )
+            except OSError:
+                # Fallback: print to stderr even in non-tty mode
+                typer.echo(f"  ADMIN PASSWORD: {initial_pw}", err=True)
+                typer.echo("  Write this down. It will not be shown again.", err=True)
 
     from rex.core.orchestrator import ServiceOrchestrator
 

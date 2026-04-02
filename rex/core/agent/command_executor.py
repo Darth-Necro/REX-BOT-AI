@@ -18,6 +18,7 @@ so the operator can review exactly what REX ran on the host.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import ipaddress
 import logging
 import os
@@ -830,12 +831,18 @@ class CommandExecutor:
                     proc.communicate(), timeout=timeout_seconds
                 )
             except TimeoutError:
-                # proc.kill() is synchronous for real processes but may
-                # return a coroutine under async mocks — handle both.
+                # proc.kill() is synchronous for real asyncio.Process but
+                # may return a coroutine under async mocks — handle both
+                # to avoid "coroutine was never awaited" warnings.
                 kill_result = proc.kill()
-                if kill_result is not None and hasattr(kill_result, '__await__'):
-                    await kill_result
-                await proc.wait()
+                if kill_result is not None:
+                    import inspect
+                    if inspect.isawaitable(kill_result):
+                        await kill_result
+                # Guard wait() with a timeout to prevent hanging if the
+                # process ignores SIGKILL (shouldn't happen, but be safe).
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(proc.wait(), timeout=5.0)
                 elapsed = time.monotonic() - start
                 return CommandResult(
                     executed=True,
