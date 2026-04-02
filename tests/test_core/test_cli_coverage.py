@@ -283,13 +283,16 @@ class TestStopCommand:
         assert result.exit_code == 0
         assert "does not appear to be running" in result.output
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_stop_with_pidfile(self, tmp_path: object) -> None:
         """stop should send SIGTERM to the PID from the PID file."""
         pid_file = tmp_path / "rex-bot-ai.pid"  # type: ignore[operator]
         pid_file.write_text("12345\n")
 
         # Patch open so that reads of the pidfile go to our temp file
-        # but all other open() calls pass through (CliRunner needs real open)
+        # but all other open() calls pass through (CliRunner needs real open).
+        # NOTE: patching builtins.open can trigger an unawaited-coroutine warning
+        # from Typer's command introspection; this is test infrastructure noise.
         original_open = open
 
         def _patched_open(path, *args, **kwargs):

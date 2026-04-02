@@ -38,6 +38,22 @@ def client() -> TestClient:
 VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
 HEADERS = {"X-Plugin-Token": VALID_TOKEN}
 
+# All permissions granted to the test plugin for full endpoint coverage.
+_ALL_PERMISSIONS = [
+    "devices:read", "events:read", "alerts:write", "actions:write",
+    "kb:read", "log:write", "store:read", "store:write",
+]
+
+
+@pytest.fixture()
+def registered_client(client: TestClient) -> TestClient:
+    """Client with a fully-registered test token (all permissions)."""
+    from rex.store.sdk.plugin_api import get_plugin_registry
+
+    registry = get_plugin_registry()
+    registry.register(VALID_TOKEN, "test-plugin-01", "Test Plugin", _ALL_PERMISSIONS)
+    return client
+
 
 # ------------------------------------------------------------------
 # Authentication
@@ -104,10 +120,8 @@ class TestGetEvents:
 
 class TestPostAlerts:
 
-    def test_submit_alert_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
-        resp = client.post(
+    def test_submit_alert_success(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/alerts",
             params={"severity": "high", "message": "Brute force detected"},
             headers=HEADERS,
@@ -115,22 +129,31 @@ class TestPostAlerts:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "queued"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == "test-plugin-01"
 
-    def test_submit_alert_missing_params(self, client: TestClient) -> None:
-        resp = client.post("/plugin-api/alerts", headers=HEADERS)
+    def test_submit_alert_rejected_without_permission(self, client: TestClient) -> None:
+        """Transitional tokens lack alerts:write — should be rejected."""
+        resp = client.post(
+            "/plugin-api/alerts",
+            params={"severity": "high", "message": "test"},
+            headers=HEADERS,
+        )
+        assert resp.status_code == 403
+
+    def test_submit_alert_missing_params(self, registered_client: TestClient) -> None:
+        resp = registered_client.post("/plugin-api/alerts", headers=HEADERS)
         assert resp.status_code == 422
 
-    def test_submit_alert_missing_severity(self, client: TestClient) -> None:
-        resp = client.post(
+    def test_submit_alert_missing_severity(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/alerts",
             params={"message": "something"},
             headers=HEADERS,
         )
         assert resp.status_code == 422
 
-    def test_submit_alert_missing_message(self, client: TestClient) -> None:
-        resp = client.post(
+    def test_submit_alert_missing_message(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/alerts",
             params={"severity": "low"},
             headers=HEADERS,
@@ -144,10 +167,8 @@ class TestPostAlerts:
 
 class TestPostActions:
 
-    def test_request_action_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
-        resp = client.post(
+    def test_request_action_success(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/actions",
             params={"action_type": "block_ip"},
             headers=HEADERS,
@@ -155,18 +176,18 @@ class TestPostActions:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "pending_approval"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == "test-plugin-01"
 
-    def test_request_action_with_params(self, client: TestClient) -> None:
-        resp = client.post(
+    def test_request_action_with_params(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/actions",
             params={"action_type": "quarantine"},
             headers=HEADERS,
         )
         assert resp.status_code == 200
 
-    def test_request_action_missing_type(self, client: TestClient) -> None:
-        resp = client.post("/plugin-api/actions", headers=HEADERS)
+    def test_request_action_missing_type(self, registered_client: TestClient) -> None:
+        resp = registered_client.post("/plugin-api/actions", headers=HEADERS)
         assert resp.status_code == 422
 
 
@@ -177,6 +198,7 @@ class TestPostActions:
 class TestGetKnowledgeBase:
 
     def test_get_kb_section(self, client: TestClient) -> None:
+        """kb:read is in transitional permissions — should work unregistered."""
         resp = client.get("/plugin-api/knowledge-base/threats", headers=HEADERS)
         assert resp.status_code == 200
         data = resp.json()
@@ -199,8 +221,8 @@ class TestGetKnowledgeBase:
 
 class TestPostLog:
 
-    def test_submit_log(self, client: TestClient) -> None:
-        resp = client.post(
+    def test_submit_log(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/log",
             params={"message": "Plugin started scan"},
             headers=HEADERS,
@@ -209,8 +231,8 @@ class TestPostLog:
         data = resp.json()
         assert data["status"] == "logged"
 
-    def test_submit_log_with_level(self, client: TestClient) -> None:
-        resp = client.post(
+    def test_submit_log_with_level(self, registered_client: TestClient) -> None:
+        resp = registered_client.post(
             "/plugin-api/log",
             params={"message": "Warning!", "level": "warning"},
             headers=HEADERS,
@@ -218,17 +240,17 @@ class TestPostLog:
         assert resp.status_code == 200
         assert resp.json()["status"] == "logged"
 
-    def test_submit_log_default_level(self, client: TestClient) -> None:
+    def test_submit_log_default_level(self, registered_client: TestClient) -> None:
         """Level defaults to 'info' when not provided."""
-        resp = client.post(
+        resp = registered_client.post(
             "/plugin-api/log",
             params={"message": "default level"},
             headers=HEADERS,
         )
         assert resp.status_code == 200
 
-    def test_submit_log_missing_message(self, client: TestClient) -> None:
-        resp = client.post("/plugin-api/log", headers=HEADERS)
+    def test_submit_log_missing_message(self, registered_client: TestClient) -> None:
+        resp = registered_client.post("/plugin-api/log", headers=HEADERS)
         assert resp.status_code == 422
 
 
@@ -238,8 +260,8 @@ class TestPostLog:
 
 class TestPutStore:
 
-    def test_store_data(self, client: TestClient) -> None:
-        resp = client.put(
+    def test_store_data(self, registered_client: TestClient) -> None:
+        resp = registered_client.put(
             "/plugin-api/store/my_key",
             headers=HEADERS,
         )
@@ -248,8 +270,8 @@ class TestPutStore:
         assert data["status"] == "stored"
         assert data["key"] == "my_key"
 
-    def test_store_data_with_value(self, client: TestClient) -> None:
-        resp = client.put(
+    def test_store_data_with_value(self, registered_client: TestClient) -> None:
+        resp = registered_client.put(
             "/plugin-api/store/config",
             params={"value": "some-value"},
             headers=HEADERS,
@@ -257,9 +279,9 @@ class TestPutStore:
         assert resp.status_code == 200
         assert resp.json()["key"] == "config"
 
-    def test_store_different_keys(self, client: TestClient) -> None:
+    def test_store_different_keys(self, registered_client: TestClient) -> None:
         for key in ["alpha", "beta", "gamma"]:
-            resp = client.put(f"/plugin-api/store/{key}", headers=HEADERS)
+            resp = registered_client.put(f"/plugin-api/store/{key}", headers=HEADERS)
             assert resp.json()["key"] == key
 
 
@@ -269,15 +291,15 @@ class TestPutStore:
 
 class TestGetStore:
 
-    def test_retrieve_data(self, client: TestClient) -> None:
-        resp = client.get("/plugin-api/store/my_key", headers=HEADERS)
+    def test_retrieve_data(self, registered_client: TestClient) -> None:
+        resp = registered_client.get("/plugin-api/store/my_key", headers=HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert data["key"] == "my_key"
         assert data["value"] is None
 
-    def test_retrieve_different_key(self, client: TestClient) -> None:
-        resp = client.get("/plugin-api/store/other_key", headers=HEADERS)
+    def test_retrieve_different_key(self, registered_client: TestClient) -> None:
+        resp = registered_client.get("/plugin-api/store/other_key", headers=HEADERS)
         data = resp.json()
         assert data["key"] == "other_key"
 
