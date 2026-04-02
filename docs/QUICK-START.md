@@ -19,10 +19,10 @@ docker compose version  # Must be Docker Compose v2
 |----------|---------|-------------|
 | RAM | 2 GB | 8 GB (for LLM features) |
 | Disk | 10 GB free | 20 GB free |
-| OS | Linux, macOS, WSL2 | Ubuntu 22.04+, Debian 12+ |
+| OS | Linux | Ubuntu 22.04+, Debian 12+ |
 | CPU | x86_64 or aarch64 | -- |
 
-> **Note:** Native Windows is not supported. Use WSL2 instead.
+> **Platform support:** Only Linux is supported in the alpha release. The Platform Abstraction Layer (PAL) has stubs for macOS, Windows, and BSD but they raise `NotImplementedError`. WSL2 may work but is not tested. Native Windows and macOS are **not supported**.
 
 ---
 
