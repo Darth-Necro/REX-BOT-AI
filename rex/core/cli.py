@@ -79,15 +79,15 @@ def start(
     _setup_logging(log_level)
 
     typer.echo(r"""
-     /^\
-    /   \___
-   /      @\____   ____  _______  __     ____   ____ _______
-  /              O |  _ \| ____\ \/ /    | __ ) / __ \__   __|
- /    (_________/  | |_) |  _|  \  / ____|  _ \| |  | | | |
-/______/     U     |  _ <| |___ /  \|____| |_) | |  | | | |
-                   |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
-""" + f"                                                      v{VERSION}" + r"""
-                   *woof woof* ... Starting up!
+        ^
+       / \__
+      (    @\___     ____  _______  __     ____   ____ _______
+      /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+     /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
+    /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                    |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+""" + f"                                                       v{VERSION}" + r"""
+                    *woof woof* ... Starting up!
 """)
 
     from rex.shared.config import get_config
@@ -124,12 +124,12 @@ def start(
         asyncio.run(_run())
     except KeyboardInterrupt:
         typer.echo(r"""
-            /^\
-       ___/   \
-  ____/@ -      \   *yaaawn* ... REX is going to sleep.
- O               \  Goodbye!
-  \____________)  \
-           U   \___\
+              ^
+             / \__
+            (  - @\___   *yaaawn* ... REX is going to sleep.
+            /         O  Goodbye!
+           /   (_____/
+          /_____/   U
 """)
 
 
