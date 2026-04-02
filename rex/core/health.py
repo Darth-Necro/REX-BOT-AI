@@ -22,10 +22,11 @@ class HealthAggregator:
         return dict(self._health)
 
     def is_system_healthy(self) -> bool:
-        """Return True if all reported critical services are healthy.
+        """Return True only when ALL critical services have reported healthy.
 
-        Services that have not yet submitted a health report are skipped
-        to avoid false negatives during startup.
+        Fails closed: if a critical service has not reported at all, the
+        system is considered unhealthy.  This prevents a false-green state
+        during startup or when a critical service silently disappears.
         """
         critical = {ServiceName.EYES, ServiceName.BRAIN, ServiceName.TEETH, ServiceName.MEMORY}
         # Fail closed: ALL critical services must have reported healthy.

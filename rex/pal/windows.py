@@ -3,6 +3,13 @@
 Layer 0.5 -- implements :class:`~rex.pal.base.PlatformAdapter` for
 Microsoft Windows.
 
+.. warning::
+    **Alpha status: NOT SUPPORTED.**  This adapter is a Phase 2 work-in-progress.
+    Many critical features (packet capture, traffic shaping, firewall isolation,
+    Docker/Ollama management, disk encryption checks) are stubbed.  The alpha
+    release targets **Linux only**.  Use this adapter at your own risk — it will
+    raise ``RexPlatformNotSupportedError`` for unimplemented features.
+
 Provides functional implementations for network discovery, firewall
 control via ``netsh advfirewall``, and autostart via Task Scheduler.
 All subprocess calls use ``subprocess.run`` with ``timeout=10``,

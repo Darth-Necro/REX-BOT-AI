@@ -248,14 +248,14 @@ Plugin crashes are auto-restarted up to 3 times. After the third crash, the plug
 
 - **Key rotation**: The `rotate_key()` method decrypts all secrets with the current key, mixes an additional passphrase into the derivation, and re-encrypts everything. If any secret fails to decrypt during rotation, the operation aborts to prevent data loss.
 - Redis is configured with `requirepass` for authentication.
-- The credential file (`.credentials`) is stored with `0o600` permissions.
+- The credential file (`.credentials`) is stored with `0o600` permissions and contains only the password hash. The JWT signing secret is stored only via SecretsManager (encrypted) or kept in memory when encrypted storage is unavailable.
 - The knowledge base is stored in a git repository on the local filesystem.
 - Plugin data is isolated per-plugin in Docker volumes.
 
 ### In Transit
 
 - Dashboard serves over HTTPS (port 8443).
-- WebSocket connections use WSS when HTTPS is enabled.
+- WebSocket connections use WSS when HTTPS is enabled. Authentication is via **first-message auth**: the client sends `{"type": "auth", "token": "<jwt>"}` as its first WebSocket message. Legacy query-string token auth (`?token=<jwt>`) is **disabled** for alpha to prevent JWT leakage into server/proxy access logs.
 - Redis communication is over the Docker-internal bridge network (`internal: true`), which is not routable from outside the Docker host.
 - Ollama communication is localhost-only (127.0.0.1).
 - ChromaDB communication is over the internal Docker network.

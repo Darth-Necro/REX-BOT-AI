@@ -7,11 +7,37 @@ stop, scan, sleep, wake, backup command flows.  All external dependencies
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import os
 import sys
 from io import StringIO
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+
+
+def _asyncio_run_close_coro(side_effects):
+    """Return an ``asyncio.run`` replacement that closes coroutine args.
+
+    Each call pops the next value from *side_effects*.  If the value is an
+    exception **type** it is raised; otherwise it is returned.  Any coroutine
+    passed as the first positional argument is closed so that Python does not
+    emit "coroutine … was never awaited" warnings.
+    """
+    it = iter(side_effects)
+
+    def _fake_run(coro, *args, **kwargs):
+        # Close the coroutine so it doesn't leak
+        if asyncio.iscoroutine(coro):
+            coro.close()
+        value = next(it)
+        if isinstance(value, type) and issubclass(value, BaseException):
+            raise value()
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+    return _fake_run
 
 import pytest
 
@@ -278,7 +304,7 @@ class TestStartCommand:
         """start should display admin password on first boot (shown on stderr)."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = "/tmp/rex-test"
+        mock_config.data_dir = Path("/tmp/rex-test")
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 

@@ -71,11 +71,18 @@ def hash_password(password: str) -> str:
     Passwords longer than 72 bytes are pre-hashed with SHA-256 to avoid
     bcrypt's silent truncation.
 
+    bcrypt has a 72-byte input limit.  Passwords longer than 72 bytes are
+    pre-hashed with SHA-256 to produce a fixed-length digest before being
+    fed to bcrypt.  This is a standard mitigation (used by e.g. Dropbox)
+    that preserves the full entropy of the password regardless of length.
+
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
     Argon2id should be adopted before a production release due to its
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
+    import hashlib
+
     _reject_null_bytes(password)
     return bcrypt.hashpw(_prehash_password(password), bcrypt.gensalt()).decode()
 
@@ -179,17 +186,24 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)
         self._password_hash = hash_password(initial_password)
 
-        # Store encrypted if possible, plaintext only as fallback
+        # Store encrypted if possible, plaintext only as last resort
         stored_encrypted = self._store_to_secrets_manager()
         if not stored_encrypted:
-            # No encrypted storage available — fall back to plaintext file
+            # No encrypted storage available — fall back to plaintext file.
+            # Only the password hash is persisted; the JWT secret stays
+            # in memory so that a local file compromise does not yield a
+            # token-forging capability.  The trade-off: a restart without
+            # SecretsManager generates a new JWT secret (invalidating
+            # existing sessions).
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
             }))
-            # Restrict permissions
             with contextlib.suppress(OSError):
                 self._creds_file.chmod(0o600)
+            logger.warning(
+                "Credentials stored WITHOUT encryption — only password hash persisted. "
+                "Install SecretsManager dependencies for full encrypted storage."
+            )
 
         self._initialized = True
         return initial_password
@@ -299,7 +313,6 @@ class AuthManager:
         else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
             }))
             with contextlib.suppress(OSError):
                 self._creds_file.chmod(0o600)

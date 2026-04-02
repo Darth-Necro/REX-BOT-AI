@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -20,11 +22,24 @@ from rex.store.sdk.plugin_api import (
 _app = FastAPI()
 _app.include_router(router)
 
+VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
+_TOKEN_HASH = hashlib.sha256(VALID_TOKEN.encode()).hexdigest()
+PLUGIN_ID = "plugin-test-001"
+HEADERS = {"X-Plugin-Token": VALID_TOKEN}
+
+# All permissions the test plugin is granted
+_ALL_PERMISSIONS = [
+    "devices:read", "events:read", "alerts:write", "actions:write",
+    "kb:read", "log:write", "store:read", "store:write",
+]
+
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Ensure each test gets a clean in-memory plugin registry."""
-    set_plugin_registry(PluginRegistry())
+    """Each test gets a fresh registry with the test plugin registered."""
+    reg = PluginRegistry()
+    reg.register(VALID_TOKEN, PLUGIN_ID, "test-plugin", permissions=_ALL_PERMISSIONS)
+    set_plugin_registry(reg)
     yield
     set_plugin_registry(PluginRegistry())
 
@@ -33,10 +48,6 @@ def _clean_registry():
 def client() -> TestClient:
     """Return a TestClient wired to the plugin API router."""
     return TestClient(_app)
-
-
-VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
-HEADERS = {"X-Plugin-Token": VALID_TOKEN}
 
 
 # ------------------------------------------------------------------
@@ -56,16 +67,29 @@ class TestPluginAuth:
         assert resp.status_code == 200
 
     def test_empty_token_returns_401(self, client: TestClient) -> None:
-        """An empty string token triggers the truthiness check in
-        _verify_plugin_token, which raises HTTPException 401."""
         resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": ""})
         assert resp.status_code == 401
         assert "Invalid or missing" in resp.json()["detail"]
 
     def test_short_token_returns_401(self, client: TestClient) -> None:
-        """Tokens shorter than 32 characters must be rejected."""
         resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": "short-token"})
         assert resp.status_code == 401
+
+    def test_unregistered_token_returns_401(self, client: TestClient) -> None:
+        """Tokens not in the registry must be rejected."""
+        unknown = "b" * 48
+        resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": unknown})
+        assert resp.status_code == 401
+        assert "not registered" in resp.json()["detail"]
+
+    def test_insufficient_permission_returns_403(self, client: TestClient) -> None:
+        """A registered plugin without the right permission gets 403."""
+        reg = PluginRegistry()
+        reg.register(VALID_TOKEN, PLUGIN_ID, "limited-plugin", permissions=["log:write"])
+        set_plugin_registry(reg)
+        resp = client.get("/plugin-api/devices", headers=HEADERS)
+        assert resp.status_code == 403
+        assert "lacks permission" in resp.json()["detail"]
 
 
 # ------------------------------------------------------------------
@@ -105,8 +129,6 @@ class TestGetEvents:
 class TestPostAlerts:
 
     def test_submit_alert_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
         resp = client.post(
             "/plugin-api/alerts",
             params={"severity": "high", "message": "Brute force detected"},
@@ -115,7 +137,7 @@ class TestPostAlerts:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "queued"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == PLUGIN_ID
 
     def test_submit_alert_missing_params(self, client: TestClient) -> None:
         resp = client.post("/plugin-api/alerts", headers=HEADERS)
@@ -145,8 +167,6 @@ class TestPostAlerts:
 class TestPostActions:
 
     def test_request_action_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
         resp = client.post(
             "/plugin-api/actions",
             params={"action_type": "block_ip"},
@@ -155,7 +175,7 @@ class TestPostActions:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "pending_approval"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == PLUGIN_ID
 
     def test_request_action_with_params(self, client: TestClient) -> None:
         resp = client.post(
@@ -219,7 +239,6 @@ class TestPostLog:
         assert resp.json()["status"] == "logged"
 
     def test_submit_log_default_level(self, client: TestClient) -> None:
-        """Level defaults to 'info' when not provided."""
         resp = client.post(
             "/plugin-api/log",
             params={"message": "default level"},

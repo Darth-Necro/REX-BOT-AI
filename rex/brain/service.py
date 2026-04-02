@@ -95,8 +95,8 @@ class BrainService(BaseService):
         except PrivacyViolationError:
             logger.error("LLM endpoint is not localhost — privacy violation, degraded mode")
             self._degraded = True
-        except Exception:
-            logger.exception("Failed to initialise LLM — degraded mode")
+        except Exception as exc:
+            logger.exception("Failed to initialise LLM (%s: %s) — degraded mode", type(exc).__name__, exc)
             self._degraded = True
 
         # Try to wire knowledge base for LLM context
@@ -105,8 +105,10 @@ class BrainService(BaseService):
             from rex.memory.knowledge import KnowledgeBase
             kb = KnowledgeBase(config=self.config)
             await kb.initialize()
-        except Exception:
-            logger.warning("Knowledge base not available for LLM context")
+        except ImportError:
+            logger.info("Knowledge base module not available — LLM will run without KB context")
+        except Exception as exc:
+            logger.warning("Knowledge base initialisation failed (%s: %s)", type(exc).__name__, exc)
 
         # Decision engine
         self._engine = DecisionEngine(
@@ -212,8 +214,8 @@ class BrainService(BaseService):
                         self._engine._llm_available = True
                         self._degraded = False
                         logger.info("Ollama recovered — exiting degraded mode")
-                except Exception:
-                    logger.debug("Ollama recovery attempt failed, retrying in 30s", exc_info=True)
+                except Exception as exc:
+                    logger.info("Ollama recovery attempt failed (%s: %s), retrying in 30s", type(exc).__name__, exc)
 
     async def _check_prerequisites(self) -> None:
         """Brain has no hard prerequisites — degrades gracefully without LLM."""

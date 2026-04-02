@@ -1,5 +1,11 @@
 """macOS platform adapter for REX-BOT-AI.
 
+.. warning::
+    **Alpha status: NOT SUPPORTED.**  This adapter is a Phase 2 work-in-progress.
+    Many critical features (packet capture, traffic shaping, firewall isolation,
+    Docker/Ollama management, disk encryption checks) are stubbed.  The alpha
+    release targets **Linux only**.
+
 Layer 0.5 -- implements :class:`~rex.pal.base.PlatformAdapter` for
 Apple macOS (Darwin).
 
