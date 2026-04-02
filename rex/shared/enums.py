@@ -119,6 +119,7 @@ class OperatingMode(StrEnum):
 class ProtectionMode(StrEnum):
     """Determines how aggressively REX enforces firewall rules."""
 
+    JUNKYARD_DOG = "junkyard_dog"
     AUTO_BLOCK_ALL = "auto_block_all"
     AUTO_BLOCK_CRITICAL = "auto_block_critical"
     ALERT_ONLY = "alert_only"

@@ -79,8 +79,8 @@ def start(
     _setup_logging(log_level)
 
     typer.echo(r"""
-    /^\_
-   (   @\___     ____  _______  __     ____   ____ _______
+    / \__
+   (    @\___     ____  _______  __     ____   ____ _______
    /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
   /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
  /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
@@ -123,7 +123,7 @@ def start(
         asyncio.run(_run())
     except KeyboardInterrupt:
         typer.echo(r"""
-          _/^\
+          __/ \
      ___/@    )   *yaaawn* ... REX is going to sleep.
     O         \   Goodbye!
      \_____) _ \
@@ -150,8 +150,8 @@ def stop() -> None:
 def status() -> None:
     """Show health status of all REX services."""
     import httpx
-    typer.echo(r"""       /^\_
-      (   @\___   REX-BOT-AI v""" + VERSION + r"""
+    typer.echo(r"""       / \__
+      (    @\___   REX-BOT-AI v""" + VERSION + r"""
       /         O  *ruff* Status report!
      /_____/   U""")
     typer.echo("")
@@ -262,7 +262,7 @@ def sleep() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-          _/^\
+          __/ \
      ___/@  - )   *woof* ... zzz ... REX is sleeping
     O         \   with one ear open.
      \_____) _ \  Lightweight monitoring active.
@@ -290,8 +290,8 @@ def wake() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-        /^\_
-       ( O @\___   *WOOF WOOF!* REX is awake!
+        / \__
+       (  O @\___   *WOOF WOOF!* REX is awake!
        /         O  Full monitoring and protection active.
       /   (_____/
      /_____/   U
@@ -303,14 +303,47 @@ def wake() -> None:
 
 
 @app.command()
+def junkyard() -> None:
+    """Activate JUNKYARD DOG mode -- maximum aggression, auto-block ALL threats."""
+    typer.echo(r"""
+    / \__
+   (!O @\___     *WOOF WOOF GRRRRR!*
+   /    _____O   JUNKYARD DOG MODE ACTIVATED!
+  / ___/ ||||
+ /___/  |||||U
+   CHAIN~~~~
+
+  REX is now a JUNKYARD DOG!
+  All threats will be auto-blocked and quarantined.
+  Owner will be notified of every attack.
+  *GRRRRR* ... No mercy!
+""")
+    try:
+        import httpx
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/config/protection-mode",
+            json={"mode": "junkyard_dog"},
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers={"Authorization": f"Bearer {_get_token()}"},
+        )
+        data = resp.json()
+        typer.echo(f"  Status: {data.get('status', 'unknown')}")
+        if data.get("mode") == "junkyard_dog":
+            typer.echo("  *WOOF!* Junkyard Dog mode is ACTIVE. REX will eliminate all threats!")
+    except Exception as e:
+        typer.echo(f"  *whimper* Cannot reach REX: {e}")
+
+
+@app.command()
 def diag() -> None:
     """Full diagnostic dump for bug reports."""
     from rex.pal.detector import detect_hardware, detect_os, recommend_llm_model
     from rex.pal.docker_helper import get_docker_version, is_docker_installed, is_docker_running
 
     typer.echo(r"""
-    /^\_
-   (   @\___   REX-BOT-AI v""" + VERSION + r"""
+    / \__
+   (    @\___   REX-BOT-AI v""" + VERSION + r"""
    /         O  *ruff ruff* Diagnostic sniff...
   /   (_____/
  /_____/   U""")

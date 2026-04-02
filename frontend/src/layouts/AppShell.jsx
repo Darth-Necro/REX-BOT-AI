@@ -183,9 +183,9 @@ export default function AppShell({
         )}
         {(!collapsed || isMobile) && (
           <pre className="text-[8px] font-mono leading-none ml-1" style={{ color: colors.accent.cyan }}>
-{`/^\\_
-( @\\__
-/    O`}
+{`/ \\__
+(  @\\___
+/      O`}
           </pre>
         )}
         {isMobile ? (

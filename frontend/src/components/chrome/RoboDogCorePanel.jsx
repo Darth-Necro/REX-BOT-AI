@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { radius, colors } from '../../theme/tokens';
 
 /* ------------------------------------------------------------------ */
@@ -36,6 +36,16 @@ const POSTURE_CONFIG = {
     breathe: false,
     alert: true,
   },
+  junkyard: {
+    label: 'JUNKYARD DOG',
+    bark: '*GRRRRR WOOF WOOF WOOF!* NO MERCY!',
+    glowColor: 'rgba(239,68,68,0.25)',
+    borderColor: 'border-orange-500/50',
+    accentColor: 'text-orange-400',
+    eyeColor: '#F97316',
+    breathe: false,
+    alert: true,
+  },
   unknown: {
     label: 'UNKNOWN',
     bark: '*ruff?* Sniffing around...',
@@ -65,41 +75,126 @@ const LLM_LABELS = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Great Dane ASCII Art (posture-dependent, different angles)        */
+/*  Great Dane ASCII Art - Side profiles (posture-dependent)          */
 /* ------------------------------------------------------------------ */
 
-function DogArt({ posture, eyeColor }) {
-  /* Each posture shows REX from a different angle */
-  const art = {
-    /* Front-facing alert: ears up, growling */
-    critical: `    /^\\_
+const sideArt = {
+  /* Side profile: relaxed, happy */
+  nominal: `    / \\__
+   (    @\\___
+   /         O
+  /   (_____/
+ /_____/   U`,
+
+  /* Side profile: ears perked, watching */
+  elevated: `    / \\__
+   (  O @\\___
+   /         O
+  /   (_____/
+ /_____/   U~`,
+
+  /* Side profile: alert posture, growling */
+  critical: `    / \\__
    (!O @\\___
    /         O
   /   (\\____/
  /_____/ | U
           |~~`,
 
-    /* 3/4 view: ears perked, watching */
-    elevated: `    /^\\_
-   ( O @\\___
-   /         O
-  /   (_____/
- /_____/   U~`,
+  /* Junkyard Dog: chained up, fierce */
+  junkyard: `    / \\__
+   (!O @\\___
+   /    _____O
+  / ___/ ||||
+ /___/  |||||U
+   CHAIN~~~~`,
 
-    /* Side profile: relaxed, happy */
-    nominal: `    /^\\_
-   (   @\\___
-   /         O
-  /   (_____/
- /_____/   U`,
-
-    /* Lying down: sleepy */
-    unknown: `      _/^\\
+  /* Lying down: sleepy */
+  unknown: `      __/ \\
  ___/@  ? )
 O         \\
  \\_____) _ \\
     U  \\____\\`,
-  };
+};
+
+/* ------------------------------------------------------------------ */
+/*  Front-facing frames for Tamagotchi animation                      */
+/* ------------------------------------------------------------------ */
+
+const frontFrames = {
+  idle: [
+    `   /| |\\
+  / | | \\
+ |  O O  |
+ |   W   |
+  \\_____/
+  |  |  |
+  U  |  U`,
+    `    /| |\\
+   / | | \\
+  |  O O  |\\
+  |   W   |
+   \\_____/
+   |  |  |
+   U  |  U`,
+    `   /| |\\
+  / | | \\
+ |  O O  |
+ |   W   |
+  \\_p___/
+  |  |  |
+  U  |  U`,
+  ],
+  alert: [
+    `   /| |\\
+  / | | \\
+ | !O O! |
+ |  GRR  |
+  \\_____/
+  |  |  |
+  U  |  U`,
+    `   /| |\\
+  / | | \\
+ | !O O! |
+ | WOOF! |
+  \\_____/~
+  |  |  |
+  U  |  U`,
+  ],
+};
+
+/* ------------------------------------------------------------------ */
+/*  DogArt component with Tamagotchi animation                       */
+/* ------------------------------------------------------------------ */
+
+function DogArt({ posture, eyeColor }) {
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [showFront, setShowFront] = useState(false);
+
+  const isAlert = posture === 'critical' || posture === 'elevated' || posture === 'junkyard';
+
+  useEffect(() => {
+    const viewToggle = setInterval(() => {
+      setShowFront((prev) => !prev);
+    }, 6000);
+    return () => clearInterval(viewToggle);
+  }, []);
+
+  useEffect(() => {
+    const frames = isAlert ? frontFrames.alert : frontFrames.idle;
+    const interval = setInterval(() => {
+      setFrameIndex((prev) => (prev + 1) % frames.length);
+    }, isAlert ? 500 : 2000);
+    return () => clearInterval(interval);
+  }, [isAlert]);
+
+  let art;
+  if (showFront) {
+    const frames = isAlert ? frontFrames.alert : frontFrames.idle;
+    art = frames[frameIndex % frames.length];
+  } else {
+    art = sideArt[posture] || sideArt.nominal;
+  }
 
   return (
     <pre
@@ -107,7 +202,7 @@ O         \\
       style={{ color: eyeColor }}
       aria-hidden="true"
     >
-      {art[posture] || art.nominal}
+      {art}
     </pre>
   );
 }
@@ -121,14 +216,8 @@ O         \\
  *
  * The signature REX Great Dane component -- a guard-dog whose visuals
  * and bark shift based on threat posture, power state, LLM status, and
- * connection health.  REX communicates in dog noises only.
- *
- * @param {{
- *   threatPosture: 'nominal'|'elevated'|'critical'|'unknown',
- *   powerState: string,
- *   llmStatus: string,
- *   connected: boolean,
- * }} props
+ * connection health. REX communicates in dog noises only.
+ * Includes Tamagotchi-style animation toggling between side and front views.
  */
 export default function RoboDogCorePanel({
   threatPosture = 'unknown',
@@ -139,6 +228,20 @@ export default function RoboDogCorePanel({
   const cfg = POSTURE_CONFIG[threatPosture] || POSTURE_CONFIG.unknown;
   const powerLabel = POWER_LABELS[powerState] || POWER_LABELS.unknown;
   const llmLabel = LLM_LABELS[llmStatus] || LLM_LABELS.unknown;
+
+  /* Cycle through dog barks like a Tamagotchi pet */
+  const barks = ['*woof*', '*ruff*', '*ruff ruff*', '*WOOF!*', '*pant pant*'];
+  const [barkIndex, setBarkIndex] = useState(0);
+
+  useEffect(() => {
+    if (cfg.alert) return; /* Alert bark is static */
+    const interval = setInterval(() => {
+      setBarkIndex((prev) => (prev + 1) % barks.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [cfg.alert]);
+
+  const displayBark = cfg.alert ? cfg.bark : `${barks[barkIndex]} ${cfg.bark}`;
 
   return (
     <div
@@ -177,14 +280,14 @@ export default function RoboDogCorePanel({
         </span>
       </div>
 
-      {/* Great Dane visualisation */}
+      {/* Great Dane visualisation with Tamagotchi animation */}
       <div className={cfg.breathe ? 'animate-breathe' : cfg.alert ? 'animate-pulse' : ''}>
         <DogArt posture={threatPosture} eyeColor={cfg.eyeColor} />
       </div>
 
       {/* REX bark - dog speaks in dog noises */}
       <p className={`text-xs italic ${cfg.accentColor} text-center`}>
-        {cfg.bark}
+        {displayBark}
       </p>
 
       {/* Status strip */}

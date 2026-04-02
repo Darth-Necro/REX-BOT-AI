@@ -19,6 +19,15 @@ _PERSONA_PREFIXES = {
 }
 
 
+_JUNKYARD_PREFIXES = {
+    ThreatSeverity.CRITICAL: "*WOOF WOOF WOOF GRRRRR!* JUNKYARD DOG ENGAGED! Threat ELIMINATED!",
+    ThreatSeverity.HIGH: "*GRRRRR WOOF WOOF!* REX bit the intruder! Threat BLOCKED!",
+    ThreatSeverity.MEDIUM: "*GRRRRR!* REX chased it off! Suspicious activity BLOCKED!",
+    ThreatSeverity.LOW: "*WOOF!* REX snapped at something. Blocked just in case!",
+    ThreatSeverity.INFO: "*ruff GRRRRR* REX is watching closely. Nothing gets past!",
+}
+
+
 class MessageFormatter:
     """Formats alert and report messages using the REX guard dog persona."""
 
@@ -49,7 +58,10 @@ class MessageFormatter:
             if severity in [s.value for s in ThreatSeverity]
             else ThreatSeverity.MEDIUM
         )
-        prefix = _PERSONA_PREFIXES.get(sev, "REX update:")
+        # Check if Junkyard Dog mode is active
+        junkyard = event.get("protection_mode") == "junkyard_dog"
+        prefixes = _JUNKYARD_PREFIXES if junkyard else _PERSONA_PREFIXES
+        prefix = prefixes.get(sev, "REX update:")
         description = event.get("description", "Suspicious activity detected.")
         action = event.get("action_taken", "monitoring")
 

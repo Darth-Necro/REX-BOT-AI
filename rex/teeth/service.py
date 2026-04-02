@@ -253,6 +253,17 @@ class TeethService(BaseService):
             )
             return
 
+        # JUNKYARD DOG MODE: *GRRRRR* Escalate all actions!
+        # Alerts become blocks, logs become alerts, monitors become blocks.
+        if self.config.protection_mode == ProtectionMode.JUNKYARD_DOG:
+            if decision_action in (DecisionAction.ALERT, DecisionAction.LOG,
+                                   DecisionAction.MONITOR, DecisionAction.IGNORE):
+                self._log.info(
+                    "*GRRRRR* Junkyard Dog mode: escalating %s -> BLOCK "
+                    "for decision %s", decision_action, decision_id,
+                )
+                decision_action = DecisionAction.BLOCK
+
         # Map the Brain decision to a catalog action.
         action_id = _DECISION_ACTION_MAP.get(decision_action, "log_only")
 
@@ -326,6 +337,12 @@ class TeethService(BaseService):
         # ALERT_ONLY: never enforce, only log/alert.
         if mode == ProtectionMode.ALERT_ONLY:
             return False
+
+        # JUNKYARD_DOG: *GRRRRR* Enforce EVERYTHING, no mercy.
+        # Auto-blocks all threats at every severity, quarantines aggressively,
+        # and immediately notifies the owner via bark.
+        if mode == ProtectionMode.JUNKYARD_DOG:
+            return True
 
         # AUTO_BLOCK_ALL: enforce everything.
         if mode == ProtectionMode.AUTO_BLOCK_ALL:

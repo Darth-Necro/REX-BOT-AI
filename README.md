@@ -9,7 +9,7 @@
                  |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**v0.1.0-alpha** -- Local-first autonomous network security agent. Linux-primary, with experimental macOS/Windows/BSD support. Multi-layer AI decision pipeline, prompt injection defense, and per-service event bus isolation.
+**v0.2.0-beta** -- Local-first autonomous network security agent. Linux-primary with cross-platform PAL (macOS/Windows/BSD). Multi-layer AI decision pipeline, prompt injection defense, per-service event bus isolation, and **Junkyard Dog mode** for maximum threat protection.
 
 > This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
@@ -104,6 +104,28 @@ pytest
 ruff check rex/ tests/
 ```
 
+## Protection Modes
+
+REX supports four protection modes that control how aggressively threats are handled:
+
+| Mode | Description |
+|------|-------------|
+| `alert_only` | *ruff* -- Monitor and log only. No active blocking. |
+| `auto_block_critical` | *woof* -- Auto-block CRITICAL and HIGH severity threats. Default mode. |
+| `auto_block_all` | *WOOF!* -- Auto-block all detected threats regardless of severity. |
+| `junkyard_dog` | *GRRRRR WOOF WOOF!* -- **Maximum aggression.** Auto-blocks ALL threats, escalates alerts to blocks, quarantines aggressively, and immediately notifies the owner of every attack. No mercy mode. |
+
+### Junkyard Dog Mode
+
+When activated, REX becomes a junkyard dog -- the most aggressive protection mode:
+
+- **All threats are auto-blocked** regardless of severity level
+- **Alerts are escalated to blocks** -- even LOW severity events get blocked
+- **Owner notifications** are sent immediately for every detected threat  
+- **Aggressive bark messages** -- REX communicates with fierce dog noises (*GRRRRR WOOF WOOF!*)
+
+Activate via CLI: `rex junkyard` or set `REX_PROTECTION_MODE=junkyard_dog` in your environment.
+
 ## CLI Commands
 
 ```bash
@@ -113,6 +135,7 @@ rex status     # Show service health
 rex scan       # Trigger manual network scan
 rex sleep      # Put REX into alert-sleep mode
 rex wake       # Wake REX to full monitoring
+rex junkyard   # Activate JUNKYARD DOG mode (max aggression)
 rex diag       # Full diagnostic dump
 rex backup     # Create data backup
 rex privacy    # Run privacy audit
