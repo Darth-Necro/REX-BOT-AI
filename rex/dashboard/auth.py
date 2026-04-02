@@ -143,7 +143,9 @@ class AuthManager:
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
                 # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                if self._store_to_secrets_manager():
+                    # Migration succeeded -- remove plaintext copy
+                    self._remove_plaintext_creds()
                 self._initialized = True
                 return None
             except Exception:
@@ -183,6 +185,18 @@ class AuthManager:
         except Exception:
             logger.warning("Failed to store credentials in SecretsManager")
             return False
+
+    def _remove_plaintext_creds(self) -> None:
+        """Delete the plaintext credentials file after successful migration.
+
+        Called only after secrets have been persisted in encrypted storage.
+        """
+        try:
+            if self._creds_file.exists():
+                self._creds_file.unlink()
+                logger.info("Removed plaintext credentials file after migration to encrypted storage")
+        except OSError:
+            logger.warning("Failed to remove plaintext credentials file: %s", self._creds_file)
 
     async def login(self, username: str, password: str, client_ip: str = "unknown") -> dict[str, Any]:
         """Authenticate and return a JWT token.
@@ -261,7 +275,9 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            self._remove_plaintext_creds()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,

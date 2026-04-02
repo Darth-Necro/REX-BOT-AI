@@ -295,14 +295,14 @@ class TeethService(BaseService):
 
         except Exception as exc:
             self._log.exception(
-                "Unexpected error executing %s for decision %s",
-                action_id, decision_id,
+                "Unexpected error executing %s for decision %s: %s: %s",
+                action_id, decision_id, type(exc).__name__, exc,
             )
             await self._publish_failure_event(
                 decision_id=decision_id,
                 action=action_id,
                 threat_event_id=threat_event_id,
-                error=str(exc),
+                error=f"{type(exc).__name__}: {exc}",
             )
 
     # ------------------------------------------------------------------
