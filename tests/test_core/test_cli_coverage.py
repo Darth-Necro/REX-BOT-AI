@@ -203,6 +203,29 @@ class TestDiagCommand:
 # start command -- imports get_config, AuthManager, ServiceOrchestrator lazily
 # ------------------------------------------------------------------
 
+def _mock_asyncio_run(return_values):
+    """Create a side_effect for asyncio.run that closes the coroutine argument.
+
+    asyncio.run receives a coroutine object; when mocked, the coroutine is
+    never executed, triggering 'coroutine was never awaited' warnings.
+    Closing it explicitly avoids that.
+    """
+    values = list(return_values)
+    idx = [0]
+
+    def _side_effect(coro):
+        coro.close()  # prevent 'coroutine was never awaited' warning
+        val = values[idx[0]]
+        idx[0] += 1
+        if isinstance(val, type) and issubclass(val, BaseException):
+            raise val()
+        if isinstance(val, BaseException):
+            raise val
+        return val
+
+    return _side_effect
+
+
 class TestStartCommand:
     """Test the 'start' command flow with mocked orchestrator."""
 
@@ -219,7 +242,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=[None, KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=_mock_asyncio_run([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -227,7 +250,7 @@ class TestStartCommand:
         assert "sleep" in result.output.lower() or "Goodbye" in result.output
 
     def test_start_with_initial_password(self) -> None:
-        """start should display admin password on first boot."""
+        """start should display admin password on first boot (shown on stderr)."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
         mock_config.data_dir = "/tmp/rex-test"
@@ -239,11 +262,12 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=["super-secret-pw", KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=_mock_asyncio_run(["super-secret-pw", KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
         assert result.exit_code == 0
+        # Password is now displayed on stderr; typer runner captures both
         assert "ADMIN PASSWORD" in result.output
         assert "super-secret-pw" in result.output
 
@@ -260,7 +284,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=[None, KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=_mock_asyncio_run([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 

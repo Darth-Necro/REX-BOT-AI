@@ -143,7 +143,7 @@ class TestFetchThreatFeed:
             "0.0.0.0 another-bad.net\n"
         )
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
@@ -169,7 +169,7 @@ class TestFetchThreatFeed:
             "# Comment\n"
         )
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
@@ -196,7 +196,7 @@ class TestFetchThreatFeed:
         """If download fails (non-zero exit), should return 0."""
         monitor = _make_monitor(dns_config)
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
@@ -223,7 +223,7 @@ class TestFetchThreatFeed:
         """Empty stdout with zero exit should return 0."""
         monitor = _make_monitor(dns_config)
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
@@ -243,7 +243,7 @@ class TestFetchThreatFeed:
 
         feed_text = "already-known.com\nnew-one.com\n"
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \

@@ -215,7 +215,7 @@ class TestDownloadOuiCsv:
         fp = _fp()
         big_csv = "x" * 2000
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(big_csv.encode(), b""))
 
@@ -234,7 +234,7 @@ class TestDownloadOuiCsv:
         fp = _fp()
         short = "tiny"
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(short.encode(), b""))
 
@@ -251,7 +251,7 @@ class TestDownloadOuiCsv:
     async def test_non_zero_exit_returns_none(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
@@ -416,7 +416,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
@@ -442,7 +442,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with (
@@ -458,7 +458,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
 
         with (
@@ -494,7 +494,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with (
@@ -517,7 +517,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with (
@@ -540,7 +540,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         with (
@@ -561,7 +561,7 @@ class TestTtlOsGuess:
     async def test_linux_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         output = "PING 192.168.1.10: 64 data bytes\n64 bytes from 192.168.1.10: ttl=64 time=1.2 ms\n"
@@ -578,7 +578,7 @@ class TestTtlOsGuess:
     async def test_windows_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         output = "Reply from 192.168.1.10: bytes=32 TTL=128 time=1ms\n"
@@ -595,7 +595,7 @@ class TestTtlOsGuess:
     async def test_network_equipment_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         output = "64 bytes from 192.168.1.1: ttl=255 time=0.5 ms\n"
@@ -612,7 +612,7 @@ class TestTtlOsGuess:
     async def test_no_ttl_match(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
 
         output = "PING 192.168.1.10: no reply\n"
@@ -629,7 +629,7 @@ class TestTtlOsGuess:
     async def test_ping_failure(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
 
         with (

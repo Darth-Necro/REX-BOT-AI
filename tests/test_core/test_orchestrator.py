@@ -16,7 +16,7 @@ from rex.shared.models import ServiceHealth
 
 def _mock_service(name: ServiceName, fail_start: bool = False) -> MagicMock:
     """Create a mock BaseService."""
-    svc = AsyncMock()
+    svc = MagicMock()
     svc.service_name = name
 
     if fail_start:
