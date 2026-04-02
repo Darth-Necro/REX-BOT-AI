@@ -151,10 +151,16 @@ def stop() -> None:
 def status() -> None:
     """Show health status of all REX services."""
     import httpx
-    typer.echo(r"""       / \__
-      (    @\___   REX-BOT-AI v""" + VERSION + r"""
-      /         O  *ruff* Status report!
-     /_____/   U""")
+    typer.echo(r"""
+   /^-----^\
+  V  o o  V      REX-BOT-AI v""" + VERSION + r"""
+   |  Y  |       *ruff* Status report!
+    \ Q /
+    / - \
+    |    \
+    |     \_
+    || (___\
+""")
     typer.echo("")
     try:
         resp = httpx.get(f"{_DEFAULT_API_URL}/api/status", timeout=5, verify=not _DEV_INSECURE)
@@ -181,7 +187,16 @@ def status() -> None:
 @app.command()
 def version() -> None:
     """Print the REX-BOT-AI version string."""
-    typer.echo(f"REX-BOT-AI v{VERSION}")
+    typer.echo(r"""
+   /^-----^\
+  V  o o  V      ____  _______  __    ____   ___ _______
+   |  Y  |      |  _ \| ____\ \/ /   | __ ) / _ \__   __|
+    \ Q /       | |_) |  _|  \  /____|  _ \| | | | | |
+    / - \       |  _ <| |___ /  \____| |_) | |_| | | |
+    |    \      |_| \_\_____|/_/\_\   |____/ \___/  |_| AI
+    |     \_
+    || (___\
+""" + f"                                                v{VERSION}")
 
 
 @app.command()
