@@ -136,7 +136,8 @@ def stop() -> None:
     """Stop all REX services gracefully (sends SIGTERM to running instance)."""
     import os
     import signal
-    pidfile = "/tmp/rex-bot-ai.pid"  # noqa: S108
+    from rex.shared.config import get_config
+    pidfile = str(get_config().data_dir / "rex-bot-ai.pid")
     if os.path.exists(pidfile):
         with open(pidfile) as f:
             pid = int(f.read().strip())

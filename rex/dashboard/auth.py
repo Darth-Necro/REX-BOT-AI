@@ -17,8 +17,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-import hashlib
-
 import bcrypt
 import jwt  # PyJWT
 
@@ -57,8 +55,6 @@ def _prehash_password(password: str) -> bytes:
     the full password.  This is the standard approach used by Dropbox and
     others.
     """
-    import base64
-    import hashlib
     digest = hashlib.sha256(password.encode("utf-8")).digest()
     return base64.b64encode(digest)
 

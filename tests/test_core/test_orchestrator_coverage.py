@@ -480,7 +480,7 @@ class TestAutoRestart:
         orch.register(svc)
         orch._restart_counts[ServiceName.STORE] = 1
         # Simulate one prior restart in the sliding window
-        orch._restart_timestamps[ServiceName.STORE] = [_time.monotonic() - 10]
+        orch._last_restart_time[ServiceName.STORE] = _time.monotonic()
 
         with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
             await orch._auto_restart(ServiceName.STORE)
@@ -494,11 +494,9 @@ class TestAutoRestart:
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
-        # Fill the sliding window to max
-        now = _time.monotonic()
-        orch._restart_timestamps[ServiceName.STORE] = [
-            now - 10, now - 5, now - 1,
-        ]
+        # Simulate max restarts already exhausted within the decay window
+        orch._restart_counts[ServiceName.STORE] = 3
+        orch._last_restart_time[ServiceName.STORE] = _time.monotonic()
 
         await orch._auto_restart(ServiceName.STORE)
 

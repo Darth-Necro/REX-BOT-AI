@@ -196,9 +196,12 @@ install_rex() {
     # Generate self-signed TLS certificate
     info "Generating TLS certificate..."
     mkdir -p "${REX_DATA_DIR}/certs"
+    LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
     openssl req -x509 -newkey rsa:2048 -keyout "${REX_DATA_DIR}/certs/key.pem" \
-        -out "${REX_DATA_DIR}/certs/cert.pem" -days 365 -nodes \
-        -subj "/CN=rex.local/O=REX-BOT-AI" || warn "TLS certificate generation failed — HTTPS will not work"
+        -out "${REX_DATA_DIR}/certs/cert.pem" -days 90 -nodes \
+        -subj "/CN=rex.local/O=REX-BOT-AI" \
+        -addext "subjectAltName=DNS:rex.local,DNS:localhost,IP:127.0.0.1,IP:${LOCAL_IP}" \
+        || warn "TLS certificate generation failed — HTTPS will not work"
 
     # Clone the full repo -- Docker needs the complete build context
     # (Dockerfile, rex/, requirements.txt, pyproject.toml, frontend/).
@@ -301,8 +304,8 @@ post_install() {
     echo "  Dashboard: https://${LOCAL_IP}:${REX_PORT}"
     echo "  Local URL: https://rex.local:${REX_PORT}"
     echo ""
-    echo "  Admin Password: ${ADMIN_PASSWORD}"
-    echo "  (Write this down. It will not be shown again.)"
+    echo "  Admin Password: ${ADMIN_PASSWORD}" >&2
+    echo "  (Write this down. It will not be shown again.)" >&2
     echo ""
     echo "  REX is awake and sniffing your network."
     echo "  Visit the dashboard to complete setup."

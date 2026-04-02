@@ -6,6 +6,7 @@ dependency initialization, and all API routers.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections import defaultdict
@@ -56,22 +57,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.max_requests = max_requests
         self.window = window_seconds
         self._requests: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        timestamps = [t for t in self._requests[client_ip] if now - t < self.window]
-        if not timestamps:
-            # Clean up stale IP keys to prevent unbounded dict growth
-            self._requests.pop(client_ip, None)
-        else:
-            self._requests[client_ip] = timestamps
-        if len(timestamps) >= self.max_requests:
-            return JSONResponse(
-                {"detail": "Rate limit exceeded"}, status_code=429,
-                headers={"Retry-After": str(self.window)},
-            )
-        self._requests[client_ip].append(now)
+        async with self._lock:
+            now = time.time()
+            timestamps = [t for t in self._requests[client_ip] if now - t < self.window]
+            if not timestamps:
+                # Clean up stale IP keys to prevent unbounded dict growth
+                self._requests.pop(client_ip, None)
+            else:
+                self._requests[client_ip] = timestamps
+            if len(timestamps) >= self.max_requests:
+                return JSONResponse(
+                    {"detail": "Rate limit exceeded"}, status_code=429,
+                    headers={"Retry-After": str(self.window)},
+                )
+            self._requests[client_ip].append(now)
         return await call_next(request)
 
 

@@ -879,9 +879,10 @@ class CommandExecutor:
                 command=argv,
             )
         except OSError as exc:
+            logger.error("OS error executing command %s: %s", argv[0], exc)
             return CommandResult(
                 executed=False,
-                reason=f"OS error executing command: {exc}",
+                reason=f"OS error executing command: {argv[0]}",
                 command=argv,
             )
 
