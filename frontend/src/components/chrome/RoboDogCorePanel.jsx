@@ -78,63 +78,51 @@ const LLM_LABELS = {
 /*  Great Dane ASCII Art - Side profiles (posture-dependent)          */
 /* ------------------------------------------------------------------ */
 
-/* Right-facing Great Dane */
-const rightFacing = {
-  normal: `     /^\\
-    /   \\___
-   /      @\\____
-  /              O
- /    (_________/
-/______/     U`,
+/* The original Great Dane -- used everywhere */
+const rexDog = {
+  normal: `    ^
+   / \\__
+  (    @\\___
+  /         O
+ /   (_____/
+/_____/   U`,
 
-  alert: `     /^\\
-    /   \\___
-   /    ! @\\____
-  /              O
- /    (____|____/
-/______/ |  U
+  alert: `    ^
+   / \\__
+  (!O @\\___
+  /         O
+ /   (\\____/
+/_____/ | U
          |~~`,
-};
 
-/* Left-facing Great Dane (mirrored) */
-const leftFacing = {
-  normal: `         /^\\
-    ___/   \\
- ____/@      \\
-O              \\
- \\___________)  \\
-          U  \\______\\`,
+  sleep: `    ^
+   / \\__
+  (  - @\\___  zzz
+  /         O
+ /   (_____/
+/_____/   U`,
 
-  alert: `         /^\\
-    ___/   \\
- ____/@ !   \\
-O              \\
- \\____|____)    \\
-     U  | \\______\\
-        ~~|`,
+  happy: `    ^
+   / \\__
+  (  O @\\___
+  /         O
+ /   (_____/
+/_____/   U~`,
 };
 
 const sideArt = {
-  /* Facing right: relaxed, happy */
-  nominal: rightFacing.normal,
-
-  /* Facing left: watching, ears perked */
-  elevated: leftFacing.alert,
-
-  /* Facing right: alert posture, growling */
-  critical: rightFacing.alert,
-
-  /* Junkyard Dog: chained up, fierce */
-  junkyard: `     /^\\
-    /   \\___
-   /    ! @\\____    *GRRRRR!*
-  /    _________O   JUNKYARD DOG!
- / ___/ ||||||||
-/___/  ||||||| U
-   CHAIN~~~~~~~`,
-
-  /* Facing left: unknown/sleepy */
-  unknown: leftFacing.normal,
+  nominal: rexDog.normal,
+  elevated: rexDog.happy,
+  critical: rexDog.alert,
+  junkyard: `    ^
+   / \\__
+  (!O @\\___    *GRRRRR!*
+  /         O  JUNKYARD DOG!
+ /   (_____/
+/_____/   U
+  |||||||||
+  CHAIN~~~~`,
+  unknown: rexDog.sleep,
 };
 
 /* ------------------------------------------------------------------ */
@@ -194,15 +182,15 @@ const frontFrames = {
 
 function DogArt({ posture, eyeColor }) {
   const [frameIndex, setFrameIndex] = useState(0);
-  const [viewIndex, setViewIndex] = useState(0);
+  const [showFront, setShowFront] = useState(false);
 
   const isAlert = posture === 'critical' || posture === 'elevated' || posture === 'junkyard';
 
   useEffect(() => {
-    /* Rotate: right-facing -> front -> left-facing -> front */
+    /* Toggle between side profile and front view */
     const viewToggle = setInterval(() => {
-      setViewIndex((prev) => (prev + 1) % 4);
-    }, 5000);
+      setShowFront((prev) => !prev);
+    }, 6000);
     return () => clearInterval(viewToggle);
   }, []);
 
@@ -215,21 +203,13 @@ function DogArt({ posture, eyeColor }) {
   }, [isAlert]);
 
   let art;
-  if (viewIndex === 0) {
-    /* Right-facing */
-    art = isAlert ? rightFacing.alert : rightFacing.normal;
-  } else if (viewIndex === 2) {
-    /* Left-facing */
-    art = isAlert ? leftFacing.alert : leftFacing.normal;
-  } else {
-    /* Front-facing (views 1 and 3) */
+  if (showFront) {
+    /* Front-facing Tamagotchi frames */
     const frames = isAlert ? frontFrames.alert : frontFrames.idle;
     art = frames[frameIndex % frames.length];
-  }
-
-  /* Override for junkyard — always show the junkyard art on side views */
-  if (posture === 'junkyard' && (viewIndex === 0 || viewIndex === 2)) {
-    art = sideArt.junkyard;
+  } else {
+    /* Side-profile: the original Great Dane */
+    art = sideArt[posture] || sideArt.nominal;
   }
 
   return (

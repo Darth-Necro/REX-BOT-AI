@@ -124,12 +124,12 @@ def start(
         asyncio.run(_run())
     except KeyboardInterrupt:
         typer.echo(r"""
-              ^
-             / \__
-            (  - @\___   *yaaawn* ... REX is going to sleep.
-            /         O  Goodbye!
-           /   (_____/
-          /_____/   U
+        ^
+       / \__
+      (  - @\___   *yaaawn* ... REX is going to sleep.
+      /         O  Goodbye!
+     /   (_____/
+    /_____/   U
 """)
 
 
@@ -144,9 +144,23 @@ def stop() -> None:
         with open(pidfile) as f:
             pid = int(f.read().strip())
         os.kill(pid, signal.SIGTERM)
-        typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
+        typer.echo(r"""
+        ^
+       / \__
+      (  - @\___   *ruff* Sent stop signal to REX (PID """ + str(pid) + r""")
+      /         O  *woof* ... going down...
+     /   (_____/
+    /_____/   U
+""")
     else:
-        typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
+        typer.echo(r"""
+        ^
+       / \__
+      (  ? @\___   *whimper* REX does not appear to be running.
+      /         O  (no PID file found)
+     /   (_____/
+    /_____/   U
+""")
 
 
 @app.command()
@@ -154,14 +168,12 @@ def status() -> None:
     """Show health status of all REX services."""
     import httpx
     typer.echo(r"""
-   /^-----^\
-  V  o o  V      REX-BOT-AI v""" + VERSION + r"""
-   |  Y  |       *ruff* Status report!
-    \ Q /
-    / - \
-    |    \
-    |     \_
-    || (___\
+        ^
+       / \__
+      (    @\___   REX-BOT-AI v""" + VERSION + r"""
+      /         O  *ruff* Status report!
+     /   (_____/
+    /_____/   U
 """)
     typer.echo("")
     try:
@@ -190,15 +202,16 @@ def status() -> None:
 def version() -> None:
     """Print the REX-BOT-AI version string."""
     typer.echo(r"""
-   /^-----^\
-  V  o o  V      ____  _______  __    ____   ___ _______
-   |  Y  |      |  _ \| ____\ \/ /   | __ ) / _ \__   __|
-    \ Q /       | |_) |  _|  \  /____|  _ \| | | | | |
-    / - \       |  _ <| |___ /  \____| |_) | |_| | | |
-    |    \      |_| \_\_____|/_/\_\   |____/ \___/  |_| AI
-    |     \_
-    || (___\
-""" + f"                                                v{VERSION}")
+        ^
+       / \__
+      (    @\___     ____  _______  __     ____   ____ _______
+      /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+     /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
+    /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                    |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+""" + f"                                                       v{VERSION}" + r"""
+                    *woof!*
+""")
 
 
 @app.command()
@@ -224,13 +237,20 @@ def login(
                 with open(token_file, "w") as f:
                     f.write(token)
                 os.chmod(token_file, 0o600)
-                typer.echo("Login successful. Token saved to ~/.rex-token")
+                typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *WOOF WOOF!* Login successful!
+      /         O  Token saved to ~/.rex-token
+     /   (_____/
+    /_____/   U
+""")
             else:
-                typer.echo("Login response did not contain a token.")
+                typer.echo("  *ruff?* Login response did not contain a token.")
         else:
-            typer.echo(f"Login failed: {resp.status_code} {resp.text}")
+            typer.echo(f"  *GRRR* Login failed: {resp.status_code} {resp.text}")
     except Exception as e:
-        typer.echo(f"Cannot reach REX API: {e}")
+        typer.echo(f"  *whimper* Cannot reach REX API: {e}")
 
 
 @app.command()
@@ -240,10 +260,17 @@ def scan(
 ) -> None:
     """Trigger an immediate network scan."""
     scan_type = "quick" if quick else "deep"
-    msg = f"Triggering {scan_type} network scan"
+    msg = f"*ruff ruff* Triggering {scan_type} network scan"
     if target:
         msg += f" on {target}"
-    typer.echo(msg + "...")
+    typer.echo(r"""
+        ^
+       / \__
+      (    @\___   """ + msg + r"""
+      /         O  *sniff sniff* ... scanning ...
+     /   (_____/
+    /_____/   U
+""")
     try:
         import httpx
         body: dict[str, str] = {"scan_type": scan_type}
@@ -259,15 +286,15 @@ def scan(
         data = resp.json()
         typer.echo(f"  {data.get('status', 'unknown')}")
         if data.get("delivered"):
-            typer.echo("  Scan command delivered to event bus.")
+            typer.echo("  *WOOF!* Scan command delivered to event bus.")
     except Exception as e:
-        typer.echo(f"  Cannot reach REX: {e}")
+        typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
 
 @app.command()
 def sleep() -> None:
     """Put REX into ALERT_SLEEP mode (lightweight watchdog only)."""
-    typer.echo("Requesting ALERT_SLEEP mode...")
+    typer.echo("  *woof* Requesting ALERT_SLEEP mode...")
     try:
         import httpx
         resp = httpx.post(
@@ -280,23 +307,23 @@ def sleep() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-            /^\
-       ___/   \
-  ____/@ -      \   *woof* ... zzz ... REX is sleeping
- O               \  with one ear open.
-  \____________)  \  Lightweight monitoring active.
-           U   \___\
+        ^
+       / \__
+      (  - @\___   *woof* ... zzz ... REX is sleeping
+      /         O  with one ear open.
+     /   (_____/   Lightweight monitoring active.
+    /_____/   U
 """)
         else:
-            typer.echo(f"  Detail: {data.get('detail', 'No response')}")
+            typer.echo(f"  *ruff?* Detail: {data.get('detail', 'No response')}")
     except Exception as e:
-        typer.echo(f"  Cannot reach REX: {e}")
+        typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
 
 @app.command()
 def wake() -> None:
     """Wake REX to full AWAKE mode."""
-    typer.echo("Requesting AWAKE mode...")
+    typer.echo("  *ruff ruff* Requesting AWAKE mode...")
     try:
         import httpx
         resp = httpx.post(
@@ -309,34 +336,35 @@ def wake() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-         /^\
-        /   \___
-       /    O @\____   *WOOF WOOF!* REX is awake!
-      /              O  Full monitoring and protection active.
-     /    (_________/
-    /______/     U
+        ^
+       / \__
+      (  O @\___   *WOOF WOOF!* REX is awake!
+      /         O  Full monitoring and protection active.
+     /   (_____/   *GRRR* ... watching everything!
+    /_____/   U
 """)
         else:
-            typer.echo(f"  Detail: {data.get('detail', 'No response')}")
+            typer.echo(f"  *ruff?* Detail: {data.get('detail', 'No response')}")
     except Exception as e:
-        typer.echo(f"  Cannot reach REX: {e}")
+        typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
 
 @app.command()
 def junkyard() -> None:
     """Activate JUNKYARD DOG mode -- maximum aggression, auto-block ALL threats."""
     typer.echo(r"""
-     /^\
-    /   \___
-   /    ! @\____     *WOOF WOOF GRRRRR!*
-  /    _________O    JUNKYARD DOG MODE ACTIVATED!
- / ___/ ||||||||
-/___/  ||||||| U
-   CHAIN~~~~~~~
+        ^
+       / \__
+      (!O @\___    *WOOF WOOF GRRRRR!*
+      /         O  JUNKYARD DOG MODE ACTIVATED!
+     /   (_____/
+    /_____/   U
+     |||||||||
+     CHAIN~~~~
 
-  REX is now a JUNKYARD DOG!
-  All threats will be auto-blocked and quarantined.
-  Owner will be notified of every attack.
+  *GRRRRR* REX is now a JUNKYARD DOG!
+  *WOOF WOOF!* All threats will be auto-blocked and quarantined.
+  *ruff ruff* Owner will be notified of every attack.
   *GRRRRR* ... No mercy!
 """)
     try:
@@ -351,7 +379,7 @@ def junkyard() -> None:
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("mode") == "junkyard_dog":
-            typer.echo("  *WOOF!* Junkyard Dog mode is ACTIVE. REX will eliminate all threats!")
+            typer.echo("  *WOOF WOOF GRRRRR!* Junkyard Dog mode is ACTIVE. REX will eliminate all threats!")
     except Exception as e:
         typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
@@ -363,12 +391,12 @@ def diag() -> None:
     from rex.pal.docker_helper import get_docker_version, is_docker_installed, is_docker_running
 
     typer.echo(r"""
-     /^\
-    /   \___
-   /      @\____   REX-BOT-AI v""" + VERSION + r"""
-  /              O  *ruff ruff* Diagnostic sniff...
- /    (_________/
-/______/     U""")
+        ^
+       / \__
+      (    @\___   REX-BOT-AI v""" + VERSION + r"""
+      /         O  *ruff ruff* Diagnostic sniff...
+     /   (_____/   *sniff sniff*
+    /_____/   U""")
     typer.echo("=" * 40)
 
     os_info = detect_os()
@@ -396,7 +424,14 @@ def diag() -> None:
 @app.command()
 def backup() -> None:
     """Create an immediate backup of REX data."""
-    typer.echo("Creating backup...")
+    typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *ruff* Creating backup...
+      /         O  *woof* Burying bones safely!
+     /   (_____/
+    /_____/   U
+""")
     import shutil
     from datetime import datetime
 
@@ -410,7 +445,7 @@ def backup() -> None:
         root_dir=str(config.data_dir),
         base_dir=".",
     )
-    typer.echo(f"Backup created: {archive}")
+    typer.echo(f"  *WOOF!* Backup created: {archive}")
 
 
 @app.command()
@@ -430,10 +465,17 @@ def privacy(
             import json
             typer.echo(json.dumps(data, indent=2))
         except Exception as e:
-            typer.echo(f"Cannot reach REX API: {e}")
+            typer.echo(f"  *whimper* Cannot reach REX API: {e}")
         return
 
-    typer.echo("Running privacy audit...")
+    typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *ruff ruff* Running privacy audit...
+      /         O  *sniff sniff* Checking for leaks!
+     /   (_____/
+    /_____/   U
+""")
     from rex.core.privacy.audit import PrivacyAuditor
     from rex.pal import get_adapter
     from rex.shared.config import get_config

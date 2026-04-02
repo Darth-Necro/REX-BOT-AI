@@ -183,7 +183,8 @@ export default function AppShell({
         )}
         {(!collapsed || isMobile) && (
           <pre className="text-[8px] font-mono leading-none ml-1" style={{ color: colors.accent.cyan }}>
-{`/ \\__
+{`  ^
+ / \\__
 (  @\\___
 /      O`}
           </pre>
