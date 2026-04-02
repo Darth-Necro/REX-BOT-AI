@@ -62,6 +62,10 @@ def _default_schedule() -> dict[str, Any]:
             "next_wake": None,
             "next_sleep": None,
         },
+        # Top-level fields expected by the frontend
+        "power_state": config.power_state.value,
+        "mode": config.mode.value,
+        "jobs": [],
     }
 
 
@@ -70,12 +74,21 @@ async def get_schedule(user: dict = Depends(get_current_user)) -> dict[str, Any]
     """Return current scan schedule and power state.
 
     Reads from the persisted schedule file if it exists, otherwise falls
-    back to defaults derived from the live config.
+    back to defaults derived from the live config.  Always includes
+    top-level ``power_state``, ``mode``, and ``jobs`` fields for the
+    frontend.
     """
+    from rex.shared.config import get_config
+
+    config = get_config()
     saved = _read_saved_schedule()
-    if saved is not None:
-        return saved
-    return _default_schedule()
+    result = saved if saved is not None else _default_schedule()
+
+    # Ensure top-level fields are present regardless of what was persisted
+    result.setdefault("power_state", config.power_state.value)
+    result.setdefault("mode", config.mode.value)
+    result.setdefault("jobs", result.get("scans", []))
+    return result
 
 
 @router.put("/")
@@ -87,6 +100,37 @@ async def update_schedule(
     if persisted:
         log.info("Schedule config saved to %s", _schedule_path())
     return {**schedule, "status": "updated", "persisted": persisted}
+
+
+@router.post("/patrol")
+async def schedule_patrol(
+    cron: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Schedule a recurring patrol (deep scan + audit) using a cron expression.
+
+    Accepts a standard 5-field cron string (minute hour day month weekday).
+    Persists the patrol schedule to the schedule config file.
+    """
+    import re as _re
+
+    # Basic cron validation: 5 whitespace-separated fields, safe characters only
+    cron = cron.strip()
+    if not _re.fullmatch(r"[0-9*/,\-]+(\s+[0-9*/,\-]+){4}", cron):
+        return {
+            "status": "error",
+            "detail": "Invalid cron expression. Expected 5 fields: minute hour day month weekday",
+        }
+
+    saved = _read_saved_schedule() or _default_schedule()
+    saved["patrol_cron"] = cron
+    persisted = _write_schedule(saved)
+    return {
+        "status": "scheduled",
+        "scheduled": True,
+        "cron": cron,
+        "persisted": persisted,
+    }
 
 
 @router.post("/sleep")

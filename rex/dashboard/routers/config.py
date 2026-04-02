@@ -155,6 +155,37 @@ async def set_mode(
     return {"status": "updated", "mode": config.mode.value}
 
 
+@router.post("/protection-mode")
+async def set_protection_mode(
+    mode: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Set the protection mode (e.g. junkyard_dog, alert_only).
+
+    Validates against the ``ProtectionMode`` enum, persists to user settings,
+    and updates the live config.
+    """
+    from rex.shared.enums import ProtectionMode
+
+    valid_modes = {m.value for m in ProtectionMode}
+    if mode not in valid_modes:
+        return {"status": "error", "detail": f"Invalid protection mode. Must be one of: {sorted(valid_modes)}"}
+
+    from rex.shared.config import get_config as _get_config
+
+    config = _get_config()
+    config.protection_mode = ProtectionMode(mode)
+
+    user_settings = _load_user_settings()
+    user_settings["protection_mode"] = mode
+    try:
+        _save_user_settings(user_settings)
+    except OSError:
+        logger.error("Failed to persist protection mode change")
+
+    return {"status": "updated", "mode": config.protection_mode.value}
+
+
 @router.put("/")
 async def update_config(
     payload: dict = Body(...), user: dict = Depends(get_current_user)

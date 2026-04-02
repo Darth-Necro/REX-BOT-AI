@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user
 
@@ -121,18 +122,38 @@ async def block_device(
 
 
 @router.post("/scan")
-async def trigger_scan(user: dict = Depends(get_current_user)) -> dict[str, Any]:
-    """Trigger an immediate network scan via the event bus."""
+async def trigger_scan(
+    scan_type: str = Body("quick"),
+    target: str = Body("", max_length=45),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Trigger an immediate network scan via the event bus.
+
+    Accepts an optional ``scan_type`` ("quick" or "deep") and an optional
+    ``target`` IP address.  If omitted, defaults to a quick full-network scan.
+    """
+    if scan_type not in ("quick", "deep"):
+        raise HTTPException(status_code=422, detail="scan_type must be 'quick' or 'deep'")
+
+    if target:
+        try:
+            ipaddress.ip_address(target)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="target must be a valid IP address")
+
     try:
         from rex.dashboard.deps import get_bus
         from rex.shared.enums import ServiceName
         from rex.shared.events import RexEvent
 
         bus = await get_bus()
+        payload: dict[str, str] = {"scan_type": scan_type}
+        if target:
+            payload["target"] = target
         event = RexEvent(
             source=ServiceName.DASHBOARD,
             event_type="scan_now",
-            payload={"scan_type": "quick"},
+            payload=payload,
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "scan_requested", "delivered": True}

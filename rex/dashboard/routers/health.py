@@ -1,4 +1,4 @@
-"""Health router -- system status and privacy audit endpoints."""
+"""Health router -- system status endpoints."""
 
 from __future__ import annotations
 
@@ -9,9 +9,7 @@ from typing import Any
 
 import psutil
 
-from fastapi import APIRouter, Depends, Header
-
-from rex.dashboard.deps import get_current_user
+from fastapi import APIRouter, Header
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
@@ -220,14 +218,3 @@ async def health_check() -> dict[str, str]:
             {"status": "degraded", "reason": "event bus unreachable"},
             status_code=503,
         )
-
-
-@router.get("/privacy/audit")
-async def privacy_audit(user: dict = Depends(get_current_user)) -> dict[str, Any]:
-    """Run a full privacy audit and return the structured report."""
-    from rex.core.privacy.audit import PrivacyAuditor
-    from rex.pal import get_adapter
-    from rex.shared.config import get_config
-
-    auditor = PrivacyAuditor(config=get_config(), pal=get_adapter())
-    return auditor.run_full_audit()

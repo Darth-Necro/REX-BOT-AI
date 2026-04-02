@@ -210,7 +210,7 @@ class TestPrivacyEndpoint:
     """Tests for the /api/privacy/status endpoint added by create_app."""
 
     def test_privacy_status_fields(self) -> None:
-        """Privacy endpoint returns design-level privacy properties."""
+        """Privacy endpoint returns frontend-expected privacy signals."""
         with patch("rex.shared.config.get_config") as mock_cfg:
             mock_cfg.return_value = MagicMock(cors_origins="http://localhost:3000")
             app = create_app()
@@ -219,10 +219,11 @@ class TestPrivacyEndpoint:
         response = client.get("/api/privacy/status")
         assert response.status_code == 200
         data = response.json()
-        assert data["design_local_only"] is True
+        assert data["data_local_only"] is True
         assert data["telemetry_enabled"] is False
-        assert data["llm_localhost_enforced"] is True
-        assert "note" in data
+        assert "signals" in data
+        assert "retention" in data
+        assert "capabilities" in data
 
     def test_privacy_status_no_auth_needed(self) -> None:
         """Privacy endpoint is accessible without authentication."""
