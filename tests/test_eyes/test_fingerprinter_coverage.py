@@ -217,6 +217,7 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(big_csv.encode(), b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
@@ -234,6 +235,7 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(short.encode(), b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
@@ -249,6 +251,7 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
@@ -412,6 +415,7 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
         with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")

@@ -38,7 +38,7 @@ def test_format_alert_critical_severity():
 
     message, meta = fmt.format_alert(event, "critical", detail_level="full")
 
-    assert "ALERT" in message
+    assert "GRRRRR WOOF WOOF" in message
     assert "serious threat" in message.lower() or "REX" in message
     assert meta["severity"] == "critical"
     assert meta["title"] == "REX CRITICAL Alert"

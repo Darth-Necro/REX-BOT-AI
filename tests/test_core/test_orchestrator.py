@@ -184,7 +184,7 @@ async def test_auto_restart_decay_resets_counter():
     import time
     from unittest.mock import patch
 
-    from rex.core.orchestrator import _RESTART_DECAY_SECONDS
+    from rex.core.orchestrator import _RESTART_DECAY_WINDOW
 
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
@@ -197,7 +197,7 @@ async def test_auto_restart_decay_resets_counter():
 
     # Simulate a previous restart that happened long ago
     orch._restart_counts[ServiceName.EYES] = 2
-    orch._last_restart_time[ServiceName.EYES] = time.monotonic() - _RESTART_DECAY_SECONDS - 1
+    orch._last_restart_time[ServiceName.EYES] = time.monotonic() - _RESTART_DECAY_WINDOW - 1
 
     await orch._auto_restart(ServiceName.EYES)
 
@@ -211,7 +211,7 @@ async def test_auto_restart_no_decay_within_window():
     """Restart counter does NOT reset if decay window hasn't elapsed."""
     import time
 
-    from rex.core.orchestrator import _RESTART_DECAY_SECONDS
+    from rex.core.orchestrator import _RESTART_DECAY_WINDOW
 
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
