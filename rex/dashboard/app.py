@@ -175,7 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bus_instance:
             await bus_instance.disconnect()
     except Exception:
-        pass
+        logger.debug("Error disconnecting event bus during shutdown", exc_info=True)
     logger.info("Dashboard shutdown complete")
 
 
@@ -255,7 +255,15 @@ def create_app() -> FastAPI:
     # Global exception handler -- catch unhandled errors and return a safe 500
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
-        logger.exception("Unhandled exception: %s", exc)
+        # Log only the exception type and message, not the full repr which
+        # could contain sensitive data (request bodies, tokens, file paths).
+        logger.error(
+            "Unhandled %s on %s %s: %s",
+            type(exc).__name__,
+            request.method if hasattr(request, "method") else "?",
+            request.url.path if hasattr(request, "url") else "?",
+            str(exc)[:200],  # Truncate to prevent unbounded log entries
+        )
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"},

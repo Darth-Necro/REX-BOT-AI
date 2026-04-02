@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 
 class TestGetAdapterLinux:
     """get_adapter returns LinuxAdapter when platform.system() == 'Linux'."""
@@ -79,17 +81,16 @@ class TestGetAdapterFreeBSD:
 
 
 class TestGetAdapterUnknown:
-    """get_adapter falls back to LinuxAdapter on unrecognized platforms."""
+    """get_adapter raises PlatformError on unrecognized platforms."""
 
-    def test_unknown_platform_falls_back_to_linux(self):
-        from rex.pal import get_adapter
+    def test_unknown_platform_raises_platform_error(self):
+        from rex.pal import PlatformError, get_adapter
         get_adapter.cache_clear()
 
         with patch("rex.pal.platform.system", return_value="SunOS"):
-            adapter = get_adapter()
+            with pytest.raises(PlatformError, match="Unsupported platform"):
+                get_adapter()
 
-        from rex.pal.linux import LinuxAdapter
-        assert isinstance(adapter, LinuxAdapter)
         get_adapter.cache_clear()
 
 

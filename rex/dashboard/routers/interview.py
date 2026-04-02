@@ -34,8 +34,10 @@ async def get_status() -> dict[str, Any]:
 
 
 @router.get("/question")
-async def get_current_question() -> dict[str, Any]:
-    """Return the current question to display."""
+async def get_current_question(
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the current question to display. Requires authentication."""
     return {
         "question": None,
         "complete": False,

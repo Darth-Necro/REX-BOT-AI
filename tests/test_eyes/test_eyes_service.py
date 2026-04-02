@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -133,6 +134,17 @@ class TestEyesServiceOnStart:
             assert svc._interface is None
             # Components should still be created
             assert svc._scanner is not None
+
+            # Clean up background tasks to avoid coroutine-not-awaited warnings
+            svc._running = False
+            for task in svc._bg_tasks:
+                task.cancel()
+            if svc._bg_tasks:
+                await asyncio.gather(*svc._bg_tasks, return_exceptions=True)
+            for task in svc._tasks:
+                task.cancel()
+            if svc._tasks:
+                await asyncio.gather(*svc._tasks, return_exceptions=True)
 
 
 # ------------------------------------------------------------------

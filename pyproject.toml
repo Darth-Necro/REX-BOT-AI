@@ -42,6 +42,7 @@ dependencies = [
     "jinja2>=3.1.4,<4.0",
     "PyJWT>=2.8.0",
     "bcrypt>=4.0.0",
+    "cryptography>=41.0.0",
     "apscheduler>=3.10.4,<4.0",
     "docker>=7.1.0,<8.0",
     "python-crontab>=3.2.0,<4.0",
@@ -77,12 +78,15 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra -q --strict-markers"
+# Suppress coroutine-not-awaited warnings caused by cross-test GC timing:
+# when AsyncMock coroutines from one test get garbage-collected during a later test.
+# These are mock-infrastructure artifacts, not production code defects.
 filterwarnings = [
-    # CPython AsyncMock creates coroutine objects during attribute introspection
-    # (e.g. in inspect.py, mock.py) that are never awaited. These are GC-timing
-    # artifacts — they pass cleanly when run in isolation. Suppressing here to
-    # avoid masking real warnings with framework noise.
+    "ignore:coroutine 'ServiceOrchestrator._health_monitor' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'EyesService._anomaly_sweep_loop' was never awaited:RuntimeWarning",
     "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'start.<locals>._run' was never awaited:RuntimeWarning",
+    "ignore:coroutine '.*_slow_stop' was never awaited:RuntimeWarning",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

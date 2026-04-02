@@ -229,6 +229,31 @@ def _mock_asyncio_run(return_values):
 class TestStartCommand:
     """Test the 'start' command flow with mocked orchestrator."""
 
+    @staticmethod
+    def _close_coro_side_effect(values):
+        """Create an asyncio.run side_effect that closes unawaited coroutines.
+
+        ``values`` is a list of return-value-or-exception for successive calls.
+        Each time the mock is called, the first positional arg (the coroutine)
+        is closed to prevent "coroutine was never awaited" warnings.
+        """
+        idx = 0
+
+        def _side_effect(coro, *args, **kwargs):
+            nonlocal idx
+            # Close the coroutine to avoid ResourceWarning
+            if hasattr(coro, "close"):
+                coro.close()
+            val = values[idx]
+            idx += 1
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            if isinstance(val, BaseException):
+                raise val
+            return val
+
+        return _side_effect
+
     def test_start_keyboard_interrupt(self) -> None:
         """start should handle KeyboardInterrupt gracefully."""
         mock_config = MagicMock()
@@ -242,7 +267,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_mock_asyncio_run([None, KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -262,7 +287,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_mock_asyncio_run(["super-secret-pw", KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect(["super-secret-pw", KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -284,7 +309,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_mock_asyncio_run([None, KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 

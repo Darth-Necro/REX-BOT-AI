@@ -89,6 +89,10 @@ class PluginRegistry:
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             self._path.write_text(json.dumps(self._entries, indent=2))
+            # Restrict permissions — registry contains token hashes
+            import contextlib
+            with contextlib.suppress(OSError):
+                self._path.chmod(0o600)
         except Exception:
             logger.warning("Failed to persist plugin registry")
 
@@ -134,6 +138,10 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
     """
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:
         raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
+
+    # Reject control characters and whitespace (isprintable allows spaces)
+    if not x_plugin_token.isprintable() or " " in x_plugin_token:
+        raise HTTPException(status_code=401, detail="Invalid plugin token format")
 
     registry = get_plugin_registry()
     entry = registry.lookup(x_plugin_token)

@@ -7,6 +7,7 @@ Session timeout: 4 hours by default.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import hashlib
 import json
@@ -15,6 +16,8 @@ import secrets
 import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+
+import hashlib
 
 import bcrypt
 import jwt  # PyJWT
@@ -44,24 +47,26 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
-def _prepare_password(password: str) -> bytes:
-    """Prepare a password for bcrypt hashing.
+def _prehash_password(password: str) -> bytes:
+    """Pre-hash a password with SHA-256 to work around bcrypt's 72-byte limit.
 
-    bcrypt has a 72-byte input limit.  Passwords longer than 72 bytes are
-    pre-hashed with SHA-256 (base64-encoded) to produce a fixed-length
-    input that preserves the full entropy of the original password.
-    This is a well-established pattern (used by Dropbox, Django, etc.).
-
-    Returns the bytes to pass to bcrypt.
+    bcrypt silently truncates (or in newer versions, rejects) passwords
+    longer than 72 bytes.  By pre-hashing with SHA-256 and base64-encoding
+    the result we get a fixed 44-byte input that preserves entropy from
+    the full password.  This is the standard approach used by Dropbox and
+    others.
     """
-    pw_bytes = password.encode("utf-8")
-    if len(pw_bytes) > 72:
-        pw_bytes = hashlib.sha256(pw_bytes).hexdigest().encode("ascii")
-    return pw_bytes
+    import base64
+    import hashlib
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
+
+    Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
+    safely.  This ensures long passwords retain their full entropy.
 
     Passwords longer than 72 bytes are pre-hashed with SHA-256 to avoid
     bcrypt's silent truncation.
@@ -72,13 +77,16 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(_prepare_password(password), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing).
+
+    Also supports legacy hashes created without pre-hashing, for migration.
+    """
     _reject_null_bytes(password)
-    return bcrypt.checkpw(_prepare_password(password), hashed.encode())
+    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -154,13 +162,11 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                migrated = self._store_to_secrets_manager()
-                if migrated:
-                    # Remove plaintext file after successful migration
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
                     try:
                         self._creds_file.unlink()
-                        logger.info("Plaintext credentials file removed after migration to encrypted storage")
+                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
                     except OSError:
                         logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
@@ -246,6 +252,12 @@ class AuthManager:
             remaining = _MAX_LOGIN_ATTEMPTS - len(ip_attempts)
             raise ValueError(f"Invalid credentials. {remaining} attempts remaining.")
 
+        # Auto-upgrade legacy password hashes (pre-SHA-256-prehash era)
+        if _is_legacy_hash(password, pw_hash):
+            self._password_hash = hash_password(password)
+            self._store_to_secrets_manager()
+            logger.info("Upgraded legacy password hash to SHA-256 pre-hashed format")
+
         # Success - clear failed attempts for this IP
         self._failed_attempts.pop(client_ip, None)
         self._lockout_until.pop(client_ip, None)
@@ -280,7 +292,11 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            # Remove plaintext file if encrypted storage succeeded
+            with contextlib.suppress(OSError):
+                self._creds_file.unlink()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,
