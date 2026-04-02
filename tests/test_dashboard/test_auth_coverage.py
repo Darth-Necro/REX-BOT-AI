@@ -114,11 +114,11 @@ async def test_lockout_blocks_even_correct_password(tmp_path: Path) -> None:
         with pytest.raises(ValueError):
             await manager.login("admin", "wrong", client_ip=ip)
 
-    with pytest.raises(ValueError, match="Too many"):
+    with pytest.raises(ValueError, match="temporarily locked"):
         await manager.login("admin", "wrong", client_ip=ip)
 
     # Now even the correct password should fail during lockout
-    with pytest.raises(ValueError, match="Account locked"):
+    with pytest.raises(ValueError, match="temporarily locked"):
         await manager.login("admin", initial_pw, client_ip=ip)
 
 

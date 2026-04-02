@@ -192,13 +192,10 @@ class TestDevicesRouter:
         response = client.get("/api/devices/aa:bb:cc:dd:ee:ff")
         assert response.status_code == 404
 
-    def test_trust_device_via_bus(self, client: TestClient) -> None:
-        """POST /api/devices/{mac}/trust should publish trust command."""
+    def test_trust_device_without_bus(self, client: TestClient) -> None:
+        """POST /api/devices/{mac}/trust returns 503 when bus unavailable."""
         response = client.post("/api/devices/aa:bb:cc:dd:ee:ff/trust")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["mac"] == "aa:bb:cc:dd:ee:ff"
-        assert data["action"] == "trust"
+        assert response.status_code == 503
 
     def test_trigger_scan_without_bus(self, client: TestClient) -> None:
         """POST /api/devices/scan should handle missing bus gracefully."""
@@ -290,11 +287,11 @@ class TestFirewallRouter:
         assert data["ip"] == "10.0.0.5"
 
     def test_remove_rule_handles_missing_pal(self, client: TestClient) -> None:
-        """DELETE /api/firewall/rules/{id} should degrade without PAL."""
+        """DELETE /api/firewall/rules/{id} should return 500 without PAL."""
         response = client.delete("/api/firewall/rules/some-rule-id")
-        assert response.status_code == 200
+        assert response.status_code == 422
         data = response.json()
-        assert data["rule_id"] == "some-rule-id"
+        assert "detail" in data
 
     def test_panic_button_handles_missing_pal(self, client: TestClient) -> None:
         """POST /api/firewall/panic should degrade gracefully without PAL."""

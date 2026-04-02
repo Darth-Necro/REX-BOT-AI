@@ -13,7 +13,7 @@ import asyncio
 import csv
 import io
 import logging
-import os
+
 import re
 import shutil
 import sqlite3
@@ -32,12 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("rex.eyes.fingerprinter")
 
-_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
-
-
-def _safe_env() -> dict[str, str]:
-    """Return environment with sensitive variables stripped."""
-    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
+from rex.shared.subprocess_util import run_subprocess_async
 
 
 class DeviceFingerprinter:
@@ -285,24 +280,13 @@ class DeviceFingerprinter:
             self._logger.debug("curl not available for OUI download")
             return None
 
-        try:
-            logger.info("Subprocess: %s %s", "curl", "-sL --max-time 30 " + self.OUI_DB_URL)
-            proc = await asyncio.create_subprocess_exec(
-                "curl", "-sL", "--max-time", "30", self.OUI_DB_URL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=45)
-            if proc.returncode == 0 and stdout:
-                text = stdout.decode(errors="replace")
-                if len(text) > 1000:  # sanity check
-                    self._logger.info(
-                        "Downloaded OUI CSV: %d bytes", len(text)
-                    )
-                    return text
-        except (TimeoutError, OSError) as exc:
-            self._logger.debug("OUI CSV download failed: %s", exc)
+        rc, stdout, _ = await run_subprocess_async(
+            "curl", "-sL", "--max-time", "30", self.OUI_DB_URL,
+            timeout=45, label="curl-oui-csv",
+        )
+        if rc == 0 and stdout and len(stdout) > 1000:
+            self._logger.info("Downloaded OUI CSV: %d bytes", len(stdout))
+            return stdout
 
         return None
 
@@ -453,25 +437,15 @@ class DeviceFingerprinter:
         if not self._is_nmap_available():
             return None
 
-        try:
-            logger.info("Subprocess: %s %s", "nmap", "-O --osscan-guess -oX - " + ip)
-            proc = await asyncio.create_subprocess_exec(
-                "nmap", "-O", "--osscan-guess", "-oX", "-", ip,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT
-            )
-        except (TimeoutError, FileNotFoundError, OSError):
-            return None
-
-        if proc.returncode != 0:
+        rc, stdout, _ = await run_subprocess_async(
+            "nmap", "-O", "--osscan-guess", "-oX", "-", ip,
+            timeout=DEFAULT_SCAN_TIMEOUT, label="nmap-os-fingerprint",
+        )
+        if rc != 0:
             return None
 
         try:
-            root = DefusedET.fromstring(stdout.decode(errors="replace"))
+            root = DefusedET.fromstring(stdout)
             for host in root.findall("host"):
                 os_elem = host.find("os")
                 if os_elem is not None:
@@ -505,24 +479,14 @@ class DeviceFingerprinter:
         str or None
             OS family guess, or ``None`` if unreachable.
         """
-        try:
-            logger.info("Subprocess: %s %s", "ping", "-c 1 -W " + str(DEFAULT_NETWORK_TIMEOUT) + " " + ip)
-            proc = await asyncio.create_subprocess_exec(
-                "ping", "-c", "1", "-W", str(DEFAULT_NETWORK_TIMEOUT), ip,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=DEFAULT_NETWORK_TIMEOUT + 2
-            )
-        except (TimeoutError, FileNotFoundError, OSError):
+        rc, stdout, _ = await run_subprocess_async(
+            "ping", "-c", "1", "-W", str(DEFAULT_NETWORK_TIMEOUT), ip,
+            timeout=DEFAULT_NETWORK_TIMEOUT + 2, label="ping-ttl-guess",
+        )
+        if rc != 0:
             return None
 
-        if proc.returncode != 0:
-            return None
-
-        output = stdout.decode(errors="replace")
+        output = stdout
         ttl_match = re.search(r"ttl[=:](\d+)", output, re.IGNORECASE)
         if not ttl_match:
             return None

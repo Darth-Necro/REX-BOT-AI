@@ -17,7 +17,7 @@ from rex.shared.errors import RexPlatformNotSupportedError
 class TestWindowsRun:
     """Cover the module-level _run helper."""
 
-    @patch("rex.pal.windows.subprocess.run")
+    @patch("rex.shared.subprocess_util.subprocess.run")
     def test_run_success(self, mock_run):
         from rex.pal.windows import _run
         mock_run.return_value = subprocess.CompletedProcess(
@@ -26,7 +26,7 @@ class TestWindowsRun:
         result = _run(["cmd", "/c", "echo"])
         assert result.returncode == 0
 
-    @patch("rex.pal.windows.subprocess.run", side_effect=FileNotFoundError)
+    @patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError)
     def test_run_file_not_found(self, _mock):
         from rex.pal.windows import _run
         result = _run(["nonexist"])

@@ -12,7 +12,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 from rex.dashboard.deps import get_current_user
 
@@ -64,19 +66,14 @@ def _state_path() -> Path:
 
 def _load_state() -> dict[str, Any]:
     """Load ``plugin_state.json``.  Returns ``{"enabled": {<id>: bool}}``."""
-    path = _state_path()
-    if path.exists():
-        try:
-            return json.loads(path.read_text())
-        except Exception:
-            logger.warning("Corrupt plugin_state.json -- resetting")
-    return {"enabled": {}}
+    data = safe_read_json(_state_path(), default={"enabled": {}})
+    if not isinstance(data, dict) or "enabled" not in data:
+        return {"enabled": {}}
+    return data
 
 
 def _save_state(state: dict[str, Any]) -> None:
-    path = _state_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2))
+    atomic_write_json(_state_path(), state)
 
 
 def _is_enabled(state: dict[str, Any], plugin_id: str) -> bool:
@@ -125,11 +122,7 @@ async def install_plugin(
 ) -> dict[str, Any]:
     """Enable a bundled plugin (set its state to *enabled*)."""
     if plugin_id not in _BUNDLED_IDS:
-        return {
-            "status": "not_found",
-            "plugin_id": plugin_id,
-            "note": "Only bundled plugins are supported in this version.",
-        }
+        raise HTTPException(status_code=404, detail="Only bundled plugins are supported in this version.")
 
     state = _load_state()
     state.setdefault("enabled", {})[plugin_id] = True
@@ -144,11 +137,7 @@ async def remove_plugin(
 ) -> dict[str, Any]:
     """Disable a bundled plugin (set its state to *disabled*)."""
     if plugin_id not in _BUNDLED_IDS:
-        return {
-            "status": "not_found",
-            "plugin_id": plugin_id,
-            "note": "Only bundled plugins are supported in this version.",
-        }
+        raise HTTPException(status_code=404, detail="Only bundled plugins are supported in this version.")
 
     state = _load_state()
     state.setdefault("enabled", {})[plugin_id] = False

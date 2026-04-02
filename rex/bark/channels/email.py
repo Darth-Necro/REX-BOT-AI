@@ -6,6 +6,7 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape as html_escape
 from typing import Any
 
 from rex.bark.channels.base import BaseChannel
@@ -50,11 +51,12 @@ class EmailChannel(BaseChannel):
         msg["Subject"] = subject
         msg["From"] = self._user or f"rex@{self._host}"
         msg["To"] = self._to
+        # HTML body -- all dynamic content is escaped to prevent injection
         html = (
             "<html><body>"
             "<h2>REX-BOT-AI Alert</h2>"
-            f"<p><strong>Severity:</strong> {severity.upper()}</p>"
-            f"<p>{message}</p><hr>"
+            f"<p><strong>Severity:</strong> {html_escape(severity.upper())}</p>"
+            f"<p>{html_escape(message)}</p><hr>"
             "<p><small>REX-BOT-AI - Autonomous Security Agent"
             "</small></p></body></html>"
         )

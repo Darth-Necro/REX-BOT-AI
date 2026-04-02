@@ -26,7 +26,7 @@ def mgr() -> WebSocketManager:
 
 
 def _mock_ws(**kwargs):
-    """Create a mock WebSocket."""
+    """Create a mock WebSocket with headers and client for security checks."""
     ws = AsyncMock()
     ws.accept = AsyncMock()
     ws.send_text = AsyncMock()
@@ -34,6 +34,9 @@ def _mock_ws(**kwargs):
     ws.receive_text = AsyncMock()
     ws.close = AsyncMock()
     ws.query_params = kwargs.get("query_params", {})
+    ws.headers = kwargs.get("headers", {"origin": "http://localhost:3000"})
+    ws.client = MagicMock()
+    ws.client.host = kwargs.get("client_ip", "127.0.0.1")
     return ws
 
 

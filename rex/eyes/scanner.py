@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
+
 import re
 import shutil
 import socket
@@ -30,12 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("rex.eyes.scanner")
 
-_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
-
-
-def _safe_env() -> dict[str, str]:
-    """Return environment with sensitive variables stripped."""
-    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
+from rex.shared.subprocess_util import run_subprocess_async
 
 
 class NetworkScanner:
@@ -249,35 +244,20 @@ class NetworkScanner:
         ]
         self._logger.debug("Running: %s", " ".join(cmd))
 
-        try:
-            logger.info("Subprocess: %s %s", cmd[0], " ".join(cmd[1:]))
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=DEFAULT_SCAN_TIMEOUT
-            )
-        except TimeoutError:
-            self._logger.warning("nmap ping sweep timed out after %ds", DEFAULT_SCAN_TIMEOUT)
-            if proc.returncode is None:
-                proc.kill()
-            return []
-        except FileNotFoundError:
+        rc, stdout, stderr = await run_subprocess_async(
+            *cmd, timeout=DEFAULT_SCAN_TIMEOUT, label="nmap-ping-sweep",
+        )
+        if rc == 127:
             self._logger.debug("nmap binary not found")
             self._nmap_available = False
             return []
-        except OSError as exc:
-            self._logger.warning("nmap subprocess error: %s", exc)
+        if rc == -1:
+            self._logger.warning("nmap ping sweep timed out after %ds", DEFAULT_SCAN_TIMEOUT)
             return []
+        if rc != 0:
+            self._logger.warning("nmap returned code %d: %s", rc, stderr[:200])
 
-        if proc.returncode != 0:
-            err_text = stderr.decode(errors="replace").strip()[:200]
-            self._logger.warning("nmap returned code %d: %s", proc.returncode, err_text)
-
-        return self._parse_nmap_xml(stdout.decode(errors="replace"))
+        return self._parse_nmap_xml(stdout)
 
     def _parse_nmap_xml(self, xml_data: str) -> list[Device]:
         """Parse nmap XML output into Device objects.

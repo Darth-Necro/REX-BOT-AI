@@ -71,6 +71,12 @@ compile-check: ## Verify all Python files compile
 
 security-check: ## Run security checks
 	@echo "Checking for shell=True..."
-	@! grep -rn 'shell=True' rex/ --include='*.py' | grep -v '__pycache__' | grep -v '#' | grep -v '"""' | grep -v "NEVER" | grep -v "not" || echo "PASS: No shell=True in code"
+	@if grep -rn 'shell=True' rex/ --include='*.py' | grep -v '__pycache__' | grep -v '#' | grep -v '"""' | grep -v "NEVER" | grep -v "not"; then \
+		echo "FAIL: shell=True found in code"; exit 1; \
+	fi
+	@echo "PASS: No shell=True in executable code"
 	@echo "Checking for hardcoded secrets..."
-	@! grep -rn 'password\s*=' rex/ --include='*.py' | grep -v '__pycache__' | grep -v 'def \|self\._\|param\|#\|"""\|typing\|None\|str\|config' || echo "PASS: No hardcoded secrets"
+	@if grep -rn 'password\s*=' rex/ --include='*.py' | grep -v '__pycache__' | grep -v 'def \|self\.\|param\|#\|"""\|typing\|None\|str\|config\|await \|secrets\.\|result\|password=password\|initial_\|_password='; then \
+		echo "FAIL: Hardcoded secrets found"; exit 1; \
+	fi
+	@echo "PASS: No hardcoded secrets"

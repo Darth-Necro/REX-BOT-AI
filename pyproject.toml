@@ -72,6 +72,11 @@ rex = "rex.core.cli:main"
 [tool.setuptools.packages.find]
 include = ["rex*"]
 
+[tool.setuptools.package-data]
+# Include pre-built frontend assets in the wheel if they exist.
+# Build the frontend (npm run build) before running python -m build.
+"rex" = ["../frontend/dist/**/*"]
+
 # ---------------------------------------------------------------------------
 # Testing
 # ---------------------------------------------------------------------------

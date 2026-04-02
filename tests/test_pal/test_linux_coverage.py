@@ -72,7 +72,7 @@ class TestRunHelper:
     def test_file_not_found(self):
         """_run returns rc=127 when command binary is missing (line 116-120)."""
         from rex.pal.linux import _run
-        with patch("rex.pal.linux.subprocess.run", side_effect=FileNotFoundError):
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError):
             result = _run(["nonexistent-cmd", "arg"])
         assert result.returncode == 127
         assert "not found" in result.stderr
@@ -80,7 +80,7 @@ class TestRunHelper:
     def test_timeout_expired(self):
         """_run returns rc=-1 when command times out (line 121-123)."""
         from rex.pal.linux import _run
-        with patch("rex.pal.linux.subprocess.run",
+        with patch("rex.shared.subprocess_util.subprocess.run",
                     side_effect=subprocess.TimeoutExpired(["cmd"], 10)):
             result = _run(["slow-cmd"], timeout=10)
         assert result.returncode == -1
@@ -90,7 +90,7 @@ class TestRunHelper:
         """_run re-raises CalledProcessError when check=True (line 124-126)."""
         from rex.pal.linux import _run
         exc = subprocess.CalledProcessError(1, ["fail"])
-        with patch("rex.pal.linux.subprocess.run", side_effect=exc):
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=exc):
             with pytest.raises(subprocess.CalledProcessError):
                 _run(["fail"], check=True)
 

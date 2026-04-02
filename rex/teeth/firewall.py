@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from rex.shared.constants import MAX_ACTIONS_PER_MINUTE
 from rex.shared.errors import RexFirewallError
+from rex.shared.fileutil import atomic_write_json
 from rex.shared.models import FirewallRule
 from rex.shared.utils import generate_id, is_valid_ipv4, utc_now
 
@@ -473,11 +474,8 @@ class FirewallManager:
         """Save the current rule set to disk so rules survive reboots."""
         rules_file = self._rules_path()
         try:
-            rules_file.parent.mkdir(parents=True, exist_ok=True)
             data = [r.model_dump(mode="json") for r in self._rules]
-            rules_file.write_text(
-                json.dumps(data, indent=2, default=str), encoding="utf-8",
-            )
+            atomic_write_json(rules_file, data, default=str)
             # Also tell PAL to persist at the OS level.
             try:
                 self.pal.persist_rules()

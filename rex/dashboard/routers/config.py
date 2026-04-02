@@ -7,7 +7,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
+
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 from rex.dashboard.deps import get_current_user
 
@@ -44,30 +46,15 @@ def _settings_path() -> Path:
 
 def _load_user_settings() -> dict[str, Any]:
     """Load persisted user settings from disk, returning defaults on failure."""
-    path = _settings_path()
-    if path.is_file():
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict):
-                return data
-        except (json.JSONDecodeError, OSError) as exc:
-            logger.warning("Failed to read %s: %s", path, exc)
+    data = safe_read_json(_settings_path(), default={})
+    if isinstance(data, dict):
+        return data
     return {}
 
 
 def _save_user_settings(settings: dict[str, Any]) -> None:
-    """Persist user settings to disk."""
-    path = _settings_path()
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(settings, fh, indent=2)
-        tmp.replace(path)
-    except OSError as exc:
-        logger.error("Failed to write %s: %s", path, exc)
-        raise
+    """Persist user settings to disk atomically."""
+    atomic_write_json(_settings_path(), settings)
 
 
 @router.get("/")
@@ -118,7 +105,7 @@ async def set_mode(
 
     valid_modes = {m.value for m in OperatingMode}
     if mode not in valid_modes:
-        return {"status": "error", "detail": f"Invalid mode. Must be one of: {valid_modes}"}
+        raise HTTPException(status_code=422, detail=f"Invalid mode. Must be one of: {sorted(valid_modes)}")
 
     from rex.shared.config import get_config as _get_config
 
@@ -155,6 +142,37 @@ async def set_mode(
     return {"status": "updated", "mode": config.mode.value}
 
 
+@router.post("/protection-mode")
+async def set_protection_mode(
+    mode: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Set the protection mode (e.g. junkyard_dog, alert_only).
+
+    Validates against the ``ProtectionMode`` enum, persists to user settings,
+    and updates the live config.
+    """
+    from rex.shared.enums import ProtectionMode
+
+    valid_modes = {m.value for m in ProtectionMode}
+    if mode not in valid_modes:
+        raise HTTPException(status_code=422, detail=f"Invalid protection mode. Must be one of: {sorted(valid_modes)}")
+
+    from rex.shared.config import get_config as _get_config
+
+    config = _get_config()
+    config.protection_mode = ProtectionMode(mode)
+
+    user_settings = _load_user_settings()
+    user_settings["protection_mode"] = mode
+    try:
+        _save_user_settings(user_settings)
+    except OSError:
+        logger.error("Failed to persist protection mode change")
+
+    return {"status": "updated", "mode": config.protection_mode.value}
+
+
 @router.put("/")
 async def update_config(
     payload: dict = Body(...), user: dict = Depends(get_current_user)
@@ -175,11 +193,10 @@ async def update_config(
     }
 
     if not updates:
-        return {
-            "status": "error",
-            "detail": "No recognised updatable fields in request.",
-            "rejected": sorted(unknown),
-        }
+        raise HTTPException(
+            status_code=422,
+            detail=f"No recognised updatable fields in request. Rejected: {sorted(unknown)}",
+        )
 
     # --- Validate values before applying anything --------------------------
     errors: dict[str, str] = {}
@@ -222,7 +239,7 @@ async def update_config(
             errors["wake_time"] = "Must be a time string (HH:MM)"
 
     if errors:
-        return {"status": "error", "detail": "Validation failed", "errors": errors}
+        raise HTTPException(status_code=422, detail=f"Validation failed: {errors}")
 
     # --- Apply to runtime config object ------------------------------------
     config = _get_config()

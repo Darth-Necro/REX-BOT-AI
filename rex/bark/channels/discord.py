@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from rex.bark.channels.base import BaseChannel
@@ -19,6 +20,9 @@ _SEVERITY_COLORS = {
     "info": 0x22C55E,
 }
 
+# Allowed Discord webhook hostnames (exact match only)
+_ALLOWED_WEBHOOK_HOSTS = {"discord.com", "discordapp.com"}
+
 
 class DiscordChannel(BaseChannel):
     """Send notifications via Discord webhook."""
@@ -31,10 +35,24 @@ class DiscordChannel(BaseChannel):
         return "discord"
 
     def is_configured(self) -> bool:
-        return bool(
-            self._webhook_url
-            and "discord.com/api/webhooks" in self._webhook_url
-        )
+        """Validate webhook URL with strict URL parsing.
+
+        Requires HTTPS scheme, an exact-match Discord hostname,
+        and a path starting with ``/api/webhooks/``.
+        """
+        if not self._webhook_url:
+            return False
+        try:
+            parsed = urlparse(self._webhook_url)
+        except Exception:
+            return False
+        if parsed.scheme != "https":
+            return False
+        if parsed.hostname not in _ALLOWED_WEBHOOK_HOSTS:
+            return False
+        if not parsed.path.startswith("/api/webhooks/"):
+            return False
+        return True
 
     async def send(
         self, message: str, metadata: dict[str, Any] | None = None

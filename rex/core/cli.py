@@ -55,7 +55,9 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-_DEFAULT_API_URL = "http://localhost:8443"
+# Default to HTTPS -- REX uses self-signed TLS on port 8443.
+# Override via REX_API_URL env var if needed.
+_DEFAULT_API_URL = _os.environ.get("REX_API_URL", "").strip() or "https://localhost:8443"
 
 
 def _setup_logging(level: str = "info") -> None:
@@ -177,13 +179,29 @@ def status() -> None:
 """)
     typer.echo("")
     try:
-        resp = httpx.get(f"{_DEFAULT_API_URL}/api/status", timeout=5, verify=not _DEV_INSECURE)
+        headers: dict[str, str] = {}
+        token = _get_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        resp = httpx.get(
+            f"{_DEFAULT_API_URL}/api/status",
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers=headers,
+        )
         data = resp.json()
         typer.echo(f"  Status:     {data.get('status', 'unknown')}")
-        typer.echo(f"  Devices:    {data.get('device_count', 0)}")
-        typer.echo(f"  Threats:    {data.get('active_threats', 0)}")
-        typer.echo(f"  LLM:        {data.get('llm_status', 'unknown')}")
-        typer.echo(f"  Power:      {data.get('power_state', 'unknown')}")
+        # Full fields are only present when authenticated
+        if "device_count" in data:
+            typer.echo(f"  Devices:    {data['device_count']}")
+        if "active_threats" in data:
+            typer.echo(f"  Threats:    {data['active_threats']}")
+        if "llm_status" in data:
+            typer.echo(f"  LLM:        {data['llm_status']}")
+        if "power_state" in data:
+            typer.echo(f"  Power:      {data['power_state']}")
+        if not token:
+            typer.echo("  (Login with 'rex login' for full status details)")
         typer.echo("")
         services = data.get("services", {})
         for name, info in services.items():
@@ -226,12 +244,13 @@ def login(
     try:
         resp = httpx.post(
             f"{_DEFAULT_API_URL}/api/auth/login",
-            json={"username": username, "password": password},
+            json={"password": password},
             timeout=10,
+            verify=not _DEV_INSECURE,
         )
         if resp.status_code == 200:
             data = resp.json()
-            token = data.get("token", "")
+            token = data.get("access_token", "") or data.get("token", "")
             if token:
                 token_file = os.path.expanduser("~/.rex-token")
                 with open(token_file, "w") as f:
@@ -423,7 +442,7 @@ def patrol(
                 headers={"Authorization": f"Bearer {_get_token()}"},
             )
             audit = resp2.json()
-            findings = audit.get("findings_count", audit.get("total_findings", "?"))
+            findings = audit.get("findings_count", "?")
             typer.echo(f"  *ruff ruff* Audit findings: {findings}")
             typer.echo("  *WOOF!* Patrol complete! Network inspected and secured.")
         except Exception as e:

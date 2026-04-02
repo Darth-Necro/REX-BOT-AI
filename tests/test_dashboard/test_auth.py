@@ -182,11 +182,11 @@ async def test_lockout_after_5_failures(tmp_path):
             await manager.login("admin", "bad-pw", client_ip=client_ip)
 
     # The 5th failure should trigger lockout
-    with pytest.raises(ValueError, match="Too many failed attempts"):
+    with pytest.raises(ValueError, match="temporarily locked"):
         await manager.login("admin", "bad-pw", client_ip=client_ip)
 
     # Subsequent attempt while locked out
-    with pytest.raises(ValueError, match="Account locked"):
+    with pytest.raises(ValueError, match="temporarily locked"):
         await manager.login("admin", "bad-pw", client_ip=client_ip)
 
 

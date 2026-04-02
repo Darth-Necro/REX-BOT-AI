@@ -11,6 +11,20 @@ from rex.bark.channels.base import BaseChannel
 
 logger = logging.getLogger(__name__)
 
+# Characters that have special meaning in Telegram MarkdownV1 and must be escaped.
+_MARKDOWN_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
+
+
+def _escape_markdown(text: str) -> str:
+    """Escape Telegram Markdown special characters in user-supplied text.
+
+    Prevents untrusted input from breaking message formatting or
+    injecting unexpected Markdown structures.
+    """
+    for ch in _MARKDOWN_SPECIAL:
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
 
 class TelegramChannel(BaseChannel):
     """Send notifications via Telegram Bot API."""
@@ -32,7 +46,12 @@ class TelegramChannel(BaseChannel):
         metadata = metadata or {}
         severity = metadata.get("severity", "info")
         title = metadata.get("title", "REX Alert")
-        text = f"*{title}* ({severity.upper()})\n\n{message[:4000]}"
+        # Escape user-supplied content to prevent Markdown injection
+        text = (
+            f"*{_escape_markdown(title)}* "
+            f"({_escape_markdown(severity.upper())})\n\n"
+            f"{_escape_markdown(message[:4000])}"
+        )
         url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         payload = {"chat_id": self._chat_id, "text": text, "parse_mode": "Markdown"}
         import asyncio

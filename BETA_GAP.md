@@ -68,9 +68,9 @@
 - [ ] Archive encryption
 
 ### Cross-Platform
-- [x] Windows PAL functional (FIXED)
-- [x] macOS PAL functional (FIXED)
-- [x] BSD PAL functional (FIXED)
+- [x] Windows PAL stub implemented (experimental — many methods raise NotImplementedError)
+- [x] macOS PAL stub implemented (experimental — many methods raise NotImplementedError)
+- [x] BSD PAL stub implemented (experimental — many methods raise NotImplementedError)
 - [x] No Linux-only imports in shared modules (VERIFIED)
 
 ### Release Hygiene

@@ -1,4 +1,4 @@
-"""Health router -- system status and privacy audit endpoints."""
+"""Health router -- system status endpoints."""
 
 from __future__ import annotations
 
@@ -9,15 +9,110 @@ from typing import Any
 
 import psutil
 
-from fastapi import APIRouter, Depends, Header
-
-from rex.dashboard.deps import get_current_user
+from fastapi import APIRouter, Header
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["health"])
+
+# ---------------------------------------------------------------------------
+# Probe cache -- prevents expensive downstream calls on every request
+# ---------------------------------------------------------------------------
+_probe_cache: dict[str, Any] = {}
+_probe_cache_time: float = 0.0
+_PROBE_CACHE_TTL = 10.0  # seconds
+
+_health_cache: dict[str, Any] = {}
+_health_cache_time: float = 0.0
+_HEALTH_CACHE_TTL = 5.0  # seconds
+
+
+def _run_probes() -> dict[str, Any]:
+    """Execute expensive health probes (Redis, Ollama, disk, memory).
+
+    Results are cached module-wide so that repeated calls within
+    the TTL window do not hit downstream services again.
+    """
+    global _probe_cache, _probe_cache_time
+
+    now = time.monotonic()
+    if _probe_cache and (now - _probe_cache_time) < _PROBE_CACHE_TTL:
+        return _probe_cache
+
+    from rex.shared.config import get_config
+    config = get_config()
+
+    # Check Redis
+    redis_ok = False
+    try:
+        import redis as redis_lib
+        r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
+        try:
+            r.ping()
+            redis_ok = True
+        finally:
+            r.close()
+    except Exception:
+        logger.debug("Redis health check failed", exc_info=True)
+
+    # Check Ollama -- only if URL points to a local service
+    ollama_ok = False
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(config.ollama_url)
+        allowed_hosts = {"127.0.0.1", "localhost", "::1", "ollama"}
+        if parsed.hostname and parsed.hostname in allowed_hosts:
+            import httpx
+            resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
+            ollama_ok = resp.status_code == 200
+        else:
+            logger.warning("Ollama URL %s is not local -- skipping health probe", config.ollama_url)
+    except Exception:
+        logger.debug("Ollama health check failed", exc_info=True)
+
+    # Check disk space
+    disk_ok = True
+    disk_pct = 0.0
+    try:
+        disk = shutil.disk_usage("/")
+        disk_pct = (disk.used / disk.total) * 100
+        disk_ok = disk_pct < 95
+    except Exception:
+        disk_ok = False
+
+    # Check memory
+    mem_ok = True
+    mem_pct = 0.0
+    try:
+        mem = psutil.virtual_memory()
+        mem_pct = mem.percent
+        mem_ok = mem_pct < 95
+    except Exception:
+        mem_ok = False
+
+    all_ok = redis_ok and ollama_ok and disk_ok and mem_ok
+    if all_ok:
+        status = "operational"
+    elif redis_ok:
+        status = "degraded"
+    else:
+        status = "error"
+
+    result = {
+        "status": status,
+        "redis_ok": redis_ok,
+        "ollama_ok": ollama_ok,
+        "disk_ok": disk_ok,
+        "disk_pct": round(disk_pct, 1),
+        "mem_ok": mem_ok,
+        "mem_pct": round(mem_pct, 1),
+    }
+
+    _probe_cache = result
+    _probe_cache_time = now
+    return result
 
 
 async def _get_device_count() -> int:
@@ -68,79 +163,21 @@ async def _get_threats_blocked_24h() -> int:
 async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
     """Return system status. Full details require authentication.
 
-    Unauthenticated callers receive only status, version, and timestamp
-    to prevent information disclosure about internal services and resources.
+    Unauthenticated callers receive only cached status, version, and
+    timestamp.  They never trigger fresh downstream probes.
     """
-    from rex.shared.config import get_config
-
-    config = get_config()
-
-    # Check Redis
-    redis_ok = False
-    try:
-        import redis as redis_lib
-
-        r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
-        try:
-            r.ping()
-            redis_ok = True
-        finally:
-            r.close()
-    except Exception:
-        logger.debug("Redis health check failed", exc_info=True)
-
-    # Check Ollama
-    ollama_ok = False
-    try:
-        import httpx
-
-        resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
-        ollama_ok = resp.status_code == 200
-    except Exception:
-        logger.debug("Ollama health check failed", exc_info=True)
-
-    # Check disk space
-    disk_ok = True
-    disk_pct = 0.0
-    try:
-        disk = shutil.disk_usage("/")
-        disk_pct = (disk.used / disk.total) * 100
-        disk_ok = disk_pct < 95  # Degraded above 95%
-    except Exception:
-        disk_ok = False
-
-    # Check memory
-    mem_ok = True
-    mem_pct = 0.0
-    try:
-        mem = psutil.virtual_memory()
-        mem_pct = mem.percent
-        mem_ok = mem_pct < 95  # Degraded above 95%
-    except Exception:
-        mem_ok = False
-
-    all_ok = redis_ok and ollama_ok and disk_ok and mem_ok
-    if all_ok:
-        status = "operational"
-    elif redis_ok:
-        status = "degraded"
-    else:
-        status = "error"
-
-    # Always-safe public fields
+    # Always-safe public fields (use cached probes if available, else "unknown")
+    probes = _probe_cache if _probe_cache else {}
     result: dict[str, Any] = {
-        "status": status,
+        "status": probes.get("status", "unknown"),
         "version": VERSION,
         "timestamp": utc_now().isoformat(),
     }
 
-    # Check if the caller is authenticated -- if so, include full details.
-    # On failure, default to restricted (unauthenticated) view -- never
-    # silently upgrade to full disclosure when auth is unavailable.
+    # Check if the caller is authenticated
     authed = False
     if authorization.startswith("Bearer "):
         from fastapi import HTTPException
-
         from rex.dashboard.deps import get_auth
 
         try:
@@ -149,7 +186,6 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
             if payload is not None:
                 authed = True
         except HTTPException:
-            # Auth service not initialized -- return restricted view
             pass
         except Exception:
             logger.debug("Auth check failed in health endpoint", exc_info=True)
@@ -157,11 +193,19 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
     if not authed:
         return result
 
+    # Authenticated -- run probes (with caching) and return full details
+    probes = _run_probes()
+
+    from rex.shared.config import get_config
+    config = get_config()
+
+    result["status"] = probes["status"]
+
     # Uptime
     uptime_seconds = int(time.monotonic())
 
     # LLM status
-    llm_status = "ready" if ollama_ok else "offline"
+    llm_status = "ready" if probes["ollama_ok"] else "offline"
 
     # Power state from config
     power_state = config.power_state.value if hasattr(config.power_state, "value") else str(config.power_state)
@@ -176,12 +220,12 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
         "uptime_seconds": uptime_seconds,
         "threats_blocked_24h": await _get_threats_blocked_24h(),
         "services": {
-            "redis": {"healthy": redis_ok},
-            "ollama": {"healthy": ollama_ok, "degraded": not ollama_ok},
+            "redis": {"healthy": probes["redis_ok"]},
+            "ollama": {"healthy": probes["ollama_ok"], "degraded": not probes["ollama_ok"]},
         },
         "resources": {
-            "disk": {"used_pct": round(disk_pct, 1), "healthy": disk_ok},
-            "memory": {"used_pct": round(mem_pct, 1), "healthy": mem_ok},
+            "disk": {"used_pct": probes["disk_pct"], "healthy": probes["disk_ok"]},
+            "memory": {"used_pct": probes["mem_pct"], "healthy": probes["mem_ok"]},
         },
         "device_count": await _get_device_count(),
         "active_threats": await _get_active_threats(),
@@ -193,41 +237,36 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
 async def health_check() -> dict[str, str]:
     """Health check endpoint for load balancers and monitoring.
 
-    Returns 200 with ``{"status": "ok"}`` if the dashboard is running
-    and can reach Redis.  Returns 503 with ``{"status": "degraded"}``
-    if Redis is unavailable, so load balancers don't route traffic to
-    an inoperable instance.
+    Returns 200 with ``{"status": "ok"}`` if the dashboard can reach Redis.
+    Returns 503 with ``{"status": "degraded"}`` otherwise.
 
-    This is intentionally simple and fast -- detailed status is available
-    at ``/api/status`` with authentication.
+    Uses a short-lived cache to avoid hammering Redis on every probe.
     """
-    from rex.shared.config import get_config
+    global _health_cache, _health_cache_time
 
+    now = time.monotonic()
+    if _health_cache and (now - _health_cache_time) < _HEALTH_CACHE_TTL:
+        return _health_cache  # type: ignore[return-value]
+
+    from rex.shared.config import get_config
     config = get_config()
+
     try:
         import redis as redis_lib
-
         r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
         try:
             r.ping()
         finally:
             r.close()
-        return {"status": "ok"}
+        resp: dict[str, str] = {"status": "ok"}
+        _health_cache = resp
+        _health_cache_time = now
+        return resp
     except Exception:
         from starlette.responses import JSONResponse
-
+        resp_data = {"status": "degraded", "reason": "event bus unreachable"}
+        _health_cache = resp_data
+        _health_cache_time = now
         return JSONResponse(  # type: ignore[return-value]
-            {"status": "degraded", "reason": "event bus unreachable"},
-            status_code=503,
+            resp_data, status_code=503,
         )
-
-
-@router.get("/privacy/audit")
-async def privacy_audit(user: dict = Depends(get_current_user)) -> dict[str, Any]:
-    """Run a full privacy audit and return the structured report."""
-    from rex.core.privacy.audit import PrivacyAuditor
-    from rex.pal import get_adapter
-    from rex.shared.config import get_config
-
-    auditor = PrivacyAuditor(config=get_config(), pal=get_adapter())
-    return auditor.run_full_audit()

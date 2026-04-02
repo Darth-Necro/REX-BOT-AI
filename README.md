@@ -10,7 +10,7 @@
                 |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**v0.2.0-beta** -- Local-first autonomous network security agent. Linux-primary with cross-platform PAL (macOS/Windows/BSD). Multi-layer AI decision pipeline, prompt injection defense, per-service event bus isolation, and **Junkyard Dog mode** for maximum threat protection.
+**v0.1.0-alpha** -- Local-first autonomous network security agent. Linux-primary (macOS/Windows/BSD PAL stubs are experimental). Multi-layer AI decision pipeline, prompt injection defense, per-service event bus isolation, and **Junkyard Dog mode** for maximum threat protection.
 
 > This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
@@ -51,7 +51,7 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Orchestrator | Working -- per-service bus ownership, health monitor, auto-restart |
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
-| Windows/macOS/BSD PAL | **Experimental** -- core methods implemented, many features raise NotImplementedError |
+| Windows/macOS/BSD PAL | **Experimental** -- stub adapters exist, many methods raise NotImplementedError. Not supported for production use. |
 | Test suite | 4,062 tests, 0 failures, 22 warnings |
 
 ## Architecture
@@ -173,7 +173,7 @@ Priority areas:
 2. Integration tests with live Redis in CI
 3. Wire remaining frontend components to all dashboard API endpoints
 4. Replace plugin sandbox dict with real Docker isolation
-5. Implement Windows/macOS/BSD PAL adapters
+5. Complete Windows/macOS/BSD PAL adapters (currently experimental stubs with many NotImplementedError)
 
 ## License
 

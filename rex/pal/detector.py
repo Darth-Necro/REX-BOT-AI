@@ -36,17 +36,10 @@ def _read_file(path: str, default: str = "") -> str:
 
 def _run_cmd(cmd: list[str], timeout: int = 10) -> str:
     """Run a subprocess and return stripped stdout, or ``""`` on failure."""
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        return result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return ""
+    from rex.shared.subprocess_util import run_subprocess
+
+    result = run_subprocess(cmd, timeout=timeout, label="detector")
+    return result.stdout.strip()
 
 
 def _parse_proc_meminfo() -> dict[str, int]:

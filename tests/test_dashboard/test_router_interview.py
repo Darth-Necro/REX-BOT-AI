@@ -233,7 +233,6 @@ class TestRestart:
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.post("/api/interview/restart")
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
-        assert data["status"] == "not_available"
-        assert "not connected" in data["note"]
+        assert "detail" in data

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -23,7 +21,6 @@ _app = FastAPI()
 _app.include_router(router)
 
 VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
-_TOKEN_HASH = hashlib.sha256(VALID_TOKEN.encode()).hexdigest()
 PLUGIN_ID = "plugin-test-001"
 HEADERS = {"X-Plugin-Token": VALID_TOKEN}
 
@@ -32,11 +29,6 @@ _ALL_PERMISSIONS = [
     "devices:read", "events:read", "alerts:write", "actions:write",
     "kb:read", "log:write", "store:read", "store:write",
 ]
-
-
-VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
-HEADERS = {"X-Plugin-Token": VALID_TOKEN}
-_EXPECTED_PLUGIN_ID = f"plugin-{PluginRegistry.hash_token(VALID_TOKEN)[:16]}"
 
 
 @pytest.fixture(autouse=True)

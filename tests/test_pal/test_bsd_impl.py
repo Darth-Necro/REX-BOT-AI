@@ -552,14 +552,14 @@ class TestRunHelper:
     def test_handles_file_not_found(self):
         """Should return rc=127 when command not found."""
         from rex.pal.bsd import _run
-        with patch("rex.pal.bsd.subprocess.run", side_effect=FileNotFoundError()):
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError()):
             result = _run(["nonexistent"])
         assert result.returncode == 127
 
     def test_normal_execution(self):
         """Should pass through subprocess results."""
         from rex.pal.bsd import _run
-        with patch("rex.pal.bsd.subprocess.run", return_value=_completed(stdout="ok")):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=_completed(stdout="ok")):
             result = _run(["echo", "ok"])
         assert result.stdout == "ok"
 

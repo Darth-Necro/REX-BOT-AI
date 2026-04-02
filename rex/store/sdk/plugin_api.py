@@ -2,17 +2,28 @@
 
 Each plugin gets an API token generated on install. Requests are
 authenticated and filtered by the plugin's declared permissions.
+
+Token storage uses HMAC-SHA256 with a server-side key (not bare SHA-256)
+to make offline token guessing harder if the registry file is exposed.
+Tokens carry metadata (issued_at, expires_at, revoked) for lifecycle
+management.
 """
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import hmac
 import json
 import logging
+import secrets
+import time
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
 
@@ -20,80 +31,163 @@ router = APIRouter(prefix="/plugin-api", tags=["plugin-api"])
 
 
 # ---------------------------------------------------------------------------
-# Plugin registry (alpha)
+# Plugin registry (alpha — file-backed, HMAC-keyed)
 # ---------------------------------------------------------------------------
 
 _MIN_TOKEN_LENGTH = 32
+_HMAC_KEY_LENGTH = 32  # 256-bit HMAC key
 
 
 class PluginRegistry:
-    """File-backed plugin token registry for alpha.
+    """File-backed plugin token registry.
 
-    The registry file (``plugins.json``) maps token hashes to plugin
-    metadata.  Tokens are never stored in cleartext — only their
-    SHA-256 hashes are persisted.
+    Tokens are stored as HMAC-SHA256(server_key, token) digests — never
+    in cleartext.  Each entry carries metadata for lifecycle management:
+    ``issued_at``, ``last_used_at``, ``expires_at`` (optional), and
+    ``revoked`` (bool).
 
-    Format::
-
-        {
-            "<sha256-hex>": {
-                "plugin_id": "plugin-abc123",
-                "name": "my-plugin",
-                "permissions": ["devices:read", "alerts:write"]
-            }
-        }
+    The server-side HMAC key is generated once and persisted alongside
+    the registry.  If the key file is lost, existing tokens become
+    unverifiable (fail-closed).
     """
 
     def __init__(self, registry_path: Path | None = None) -> None:
         self._path = registry_path
+        self._key_path = registry_path.with_suffix(".key") if registry_path else None
         self._entries: dict[str, dict[str, Any]] = {}
+        self._hmac_key: bytes = b""
         self._loaded = False
 
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
         self._loaded = True
+        self._hmac_key = self._load_or_create_key()
         if self._path is None:
             return
-        if self._path.exists():
-            try:
-                self._entries = json.loads(self._path.read_text())
-            except Exception:
-                logger.warning("Failed to load plugin registry from %s", self._path)
+        data = safe_read_json(self._path, default={})
+        if isinstance(data, dict):
+            self._entries = data
+        else:
+            logger.warning("Plugin registry at %s has unexpected type — using empty", self._path)
 
-    @staticmethod
-    def hash_token(token: str) -> str:
-        return hashlib.sha256(token.encode()).hexdigest()
+    def _load_or_create_key(self) -> bytes:
+        """Load or generate the HMAC key used for token hashing."""
+        if self._key_path is not None and self._key_path.exists():
+            try:
+                return self._key_path.read_bytes()
+            except Exception:
+                logger.warning("Failed to read HMAC key, generating new one")
+
+        key = secrets.token_bytes(_HMAC_KEY_LENGTH)
+        if self._key_path is not None:
+            try:
+                self._key_path.parent.mkdir(parents=True, exist_ok=True)
+                self._key_path.write_bytes(key)
+                with contextlib.suppress(OSError):
+                    self._key_path.chmod(0o600)
+            except Exception:
+                logger.warning("Failed to persist HMAC key")
+        return key
+
+    def hash_token(self, token: str) -> str:
+        """Compute HMAC-SHA256 of the token using the server key."""
+        self._ensure_loaded()
+        return hmac.new(self._hmac_key, token.encode(), hashlib.sha256).hexdigest()
 
     def lookup(self, token: str) -> dict[str, Any] | None:
-        """Look up a token and return its plugin metadata, or None."""
+        """Look up a token and return its plugin metadata, or None.
+
+        Returns None for revoked or expired tokens (fail-closed).
+        Updates ``last_used_at`` on successful lookup.
+        """
         self._ensure_loaded()
         token_hash = self.hash_token(token)
-        return self._entries.get(token_hash)
+        entry = self._entries.get(token_hash)
+        if entry is None:
+            return None
+
+        # Check revocation
+        if entry.get("revoked", False):
+            return None
+
+        # Check expiry
+        expires_at = entry.get("expires_at")
+        if expires_at is not None and time.time() > expires_at:
+            return None
+
+        # Update last_used_at
+        entry["last_used_at"] = time.time()
+        self._persist()
+        return entry
 
     def register(self, token: str, plugin_id: str, name: str,
-                 permissions: list[str] | None = None) -> None:
-        """Register a plugin token (stores hash only)."""
+                 permissions: list[str] | None = None,
+                 expires_at: float | None = None) -> None:
+        """Register a plugin token (stores HMAC hash and metadata)."""
         self._ensure_loaded()
         token_hash = self.hash_token(token)
         self._entries[token_hash] = {
             "plugin_id": plugin_id,
             "name": name,
             "permissions": permissions or [],
+            "issued_at": time.time(),
+            "last_used_at": None,
+            "expires_at": expires_at,
+            "revoked": False,
         }
         self._persist()
+
+    def revoke(self, token: str) -> bool:
+        """Revoke a token by marking it as revoked.
+
+        Returns True if the token was found and revoked, False otherwise.
+        """
+        self._ensure_loaded()
+        token_hash = self.hash_token(token)
+        entry = self._entries.get(token_hash)
+        if entry is None:
+            return False
+        entry["revoked"] = True
+        entry["revoked_at"] = time.time()
+        self._persist()
+        audit_event(
+            "plugin_token_revoke",
+            plugin_id=entry.get("plugin_id", "unknown"),
+        )
+        return True
+
+    def revoke_by_hash(self, token_hash: str) -> bool:
+        """Revoke a token by its hash (for admin use without the raw token)."""
+        self._ensure_loaded()
+        entry = self._entries.get(token_hash)
+        if entry is None:
+            return False
+        entry["revoked"] = True
+        entry["revoked_at"] = time.time()
+        self._persist()
+        audit_event(
+            "plugin_token_revoke",
+            plugin_id=entry.get("plugin_id", "unknown"),
+        )
+        return True
+
+    def unregister(self, token: str) -> bool:
+        """Remove a token entirely from the registry."""
+        self._ensure_loaded()
+        token_hash = self.hash_token(token)
+        removed = self._entries.pop(token_hash, None)
+        if removed is not None:
+            self._persist()
+            return True
+        return False
 
     def _persist(self) -> None:
         if self._path is None:
             return
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(json.dumps(self._entries, indent=2))
-            # Restrict permissions — registry contains token hashes
-            import contextlib
-            with contextlib.suppress(OSError):
-                self._path.chmod(0o600)
-        except Exception:
+            atomic_write_json(self._path, self._entries, chmod=0o600)
+        except OSError:
             logger.warning("Failed to persist plugin registry")
 
 
@@ -144,11 +238,8 @@ class PluginIdentity:
 async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> PluginIdentity:
     """Verify plugin API token against the registry. Returns PluginIdentity.
 
-    Alpha contract (fail-closed):
-    - Tokens must be at least 32 characters.
-    - Tokens MUST be registered in the plugin registry.
-    - Plugin identity and permissions are always derived server-side (never self-chosen).
-    - Unregistered tokens are always rejected.
+    Fail-closed: tokens must be registered, not revoked, not expired,
+    at least 32 characters, and contain only printable non-space characters.
     """
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:
         raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
@@ -163,7 +254,7 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> PluginIdent
     if entry is None:
         raise HTTPException(
             status_code=401,
-            detail="Plugin token not registered. Register via the plugin installer.",
+            detail="Plugin token not registered or has been revoked.",
         )
 
     return PluginIdentity(

@@ -47,6 +47,12 @@ class PluginManager:
 
     async def install(self, plugin_id: PluginId) -> bool:
         """Install a plugin: pull image, create sandbox, register."""
+        from rex.store.sandbox import validate_plugin_id
+
+        if not validate_plugin_id(plugin_id):
+            logger.error("Rejected invalid plugin ID for install: %r", plugin_id)
+            return False
+
         if self._registry.is_installed(plugin_id):
             logger.info("Plugin %s already installed", plugin_id)
             return True

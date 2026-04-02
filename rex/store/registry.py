@@ -6,6 +6,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 from rex.shared.models import PluginManifest
 
 if TYPE_CHECKING:
@@ -27,20 +28,22 @@ class PluginRegistry:
     async def load(self) -> None:
         """Load installed plugins from disk."""
         registry_file = self._data_dir / "registry.json"
-        if registry_file.exists():
-            try:
-                data = json.loads(registry_file.read_text())
-                for entry in data.get("plugins", []):
-                    manifest = PluginManifest(**entry)
-                    self._installed[manifest.plugin_id] = manifest
-            except Exception:
-                logger.exception("Failed to load plugin registry")
+        data = safe_read_json(registry_file, default={"plugins": []})
+        if not isinstance(data, dict):
+            logger.warning("Plugin registry has unexpected type — resetting")
+            return
+        try:
+            for entry in data.get("plugins", []):
+                manifest = PluginManifest(**entry)
+                self._installed[manifest.plugin_id] = manifest
+        except Exception:
+            logger.exception("Failed to parse plugin registry entries")
 
     async def save(self) -> None:
-        """Persist registry to disk."""
+        """Persist registry to disk atomically."""
         registry_file = self._data_dir / "registry.json"
         data = {"plugins": [m.model_dump() for m in self._installed.values()]}
-        registry_file.write_text(json.dumps(data, indent=2))
+        atomic_write_json(registry_file, data)
 
     def get_installed(self) -> list[PluginManifest]:
         """Return all installed plugins."""

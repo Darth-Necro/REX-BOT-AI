@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user, get_interview_service
 
@@ -129,9 +129,6 @@ async def restart(user: dict = Depends(get_current_user)) -> dict[str, Any]:
             await svc.restart()
             return {"status": "restarted"}
         except Exception as e:
-            return {"status": "error", "detail": str(e)}
+            raise HTTPException(status_code=500, detail=str(e))
 
-    return {
-        "status": "not_available",
-        "note": "Interview service not connected",
-    }
+    raise HTTPException(status_code=503, detail="Interview service not connected")

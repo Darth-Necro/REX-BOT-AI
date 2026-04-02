@@ -16,8 +16,11 @@ from fastapi.testclient import TestClient
 from starlette.responses import JSONResponse
 
 from rex.dashboard.app import (
+    BodySizeLimitMiddleware,
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
+    _ROUTE_LIMITS,
+    _DEFAULT_RATE_LIMIT,
     create_app,
 )
 from rex.dashboard.deps import get_current_user
@@ -32,9 +35,12 @@ def _fake_user() -> dict[str, Any]:
 
 
 def _make_simple_app_with_middlewares() -> FastAPI:
-    """Build a minimal app with rate limit and security headers middleware."""
+    """Build a minimal app with rate limit and security headers middleware.
+
+    Patches route limits so /test has a tight 5-request limit for testing.
+    """
     app = FastAPI()
-    app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=60)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/test")
@@ -141,39 +147,42 @@ class TestRateLimitMiddleware:
 
     def test_allows_requests_under_limit(self) -> None:
         """Requests within the rate limit succeed."""
-        app = _make_simple_app_with_middlewares()
-        client = TestClient(app, raise_server_exceptions=False)
+        with patch.dict("rex.dashboard.app._ROUTE_LIMITS", {"/test": (5, 60)}):
+            app = _make_simple_app_with_middlewares()
+            client = TestClient(app, raise_server_exceptions=False)
 
-        for _ in range(5):
-            response = client.get("/test")
-            assert response.status_code == 200
+            for _ in range(5):
+                response = client.get("/test")
+                assert response.status_code == 200
 
     def test_blocks_requests_over_limit(self) -> None:
         """Requests exceeding the rate limit get 429."""
-        app = _make_simple_app_with_middlewares()
-        client = TestClient(app, raise_server_exceptions=False)
+        with patch.dict("rex.dashboard.app._ROUTE_LIMITS", {"/test": (5, 60)}):
+            app = _make_simple_app_with_middlewares()
+            client = TestClient(app, raise_server_exceptions=False)
 
-        # Exhaust the 5-request limit
-        for _ in range(5):
-            client.get("/test")
+            # Exhaust the 5-request limit
+            for _ in range(5):
+                client.get("/test")
 
-        # The 6th request should be rate-limited
-        response = client.get("/test")
-        assert response.status_code == 429
-        assert "Rate limit exceeded" in response.json()["detail"]
-        assert "Retry-After" in response.headers
+            # The 6th request should be rate-limited
+            response = client.get("/test")
+            assert response.status_code == 429
+            assert "Rate limit exceeded" in response.json()["detail"]
+            assert "Retry-After" in response.headers
 
     def test_rate_limit_retry_after_header(self) -> None:
         """Rate limit response includes a Retry-After header."""
-        app = _make_simple_app_with_middlewares()
-        client = TestClient(app, raise_server_exceptions=False)
+        with patch.dict("rex.dashboard.app._ROUTE_LIMITS", {"/test": (5, 60)}):
+            app = _make_simple_app_with_middlewares()
+            client = TestClient(app, raise_server_exceptions=False)
 
-        for _ in range(5):
-            client.get("/test")
+            for _ in range(5):
+                client.get("/test")
 
-        response = client.get("/test")
-        assert response.status_code == 429
-        assert response.headers["Retry-After"] == "60"
+            response = client.get("/test")
+            assert response.status_code == 429
+            assert response.headers["Retry-After"] == "60"
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +219,7 @@ class TestPrivacyEndpoint:
     """Tests for the /api/privacy/status endpoint added by create_app."""
 
     def test_privacy_status_fields(self) -> None:
-        """Privacy endpoint returns design-level privacy properties."""
+        """Privacy endpoint returns frontend-expected privacy signals."""
         with patch("rex.shared.config.get_config") as mock_cfg:
             mock_cfg.return_value = MagicMock(cors_origins="http://localhost:3000")
             app = create_app()
@@ -219,10 +228,11 @@ class TestPrivacyEndpoint:
         response = client.get("/api/privacy/status")
         assert response.status_code == 200
         data = response.json()
-        assert data["design_local_only"] is True
+        assert data["data_local_only"] is True
         assert data["telemetry_enabled"] is False
-        assert data["llm_localhost_enforced"] is True
-        assert "note" in data
+        assert "signals" in data
+        assert "retention" in data
+        assert "capabilities" in data
 
     def test_privacy_status_no_auth_needed(self) -> None:
         """Privacy endpoint is accessible without authentication."""

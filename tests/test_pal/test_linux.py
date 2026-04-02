@@ -819,7 +819,7 @@ class TestRunHelper:
         """Should return CompletedProcess from subprocess.run."""
         from rex.pal.linux import _run
 
-        with patch("rex.pal.linux.subprocess.run", return_value=_completed(stdout="ok")):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=_completed(stdout="ok")):
             result = _run(["echo", "hello"])
         assert result.stdout == "ok"
 
@@ -827,7 +827,7 @@ class TestRunHelper:
         """Should return rc=127 when the command is not found."""
         from rex.pal.linux import _run
 
-        with patch("rex.pal.linux.subprocess.run", side_effect=FileNotFoundError()):
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError()):
             result = _run(["nonexistent"])
         assert result.returncode == 127
 
@@ -836,7 +836,7 @@ class TestRunHelper:
         from rex.pal.linux import _run
 
         with patch(
-            "rex.pal.linux.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd=["test"], timeout=10),
         ):
             result = _run(["test"])
