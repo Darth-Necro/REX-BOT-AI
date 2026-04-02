@@ -204,8 +204,10 @@ class ServiceOrchestrator:
             return False
         svc = self._services[name]
         if self._status.get(name) == "running":
-            with contextlib.suppress(Exception):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before restart", name.value, exc_info=True)
         success = await self._start_service(name)
         if success:
             logger.info("Restarted %s", name.value)
@@ -305,14 +307,19 @@ class ServiceOrchestrator:
         self._restart_counts[name] = count + 1
         self._last_restart_time[name] = now
         logger.info(
-            "Auto-restarting %s (attempt %d/%d)",
-            name.value, count + 1, _MAX_RESTART_ATTEMPTS,
+            "Auto-restarting %s in %ds (attempt %d/%d in %ds window)",
+            name.value, backoff, attempt, _MAX_RESTART_ATTEMPTS,
+            _RESTART_WINDOW_SECONDS,
         )
+        await asyncio.sleep(backoff)
+
         # Stop the service first to avoid duplicate tasks / port conflicts
         svc = self._services.get(name)
-        if svc and self._status.get(name) == "running":
-            with contextlib.suppress(Exception):
+        if svc and self._status.get(name) in ("running", "failed"):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before auto-restart", name.value, exc_info=True)
         await self._start_service(name)
 
     @property

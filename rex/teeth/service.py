@@ -471,7 +471,7 @@ class TeethService(BaseService):
                                 has_cap_net_admin = bool(cap_val & (1 << 12))
                                 break
             except Exception:
-                pass
+                self._log.debug("Could not check CAP_NET_ADMIN capability", exc_info=True)
 
         self._can_enforce = has_root or has_cap_net_admin
 

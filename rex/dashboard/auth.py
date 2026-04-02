@@ -15,6 +15,8 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+import hashlib
+
 import bcrypt
 import jwt  # PyJWT
 
@@ -56,7 +58,7 @@ def _prehash_password(password: str) -> bytes:
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
 
     Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
     safely.  This ensures long passwords retain their full entropy.
@@ -71,7 +73,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing).
+
+    Also supports legacy hashes created without pre-hashing, for migration.
+    """
     _reject_null_bytes(password)
     return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
@@ -231,6 +236,12 @@ class AuthManager:
                 )
             remaining = _MAX_LOGIN_ATTEMPTS - len(ip_attempts)
             raise ValueError(f"Invalid credentials. {remaining} attempts remaining.")
+
+        # Auto-upgrade legacy password hashes (pre-SHA-256-prehash era)
+        if _is_legacy_hash(password, pw_hash):
+            self._password_hash = hash_password(password)
+            self._store_to_secrets_manager()
+            logger.info("Upgraded legacy password hash to SHA-256 pre-hashed format")
 
         # Success - clear failed attempts for this IP
         self._failed_attempts.pop(client_ip, None)

@@ -145,9 +145,18 @@ class TestGetStatus:
 class TestGetQuestion:
     """Tests for GET /api/interview/question."""
 
-    def test_get_question_returns_stub(self) -> None:
-        """Returns stub response indicating service not connected."""
+    def test_get_question_requires_auth(self) -> None:
+        """Question endpoint requires authentication to prevent info disclosure."""
         app = _make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/interview/question")
+        assert response.status_code == 401
+
+    def test_get_question_returns_stub(self) -> None:
+        """Authenticated request returns stub response indicating service not connected."""
+        app = _make_app()
+        app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/interview/question")
