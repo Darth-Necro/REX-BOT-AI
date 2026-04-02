@@ -41,7 +41,7 @@ def _mock_service(
     degraded: bool = False,
 ) -> MagicMock:
     """Create a mock BaseService with configurable behaviour."""
-    svc = AsyncMock()
+    svc = MagicMock()
     svc.service_name = name
 
     if fail_start:
