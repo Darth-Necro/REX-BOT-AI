@@ -137,9 +137,14 @@ class TestEyesServiceOnStart:
 
             # Clean up background tasks to avoid coroutine-not-awaited warnings
             svc._running = False
+            for task in svc._bg_tasks:
+                task.cancel()
+            if svc._bg_tasks:
+                await asyncio.gather(*svc._bg_tasks, return_exceptions=True)
             for task in svc._tasks:
                 task.cancel()
-            await asyncio.gather(*svc._tasks, return_exceptions=True)
+            if svc._tasks:
+                await asyncio.gather(*svc._tasks, return_exceptions=True)
 
 
 # ------------------------------------------------------------------

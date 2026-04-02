@@ -145,9 +145,11 @@ class TestOnStartCreatesDeviceStore:
 
             # Clean up background tasks to avoid coroutine-not-awaited warnings
             svc._running = False
-            for task in svc._bg_tasks:
+            all_tasks = svc._bg_tasks + svc._tasks
+            for task in all_tasks:
                 task.cancel()
-            await asyncio.gather(*svc._bg_tasks, return_exceptions=True)
+            if all_tasks:
+                await asyncio.gather(*all_tasks, return_exceptions=True)
 
 
 # ------------------------------------------------------------------
