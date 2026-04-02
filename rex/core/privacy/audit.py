@@ -680,6 +680,7 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
+        import re
         from urllib.parse import urlparse
 
         local_hosts = {
@@ -705,7 +706,6 @@ class PrivacyAuditor:
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
         if not hostname:
-            import re
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
@@ -715,11 +715,9 @@ class PrivacyAuditor:
                     ipv6_host = bracket_m.group(1)
                     if ipv6_host in local_hosts or PrivacyAuditor._is_local_ip(ipv6_host):
                         return True
-                # IPv6 shorthand like ::1:port or just ::1
-                if host_port.startswith("::"):
-                    for local in ("::1",):
-                        if host_port == local or host_port.startswith(local + ":"):
-                            return True
+                # IPv6 shorthand like ::1 or ::1:port
+                if host_port == "::1" or host_port.startswith("::1:"):
+                    return True
         return False
 
     @staticmethod
