@@ -269,6 +269,7 @@ class TestStartAllOrder:
 # stop_all reverse ordering
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_slow_stop.*never awaited:RuntimeWarning")
 class TestStopAllOrder:
     """Verify services stop in reverse _START_ORDER."""
 
@@ -497,6 +498,7 @@ class TestAutoRestart:
 # run() method -- signal handling (lines 199-219)
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_health_monitor.*never awaited:RuntimeWarning")
 class TestRunMethod:
     """Lines 199-219: run() sets up signal handlers and blocks until shutdown."""
 
@@ -620,6 +622,7 @@ class TestRunMethod:
 # _health_monitor (lines 223-257)
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_health_monitor.*never awaited:RuntimeWarning")
 class TestHealthMonitor:
     """Lines 223-257: periodic health checks, auto-restart on unhealthy/exception/failed."""
 
@@ -773,6 +776,7 @@ class TestHealthMonitor:
 # get_status
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_health_monitor.*never awaited:RuntimeWarning")
 class TestGetStatus:
     """Test the get_status() snapshot method."""
 

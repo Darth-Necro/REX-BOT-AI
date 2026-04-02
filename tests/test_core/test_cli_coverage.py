@@ -203,6 +203,7 @@ class TestDiagCommand:
 # start command -- imports get_config, AuthManager, ServiceOrchestrator lazily
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_run.*never awaited:RuntimeWarning")
 class TestStartCommand:
     """Test the 'start' command flow with mocked orchestrator."""
 
@@ -312,6 +313,7 @@ class TestStopCommand:
 # scan command
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_run.*never awaited:RuntimeWarning")
 class TestScanCommand:
     """Test the 'scan' command."""
 
@@ -366,6 +368,7 @@ class TestScanCommand:
 # sleep and wake commands
 # ------------------------------------------------------------------
 
+@pytest.mark.filterwarnings("ignore:coroutine.*_run.*never awaited:RuntimeWarning")
 class TestSleepWakeCommands:
     """Test sleep and wake commands."""
 
