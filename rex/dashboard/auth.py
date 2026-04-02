@@ -40,26 +40,26 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
-def _bcrypt_safe_encode(password: str) -> bytes:
-    """Encode a password for bcrypt, pre-hashing if it exceeds 72 bytes.
+def _prehash_password(password: str) -> bytes:
+    """Pre-hash a password with SHA-256 to work around bcrypt's 72-byte limit.
 
-    bcrypt silently truncates (or in newer versions, rejects) inputs
-    longer than 72 bytes.  To support arbitrary-length passwords safely
-    we SHA-256 the raw bytes and base64-encode the digest, producing a
-    44-byte string that is always within bcrypt's limit.  This is the
-    same approach used by Dropbox and Django.
+    bcrypt silently truncates (or in newer versions, rejects) passwords
+    longer than 72 bytes.  By pre-hashing with SHA-256 and base64-encoding
+    the result we get a fixed 44-byte input that preserves entropy from
+    the full password.  This is the standard approach used by Dropbox and
+    others.
     """
     import base64
     import hashlib
-
-    raw = password.encode("utf-8")
-    if len(raw) > 72:
-        raw = base64.b64encode(hashlib.sha256(raw).digest())
-    return raw
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
 
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
+
+    Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
+    safely.  This ensures long passwords retain their full entropy.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -67,13 +67,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(_bcrypt_safe_encode(password), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(_bcrypt_safe_encode(password), hashed.encode())
+    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -142,10 +142,13 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
+                # Migrate to SecretsManager if available, then remove plaintext
                 if self._store_to_secrets_manager():
-                    # Migration succeeded -- remove plaintext copy
-                    self._remove_plaintext_creds()
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
+                    except OSError:
+                        logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
                 return None
             except Exception:

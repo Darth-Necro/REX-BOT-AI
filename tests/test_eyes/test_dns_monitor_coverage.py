@@ -148,9 +148,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)), \
-             patch("rex.eyes.dns_monitor.asyncio.wait_for", new=AsyncMock(return_value=(feed_text.encode(), b""))):
-            mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count >= 2
@@ -171,10 +169,10 @@ class TestFetchThreatFeed:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)), \
-             patch("rex.eyes.dns_monitor.asyncio.wait_for", new=AsyncMock(return_value=(feed_text.encode(), b""))):
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count >= 2
@@ -201,8 +199,7 @@ class TestFetchThreatFeed:
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)), \
-             patch("rex.eyes.dns_monitor.asyncio.wait_for", new=AsyncMock(return_value=(b"", b"error"))):
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
@@ -225,10 +222,10 @@ class TestFetchThreatFeed:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)), \
-             patch("rex.eyes.dns_monitor.asyncio.wait_for", new=AsyncMock(return_value=(b"", b""))):
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0
@@ -245,10 +242,10 @@ class TestFetchThreatFeed:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(feed_text.encode(), b""))
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new=AsyncMock(return_value=mock_proc)), \
-             patch("rex.eyes.dns_monitor.asyncio.wait_for", new=AsyncMock(return_value=(feed_text.encode(), b""))):
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 1  # only new-one.com
