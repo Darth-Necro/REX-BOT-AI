@@ -299,7 +299,7 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 - **Login attempts**: 5 failures within 30 minutes triggers lockout
 - **Lockout duration**: 30 minutes
-- **Lockout scope**: Global (single admin user model)
+- **Lockout scope**: Per-IP (prevents distributed lockout against the admin user)
 - **Failed attempt tracking**: In-memory with 30-minute sliding window
 
 ### Authorization Model

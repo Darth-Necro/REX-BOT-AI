@@ -36,8 +36,10 @@ app = typer.Typer(
 
 
 def _setup_logging(level: str = "info") -> None:
-    """Configure structured JSON logging."""
-    numeric = getattr(logging, level.upper(), logging.INFO)
+    """Configure structured logging."""
+    numeric = getattr(logging, level.upper(), None)
+    if numeric is None:
+        numeric = logging.INFO
     logging.basicConfig(
         level=numeric,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -262,6 +264,7 @@ def _get_token() -> str:
     Warns if the token file has insecure permissions (readable by others).
     """
     import os
+    import stat
     from pathlib import Path
     token_file = Path(os.path.expanduser("~/.rex-token"))
     if token_file.exists():

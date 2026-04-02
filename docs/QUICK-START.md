@@ -176,30 +176,28 @@ https://localhost:8443
 
 ### Find Your Admin Password
 
-The initial admin password is displayed in the startup logs:
+The initial admin password is displayed in the CLI output on first boot (it is
+**not** written to log files to prevent accidental secret leakage):
 
 ```bash
-# Docker Compose
-docker compose logs rex | grep "Admin Password"
-
 # Direct install
-rex start   # Password shown in startup output
+rex start   # Password shown in terminal output only
 ```
 
 You'll see:
 
 ```
-============================================
-REX-BOT-AI Initial Admin Password:
-Abc123-Xyz789-Qrs456-Def012
-============================================
+  ==============================================
+  ADMIN PASSWORD: Abc123-Xyz789-Qrs456-Def012
+  Write this down. It will not be shown again.
+  ==============================================
 ```
 
 **Save this password immediately.** It is shown once on first boot. Change it after your first login from Settings.
 
 Log in with:
 - **Username:** `admin`
-- **Password:** The password from the logs
+- **Password:** The password from the CLI output
 
 ---
 
