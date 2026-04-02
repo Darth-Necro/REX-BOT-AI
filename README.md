@@ -114,18 +114,38 @@ REX supports four protection modes that control how aggressively threats are han
 | `alert_only` | *ruff* -- Monitor and log only. No active blocking. |
 | `auto_block_critical` | *woof* -- Auto-block CRITICAL and HIGH severity threats. Default mode. |
 | `auto_block_all` | *WOOF!* -- Auto-block all detected threats regardless of severity. |
-| `junkyard_dog` | *GRRRRR WOOF WOOF!* -- **Maximum aggression.** Auto-blocks ALL threats, escalates alerts to blocks, quarantines aggressively, and immediately notifies the owner of every attack. No mercy mode. |
+| `junkyard_dog` | *GRRRRR WOOF WOOF!* -- **BITE mode.** REX actively removes all threats from your network. No mercy. |
 
-### Junkyard Dog Mode
+### Junkyard Dog Mode -- BITE!
 
-When activated, REX becomes a junkyard dog -- the most aggressive protection mode:
+When activated, REX becomes a junkyard dog -- the AI actively removes threats and secures your network:
 
-- **All threats are auto-blocked** regardless of severity level
-- **Alerts are escalated to blocks** -- even LOW severity events get blocked
-- **Owner notifications** are sent immediately for every detected threat  
-- **Aggressive bark messages** -- REX communicates with fierce dog noises (*GRRRRR WOOF WOOF!*)
+- **BITE action** -- REX doesn't just block, it BITEs: block + quarantine + rate-limit all at once
+- **Active threat removal** -- all threats are eliminated from your network immediately
+- **Machines secured** -- devices and network are protected from outside threats
+- **Owner notifications** -- you're notified of every attack and exactly what REX did about it
+- **No escalation needed** -- every alert, log, or monitor event gets escalated to a full BITE
+- **Aggressive bark** -- *GRRRRR WOOF WOOF!* REX communicates in fierce dog noises
 
 Activate via CLI: `rex junkyard` or set `REX_PROTECTION_MODE=junkyard_dog` in your environment.
+
+### Patrol Mode
+
+Schedule REX to wake up on a timer, patrol the network, and go back to sleep:
+
+```bash
+rex patrol --now                        # Patrol right now
+rex patrol --schedule "0 2 * * *"       # Every night at 2am
+rex patrol --schedule "0 */6 * * *"     # Every 6 hours
+rex patrol --schedule "0 0 * * 1"       # Every Monday at midnight
+```
+
+During a patrol, REX will:
+- **Deep scan** the entire network for new/rogue devices
+- **Run security audits** to find vulnerabilities and misconfigurations
+- **Inspect all machines** for suspicious activity
+- **Report findings** to the owner
+- **Go back to sleep** when patrol is done
 
 ## CLI Commands
 
@@ -136,7 +156,8 @@ rex status     # Show service health
 rex scan       # Trigger manual network scan
 rex sleep      # Put REX into alert-sleep mode
 rex wake       # Wake REX to full monitoring
-rex junkyard   # Activate JUNKYARD DOG mode (max aggression)
+rex junkyard   # Activate JUNKYARD DOG mode (BITE! removes threats)
+rex patrol     # Schedule security patrols (--now or --schedule "cron")
 rex diag       # Full diagnostic dump
 rex backup     # Create data backup
 rex privacy    # Run privacy audit

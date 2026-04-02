@@ -351,7 +351,7 @@ def wake() -> None:
 
 @app.command()
 def junkyard() -> None:
-    """Activate JUNKYARD DOG mode -- maximum aggression, auto-block ALL threats."""
+    """Activate JUNKYARD DOG mode -- REX BITEs and removes all active threats."""
     typer.echo(r"""
         ^
        / \__
@@ -363,9 +363,12 @@ def junkyard() -> None:
      CHAIN~~~~
 
   *GRRRRR* REX is now a JUNKYARD DOG!
-  *WOOF WOOF!* All threats will be auto-blocked and quarantined.
-  *ruff ruff* Owner will be notified of every attack.
-  *GRRRRR* ... No mercy!
+  *WOOF!* BITE mode active -- REX will:
+    - BITE and REMOVE all active threats from your network
+    - Block, quarantine, and rate-limit attackers simultaneously
+    - Secure all machines from outside threats
+    - Notify owner of every attack and what REX did about it
+  *GRRRRR WOOF WOOF!* ... No mercy! No intruder gets out alive!
 """)
     try:
         import httpx
@@ -380,6 +383,88 @@ def junkyard() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("mode") == "junkyard_dog":
             typer.echo("  *WOOF WOOF GRRRRR!* Junkyard Dog mode is ACTIVE. REX will eliminate all threats!")
+    except Exception as e:
+        typer.echo(f"  *whimper* Cannot reach REX: {e}")
+
+
+@app.command()
+def patrol(
+    schedule: str = typer.Option("", help="Cron schedule (e.g. '0 2 * * *' for 2am daily, '0 */4 * * *' every 4h)"),
+    now: bool = typer.Option(False, help="Run a patrol immediately"),
+) -> None:
+    """Schedule REX to patrol -- run security audits and inspect the network on a timer."""
+    if now:
+        typer.echo(r"""
+        ^
+       / \__
+      (  O @\___   *WOOF WOOF!* REX is going on patrol!
+      /         O  *sniff sniff* Inspecting the network...
+     /   (_____/
+    /_____/   U
+""")
+        try:
+            import httpx
+            # Trigger a full scan + audit
+            resp = httpx.post(
+                f"{_DEFAULT_API_URL}/api/devices/scan",
+                json={"scan_type": "deep"},
+                timeout=10,
+                verify=not _DEV_INSECURE,
+                headers={"Authorization": f"Bearer {_get_token()}"},
+            )
+            data = resp.json()
+            typer.echo(f"  *ruff* Scan: {data.get('status', 'unknown')}")
+
+            # Run privacy audit
+            resp2 = httpx.get(
+                f"{_DEFAULT_API_URL}/api/privacy/audit",
+                timeout=10,
+                verify=not _DEV_INSECURE,
+                headers={"Authorization": f"Bearer {_get_token()}"},
+            )
+            audit = resp2.json()
+            findings = audit.get("findings_count", audit.get("total_findings", "?"))
+            typer.echo(f"  *ruff ruff* Audit findings: {findings}")
+            typer.echo("  *WOOF!* Patrol complete! Network inspected and secured.")
+        except Exception as e:
+            typer.echo(f"  *whimper* Cannot reach REX: {e}")
+        return
+
+    if not schedule:
+        typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *ruff?* Please provide a schedule or use --now
+      /         O
+     /   (_____/   Examples:
+    /_____/   U      rex patrol --now              (patrol right now)
+                     rex patrol --schedule "0 2 * * *"   (2am daily)
+                     rex patrol --schedule "0 */6 * * *"  (every 6 hours)
+                     rex patrol --schedule "0 0 * * 1"   (midnight Monday)
+""")
+        return
+
+    typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *WOOF!* Patrol scheduled!
+      /         O  Schedule: """ + schedule + r"""
+     /   (_____/   *ruff ruff* REX will wake up, scan the network,
+    /_____/   U    run audits, and go back to sleep.
+""")
+    try:
+        import httpx
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/schedule/patrol",
+            json={"cron": schedule},
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers={"Authorization": f"Bearer {_get_token()}"},
+        )
+        data = resp.json()
+        typer.echo(f"  *ruff* Status: {data.get('status', 'unknown')}")
+        if data.get("scheduled"):
+            typer.echo("  *WOOF!* Patrol is scheduled! REX will be on duty.")
     except Exception as e:
         typer.echo(f"  *whimper* Cannot reach REX: {e}")
 

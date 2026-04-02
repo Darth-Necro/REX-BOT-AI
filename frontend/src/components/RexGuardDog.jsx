@@ -3,6 +3,7 @@ import useSystemStore from '../stores/useSystemStore';
 
 const stateColors = {
   awake: 'text-rex-safe',
+  patrol: 'text-cyan-400',
   alert_sleep: 'text-rex-warn',
   deep_sleep: 'text-rex-muted',
   off: 'text-rex-muted',
@@ -11,6 +12,7 @@ const stateColors = {
 
 const stateMessages = {
   awake: '*WOOF WOOF!* REX is awake and protecting your network',
+  patrol: '*ruff ruff* REX is on patrol! *sniff sniff* Inspecting the network...',
   alert_sleep: '*woof* ... zzz ... REX is sleeping with one ear open',
   deep_sleep: '*zzz* ... REX is in deep sleep',
   off: '*whimper* REX is off',
@@ -19,6 +21,7 @@ const stateMessages = {
 
 const stateAnimations = {
   awake: 'animate-breathe',
+  patrol: 'animate-pulse',
   alert_sleep: 'animate-pulse-slow',
   deep_sleep: '',
   off: 'opacity-50',
@@ -63,6 +66,7 @@ const rexDog = {
 
 const sideArt = {
   awake: rexDog.normal,
+  patrol: rexDog.happy,
   alert_sleep: rexDog.sleep,
   deep_sleep: rexDog.sleep,
   off: rexDog.sleep,

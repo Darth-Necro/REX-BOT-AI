@@ -46,6 +46,7 @@ logger = logging.getLogger("rex.teeth.service")
 
 # Mapping from Brain DecisionAction to ResponseCatalog action_id.
 _DECISION_ACTION_MAP: dict[DecisionAction, str] = {
+    DecisionAction.BITE: "bite",
     DecisionAction.BLOCK: "block_ip",
     DecisionAction.QUARANTINE: "isolate_device",
     DecisionAction.RATE_LIMIT: "rate_limit",
@@ -253,16 +254,15 @@ class TeethService(BaseService):
             )
             return
 
-        # JUNKYARD DOG MODE: *GRRRRR* Escalate all actions!
-        # Alerts become blocks, logs become alerts, monitors become blocks.
+        # JUNKYARD DOG MODE: *GRRRRR* BITE! Escalate ALL actions!
+        # Everything becomes a BITE -- block + quarantine + DNS block + notify owner.
         if self.config.protection_mode == ProtectionMode.JUNKYARD_DOG:
-            if decision_action in (DecisionAction.ALERT, DecisionAction.LOG,
-                                   DecisionAction.MONITOR, DecisionAction.IGNORE):
+            if decision_action != DecisionAction.BITE:
                 self._log.info(
-                    "*GRRRRR* Junkyard Dog mode: escalating %s -> BLOCK "
+                    "*GRRRRR WOOF!* Junkyard Dog BITE! Escalating %s -> BITE "
                     "for decision %s", decision_action, decision_id,
                 )
-                decision_action = DecisionAction.BLOCK
+                decision_action = DecisionAction.BITE
 
         # Map the Brain decision to a catalog action.
         action_id = _DECISION_ACTION_MAP.get(decision_action, "log_only")
@@ -275,6 +275,60 @@ class TeethService(BaseService):
             assert self.firewall is not None
             assert self.dns_blocker is not None
             assert self.isolator is not None
+
+            # BITE: the nuclear option -- block + quarantine + notify, all at once
+            if action_id == "bite":
+                self._log.warning(
+                    "*GRRRRR WOOF WOOF!* REX BITES! Blocking IP, quarantining "
+                    "device, and notifying owner for decision %s",
+                    decision_id,
+                )
+                bite_success = True
+                # 1. Block the IP
+                try:
+                    await self.catalog.execute(
+                        action_id="block_ip", params=params,
+                        firewall=self.firewall, dns_blocker=self.dns_blocker,
+                        isolator=self.isolator, severity=severity,
+                    )
+                except Exception as exc:
+                    self._log.warning("BITE block_ip failed: %s", exc)
+                    bite_success = False
+                # 2. Quarantine the device
+                if params.get("mac") or params.get("ip"):
+                    try:
+                        await self.catalog.execute(
+                            action_id="isolate_device", params=params,
+                            firewall=self.firewall, dns_blocker=self.dns_blocker,
+                            isolator=self.isolator, severity=severity,
+                        )
+                    except Exception as exc:
+                        self._log.warning("BITE isolate_device failed: %s", exc)
+                        bite_success = False
+                # 3. Rate limit as extra measure
+                try:
+                    await self.catalog.execute(
+                        action_id="rate_limit",
+                        params={**params, "pps": 1},
+                        firewall=self.firewall, dns_blocker=self.dns_blocker,
+                        isolator=self.isolator, severity=severity,
+                    )
+                except Exception as exc:
+                    self._log.warning("BITE rate_limit failed: %s", exc)
+
+                success = bite_success
+                await self._publish_action_event(
+                    decision_id=decision_id,
+                    action="bite",
+                    threat_event_id=threat_event_id,
+                    success=success,
+                    details={
+                        "params": params, "enforced": True,
+                        "bite": True,
+                        "message": "*GRRRRR!* REX bit the intruder! Blocked, quarantined, and rate-limited!",
+                    },
+                )
+                return
 
             success = await self.catalog.execute(
                 action_id=action_id,
@@ -377,7 +431,18 @@ class TeethService(BaseService):
         # Source IP is the most common target for blocking / rate limiting.
         source_ip = decision_data.get("source_ip") or decision_data.get("ip", "")
 
-        if action == DecisionAction.BLOCK:
+        if action == DecisionAction.BITE:
+            # BITE gets everything -- used by Junkyard Dog to remove threats
+            params["ip"] = source_ip
+            params["mac"] = decision_data.get("mac", "")
+            params["direction"] = "both"
+            params["pps"] = 1
+            params["reason"] = (
+                "*GRRRRR!* REX BITE — threat removed! "
+                + decision_data.get("reasoning", "Junkyard Dog mode active")
+            )
+
+        elif action == DecisionAction.BLOCK:
             params["ip"] = source_ip
             params["direction"] = decision_data.get("direction", "both")
             params["reason"] = decision_data.get(

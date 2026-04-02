@@ -97,6 +97,7 @@ class DeviceType(StrEnum):
 class DecisionAction(StrEnum):
     """Actions that the Brain layer can decide upon."""
 
+    BITE = "bite"
     BLOCK = "block"
     ALERT = "alert"
     LOG = "log"
@@ -129,6 +130,7 @@ class PowerState(StrEnum):
     """Power management states controlling scan frequency and resource usage."""
 
     AWAKE = "awake"
+    PATROL = "patrol"
     ALERT_SLEEP = "alert_sleep"
     DEEP_SLEEP = "deep_sleep"
     OFF = "off"
