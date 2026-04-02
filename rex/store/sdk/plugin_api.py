@@ -84,11 +84,14 @@ class PluginRegistry:
         self._persist()
 
     def _persist(self) -> None:
+        """Persist registry to disk using atomic write (write-then-rename)."""
         if self._path is None:
             return
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(json.dumps(self._entries, indent=2))
+            tmp_path = self._path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(self._entries, indent=2))
+            tmp_path.replace(self._path)
         except Exception:
             logger.warning("Failed to persist plugin registry")
 

@@ -96,17 +96,25 @@ class RexConfig(BaseSettings):
             _logging.getLogger(__name__).warning(msg)
         return v
 
-    @field_validator("redis_url", "chroma_url")
+    @field_validator("redis_url", "chroma_url", "ollama_url")
     @classmethod
     def validate_local_url(cls, v: str) -> str:
         """Ensure service URLs point to localhost or Docker-internal names only."""
         from urllib.parse import urlparse
         parsed = urlparse(v)
-        allowed = {"127.0.0.1", "localhost", "::1", "redis", "chromadb"}
+        allowed = {"127.0.0.1", "localhost", "::1", "redis", "chromadb", "ollama"}
         if parsed.hostname and parsed.hostname not in allowed:
             raise ValueError(
                 f"URL must point to localhost or Docker service name, got: {parsed.hostname}"
             )
+        return v
+
+    @field_validator("dashboard_port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        """Ensure port is in valid range."""
+        if not 1 <= v <= 65535:
+            raise ValueError(f"Port must be 1-65535, got: {v}")
         return v
 
     # -- Network scanning -----------------------------------------------------

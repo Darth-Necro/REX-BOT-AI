@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_HOURS = 4
+_JWT_MIN_SECRET_BYTES = 32  # 256-bit minimum for HS256
 _MAX_LOGIN_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 1800  # 30 minutes
 
@@ -79,7 +80,15 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
-    """Create an HS256 JWT token using PyJWT."""
+    """Create an HS256 JWT token using PyJWT.
+
+    Raises ValueError if the secret is too short (< 32 bytes / 256 bits).
+    """
+    if len(secret) < _JWT_MIN_SECRET_BYTES:
+        raise ValueError(
+            f"JWT secret too short ({len(secret)} bytes). "
+            f"Minimum {_JWT_MIN_SECRET_BYTES} bytes required for HS256."
+        )
     payload = {
         **data,
         "exp": datetime.now(UTC) + timedelta(hours=expires_hours),
@@ -161,13 +170,8 @@ class AuthManager:
         stored_encrypted = self._store_to_secrets_manager()
         if not stored_encrypted:
             # No encrypted storage available — fall back to plaintext file
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
-            }))
-            # Restrict permissions
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            # Use atomic write (write-then-rename) to prevent corruption
+            self._write_creds_atomic()
 
         self._initialized = True
         return initial_password
@@ -196,6 +200,21 @@ class AuthManager:
         except OSError:
             logger.warning("Failed to remove plaintext credentials file: %s", self._creds_file)
 
+    def _write_creds_atomic(self) -> None:
+        """Write credentials to disk using atomic write (write-then-rename).
+
+        Uses a temporary file + rename to prevent partial-write corruption.
+        Sets 0o600 permissions to restrict access to owner only.
+        """
+        tmp_file = self._creds_file.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps({
+            "password_hash": self._password_hash,
+            "jwt_secret": self._jwt_secret,
+        }))
+        with contextlib.suppress(OSError):
+            tmp_file.chmod(0o600)
+        tmp_file.replace(self._creds_file)
+
     async def login(self, username: str, password: str, client_ip: str = "unknown") -> dict[str, Any]:
         """Authenticate and return a JWT token.
 
@@ -203,6 +222,9 @@ class AuthManager:
         """
         if not self._initialized:
             raise RuntimeError("AuthManager not initialized")
+
+        if not password:
+            raise ValueError("Password must not be empty")
 
         # Check per-IP lockout
         now = time.time()
@@ -276,12 +298,7 @@ class AuthManager:
         if stored_encrypted:
             self._remove_plaintext_creds()
         else:
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-                "jwt_secret": self._jwt_secret,
-            }))
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            self._write_creds_atomic()
 
         logger.info("Password changed for user %s", username)
         return True
