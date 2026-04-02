@@ -669,6 +669,10 @@ class PrivacyAuditor:
     def _is_local_endpoint(url: str) -> bool:
         """Determine whether a URL points to a local endpoint.
 
+        Handles ``localhost``, IPv4 loopback (``127.x.x.x``), IPv6
+        loopback (``::1`` in bracketed and unbracketed forms), and
+        ``0.0.0.0`` (all-interfaces bind address).
+
         Parameters
         ----------
         url:
@@ -680,52 +684,51 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
+        import ipaddress as _ipaddress
         from urllib.parse import urlparse
 
-        local_hosts = {
-            "localhost",
-            "127.0.0.1",
-            "::1",
-            "0.0.0.0",
-        }
+        local_hostnames = {"localhost"}
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname or ""
         except Exception:
             hostname = ""
 
-        # urlparse strips brackets from [::1], yielding "::1"
-        if hostname in local_hosts:
+        # urlparse strips brackets from IPv6, so [::1] → "::1"
+        if hostname.lower() in local_hostnames:
             return True
 
-        # Check if hostname is a 127.x.x.x loopback variant
+        # Check if hostname is a loopback/private IP address
         if hostname:
-            import ipaddress as _ipaddress
             try:
                 addr = _ipaddress.ip_address(hostname)
-                if addr.is_loopback:
-                    return True
+                return addr.is_loopback or addr.is_private or addr.is_link_local
             except ValueError:
                 pass
+            # Also handle 0.0.0.0 which is used as a bind address
+            if hostname == "0.0.0.0":
+                return True
+            return False
 
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
-        if not hostname:
-            import re
-            m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
-            if m:
-                host_port = m.group(1)
-                # Bracketed IPv6: [::1]:port
-                bracket_match = re.match(r"^\[([^\]]+)\]", host_port)
-                if bracket_match:
-                    inner = bracket_match.group(1)
-                    if inner in local_hosts:
+        import re
+        m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
+        if m:
+            host_port = m.group(1)
+            # Strip bracketed form
+            bracket_m = re.match(r"^\[(.+?)\](?::(\d+))?$", host_port)
+            if bracket_m:
+                try:
+                    addr = _ipaddress.ip_address(bracket_m.group(1))
+                    return addr.is_loopback or addr.is_private or addr.is_link_local
+                except ValueError:
+                    pass
+            # IPv6 shorthand like ::1:port or just ::1
+            if host_port.startswith("::"):
+                for local in ("::1",):
+                    if host_port == local or host_port.startswith(local + ":"):
                         return True
-                # Unbracketed shorthand like ::1:port or just ::1
-                if host_port.startswith("::"):
-                    for local in ("::1",):
-                        if host_port == local or host_port.startswith(local + ":"):
-                            return True
         return False
 
     @staticmethod

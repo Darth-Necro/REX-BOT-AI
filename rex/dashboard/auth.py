@@ -43,21 +43,25 @@ def _reject_null_bytes(password: str) -> None:
 
 
 def _prehash_password(password: str) -> bytes:
-    """Pre-hash passwords with SHA-256 to handle bcrypt's 72-byte limit.
+    """Pre-hash a password with SHA-256 to work around bcrypt's 72-byte limit.
 
-    bcrypt silently truncates input at 72 bytes, meaning passwords longer
-    than 72 bytes are effectively truncated — two passwords sharing the
-    same first 72 bytes would compare equal.  Pre-hashing with SHA-256
-    maps any-length input to a fixed 64-byte hex string, preserving full
-    password entropy within bcrypt's input limit.
-
-    This is the standard mitigation (used by Dropbox, Django, etc.).
+    bcrypt silently truncates (or in newer versions, rejects) passwords
+    longer than 72 bytes.  By pre-hashing with SHA-256 and base64-encoding
+    the result we get a fixed 44-byte input that preserves entropy from
+    the full password.  This is the standard approach used by Dropbox and
+    others.
     """
-    return hashlib.sha256(password.encode()).hexdigest().encode()
+    import base64
+    import hashlib
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
 
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt with SHA-256 pre-hashing.
+
+    Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
+    safely.  This ensures long passwords retain their full entropy.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -74,29 +78,7 @@ def verify_password(password: str, hashed: str) -> bool:
     Also supports legacy hashes created without pre-hashing, for migration.
     """
     _reject_null_bytes(password)
-    # Try current method (SHA-256 pre-hash + bcrypt)
-    if bcrypt.checkpw(_prehash_password(password), hashed.encode()):
-        return True
-    # Fallback: try legacy method (raw password + bcrypt) for migration
-    try:
-        if bcrypt.checkpw(password.encode(), hashed.encode()):
-            return True
-    except (ValueError, TypeError):
-        pass
-    return False
-
-
-def _is_legacy_hash(password: str, hashed: str) -> bool:
-    """Return True if the hash was created without SHA-256 pre-hashing."""
-    _reject_null_bytes(password)
-    # If the new method works, it's not legacy
-    if bcrypt.checkpw(_prehash_password(password), hashed.encode()):
-        return False
-    # If the old method works, it IS legacy
-    try:
-        return bcrypt.checkpw(password.encode(), hashed.encode())
-    except (ValueError, TypeError):
-        return False
+    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -169,7 +151,7 @@ class AuthManager:
                 if self._store_to_secrets_manager():
                     try:
                         self._creds_file.unlink()
-                        logger.info("Migrated credentials to SecretsManager; plaintext file removed")
+                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
                     except OSError:
                         logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
