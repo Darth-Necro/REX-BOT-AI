@@ -219,7 +219,7 @@ class AuthManager:
                 if stored:
                     pw_hash = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during login; using cached credential")
 
         # Verify password
         if not verify_password(password, pw_hash):
@@ -246,7 +246,7 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during login; using cached JWT secret")
 
         # Generate JWT
         token = create_token({"sub": username}, jwt_secret)
@@ -288,5 +288,5 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during token verification; using cached JWT secret")
         return verify_token_str(token, jwt_secret)

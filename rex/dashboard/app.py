@@ -175,7 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bus_instance:
             await bus_instance.disconnect()
     except Exception:
-        pass
+        logger.debug("Event bus disconnect error during shutdown", exc_info=True)
     logger.info("Dashboard shutdown complete")
 
 
