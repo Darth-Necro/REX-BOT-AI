@@ -93,6 +93,22 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
+def _is_legacy_hash(password: str, pw_hash: str) -> bool:
+    """Detect if a hash was created without SHA-256 pre-hashing.
+
+    Returns True if the hash does NOT verify under the current pre-hashed
+    scheme but DOES verify with the raw password fed directly to bcrypt.
+    This indicates the hash was created with the old method and should be
+    upgraded.
+    """
+    try:
+        if bcrypt.checkpw(_prehash_password(password), pw_hash.encode()):
+            return False  # current scheme — not legacy
+        return bcrypt.checkpw(password.encode("utf-8"), pw_hash.encode())
+    except Exception:
+        return False
+
+
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
     """Create an HS256 JWT token using PyJWT.
 
@@ -165,7 +181,10 @@ class AuthManager:
             try:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
-                self._jwt_secret = data["jwt_secret"]
+                # jwt_secret may be absent from plaintext storage (by design —
+                # see security comment below).  Generate a fresh ephemeral one
+                # so existing sessions are invalidated but the app still starts.
+                self._jwt_secret = data.get("jwt_secret") or secrets.token_hex(32)
                 # Migrate to SecretsManager if available, then remove plaintext
                 if self._store_to_secrets_manager():
                     try:

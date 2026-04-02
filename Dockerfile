@@ -99,4 +99,4 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 USER rex
 
 ENTRYPOINT ["python", "-m", "rex.core"]
-CMD []
+CMD ["start"]

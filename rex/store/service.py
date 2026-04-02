@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -64,8 +65,10 @@ class StoreService(BaseService):
                 except Exception:
                     logger.exception("Plugin %s error", name)
 
-        await self.bus.subscribe([STREAM_CORE_COMMANDS], command_handler)
-        await self.bus.subscribe(
-            [STREAM_EYES_THREATS, STREAM_EYES_DEVICE_UPDATES],
-            plugin_event_handler,
+        await asyncio.gather(
+            self.bus.subscribe([STREAM_CORE_COMMANDS], command_handler),
+            self.bus.subscribe(
+                [STREAM_EYES_THREATS, STREAM_EYES_DEVICE_UPDATES],
+                plugin_event_handler,
+            ),
         )

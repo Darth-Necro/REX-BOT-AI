@@ -386,11 +386,10 @@ class ServiceOrchestrator:
             return
 
         # Exponential backoff: 5s, 10s, 20s
-        backoff = _RESTART_BACKOFF_BASE * (2 ** count)
+        backoff = min(_RESTART_BACKOFF_BASE * (2 ** count), 300)
         self._restart_counts[name] = count + 1
         self._last_restart_time[name] = now
         attempt = count + 1
-        backoff = min(2 ** (attempt - 1), 300)
         logger.info(
             "Auto-restarting %s in %ds (attempt %d/%d, decay window %ds)",
             name.value, backoff, attempt, _MAX_RESTART_ATTEMPTS,

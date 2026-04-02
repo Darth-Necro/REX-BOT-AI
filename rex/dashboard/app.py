@@ -171,17 +171,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.warning("Event bus not available — dashboard running without real-time events")
 
-    # Initialize interview service (non-fatal if dependencies unavailable)
-    try:
-        from rex.interview.service import InterviewService
-
-        interview_bus_instance = deps._bus_instance
-        interview_svc = InterviewService(config=config, bus=interview_bus_instance)
-        await interview_svc.start()
-        deps.set_interview_service(interview_svc)
-        logger.info("Interview service connected to dashboard")
-    except Exception:
-        logger.warning("Interview service not available in dashboard context")
+    # InterviewService lifecycle is owned by the orchestrator.
+    # The dashboard accesses it via deps.get_interview_service().
 
     logger.info("Dashboard initialized (port %d)", config.dashboard_port)
 
