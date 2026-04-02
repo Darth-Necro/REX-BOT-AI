@@ -257,11 +257,25 @@ def privacy() -> None:
 
 
 def _get_token() -> str:
-    """Read cached auth token."""
+    """Read cached auth token from ~/.rex-token.
+
+    Warns if the token file has insecure permissions (readable by others).
+    """
     import os
     from pathlib import Path
     token_file = Path(os.path.expanduser("~/.rex-token"))
     if token_file.exists():
+        # Check file permissions — warn if group/other-readable
+        try:
+            mode = token_file.stat().st_mode & 0o777
+            if mode & 0o077:
+                typer.echo(
+                    f"  WARNING: {token_file} has insecure permissions ({oct(mode)}). "
+                    f"Run: chmod 600 {token_file}",
+                    err=True,
+                )
+        except OSError:
+            pass
         return token_file.read_text().strip()
     return ""
 

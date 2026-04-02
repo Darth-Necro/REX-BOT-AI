@@ -69,9 +69,34 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing)."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing).
+
+    Also supports legacy hashes created without pre-hashing, for migration.
+    """
     _reject_null_bytes(password)
-    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
+    # Try current method (SHA-256 pre-hash + bcrypt)
+    if bcrypt.checkpw(_prehash_password(password), hashed.encode()):
+        return True
+    # Fallback: try legacy method (raw password + bcrypt) for migration
+    try:
+        if bcrypt.checkpw(password.encode(), hashed.encode()):
+            return True
+    except (ValueError, TypeError):
+        pass
+    return False
+
+
+def _is_legacy_hash(password: str, hashed: str) -> bool:
+    """Return True if the hash was created without SHA-256 pre-hashing."""
+    _reject_null_bytes(password)
+    # If the new method works, it's not legacy
+    if bcrypt.checkpw(_prehash_password(password), hashed.encode()):
+        return False
+    # If the old method works, it IS legacy
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except (ValueError, TypeError):
+        return False
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -229,6 +254,12 @@ class AuthManager:
                 )
             remaining = _MAX_LOGIN_ATTEMPTS - len(ip_attempts)
             raise ValueError(f"Invalid credentials. {remaining} attempts remaining.")
+
+        # Auto-upgrade legacy password hashes (pre-SHA-256-prehash era)
+        if _is_legacy_hash(password, pw_hash):
+            self._password_hash = hash_password(password)
+            self._store_to_secrets_manager()
+            logger.info("Upgraded legacy password hash to SHA-256 pre-hashed format")
 
         # Success - clear failed attempts for this IP
         self._failed_attempts.pop(client_ip, None)

@@ -183,7 +183,13 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
 
 @router.get("/health")
 async def health_check() -> dict[str, str]:
-    """Simple health check endpoint for load balancers and monitoring."""
+    """Lightweight health check for load balancers and monitoring.
+
+    Returns ``{"status": "ok"}`` only if the dashboard process is responsive.
+    This is a *liveness* check — it confirms the process is running and can
+    serve requests.  For deeper *readiness* checks (Redis, Ollama, disk),
+    use ``GET /api/status`` with authentication.
+    """
     return {"status": "ok"}
 
 
