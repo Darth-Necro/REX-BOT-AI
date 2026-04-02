@@ -272,7 +272,6 @@ def _get_token() -> str:
         try:
             mode = token_file.stat().st_mode
             if mode & (stat.S_IRWXG | stat.S_IRWXO):
-                import sys
                 print(
                     "WARNING: ~/.rex-token has group/world permissions. "
                     "Run: chmod 600 ~/.rex-token",

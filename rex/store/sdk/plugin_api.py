@@ -135,7 +135,7 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:
         raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
 
-    # Reject tokens with control characters or whitespace to prevent log injection
+    # Reject control characters and whitespace (isprintable allows spaces)
     if not x_plugin_token.isprintable() or " " in x_plugin_token:
         raise HTTPException(status_code=401, detail="Invalid plugin token format")
 

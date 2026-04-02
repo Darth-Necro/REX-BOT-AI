@@ -699,20 +699,13 @@ class PrivacyAuditor:
 
         # urlparse correctly handles bracketed IPv6 (e.g. http://[::1]:6379)
         # but fails on unbracketed forms.  Also check for private ranges.
-        if hostname:
-            import ipaddress as _ipaddress
-            try:
-                addr = _ipaddress.ip_address(hostname)
-                if addr.is_loopback or addr.is_private or addr.is_link_local:
-                    return True
-            except ValueError:
-                pass
+        if hostname and PrivacyAuditor._is_local_ip(hostname):
+            return True
 
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
         if not hostname:
             import re
-            # Extract host portion between :// and the next /
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
@@ -720,19 +713,10 @@ class PrivacyAuditor:
                 bracket_m = re.match(r"\[([^\]]+)\]", host_port)
                 if bracket_m:
                     ipv6_host = bracket_m.group(1)
-                    if ipv6_host in local_hosts:
+                    if ipv6_host in local_hosts or PrivacyAuditor._is_local_ip(ipv6_host):
                         return True
-                    import ipaddress as _ipaddress
-                    try:
-                        addr = _ipaddress.ip_address(ipv6_host)
-                        if addr.is_loopback or addr.is_private or addr.is_link_local:
-                            return True
-                    except ValueError:
-                        pass
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
+                # IPv6 shorthand like ::1:port or just ::1
                 if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
                     for local in ("::1",):
                         if host_port == local or host_port.startswith(local + ":"):
                             return True

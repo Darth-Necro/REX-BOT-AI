@@ -7,7 +7,9 @@ Session timeout: 4 hours by default.
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import hashlib
 import json
 import logging
 import secrets
@@ -52,8 +54,6 @@ def _prehash_long_password(password: str) -> bytes:
     We always pre-hash (regardless of length) so that the verification
     path is deterministic and simple.
     """
-    import base64
-    import hashlib
     raw = password.encode("utf-8")
     digest = hashlib.sha256(raw).digest()
     return base64.b64encode(digest)
