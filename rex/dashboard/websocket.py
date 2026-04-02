@@ -47,7 +47,7 @@ class WebSocketManager:
 
     Supports channel-based subscriptions so clients only receive events
     they care about (e.g., threat.new, device.update, status.update).
-    Requires a valid JWT token in the ``token`` query parameter.
+    Requires first-message JWT authentication (no query-string tokens).
     """
 
     def __init__(self) -> None:
@@ -81,20 +81,26 @@ class WebSocketManager:
         unknown channel names are silently ignored.
         """
         valid = [c for c in channels if c in _ALLOWED_CHANNELS]
-        if websocket in self._connections:
-            self._connections[websocket].update(valid)
+        async with self._lock:
+            if websocket in self._connections:
+                self._connections[websocket].update(valid)
 
     async def unsubscribe(self, websocket: WebSocket, channels: list[str]) -> None:
         """Remove channel subscriptions for a connection."""
-        if websocket in self._connections:
-            self._connections[websocket] -= set(channels)
+        async with self._lock:
+            if websocket in self._connections:
+                self._connections[websocket] -= set(channels)
 
     async def broadcast(self, message: dict[str, Any], channel: str = "status.update") -> None:
         """Send a message to all clients subscribed to the given channel."""
         payload = json.dumps({"type": channel, **message})
         disconnected: list[WebSocket] = []
 
-        for ws, channels in self._connections.items():
+        # Snapshot connections under lock to avoid dict-changed-size errors
+        async with self._lock:
+            snapshot = list(self._connections.items())
+
+        for ws, channels in snapshot:
             if channel in channels:
                 try:
                     await ws.send_text(payload)
@@ -176,4 +182,9 @@ class WebSocketManager:
                         websocket, {"type": "error", "message": "Invalid JSON"}
                     )
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            logger.debug("WebSocket client error", exc_info=True)
+        finally:
+            # Deterministic cleanup: always remove from connection pool
             await self.disconnect(websocket)

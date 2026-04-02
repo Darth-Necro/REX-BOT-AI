@@ -135,9 +135,9 @@ Brain 1 (security analysis) is **never** routed to an external provider. This in
 
 ### Plugin System (Store)
 
-- **Exposure**: Plugins run in sandboxed Docker containers.
-- **Risk**: Plugin escape, resource exhaustion, data exfiltration.
-- **Mitigation**: See Plugin Sandbox Security below.
+- **Exposure**: Plugin API endpoints accept token-authenticated requests. **Alpha status**: plugins use an in-process registry, not Docker containers. Docker-based sandbox isolation is planned but not yet implemented.
+- **Risk**: Plugin impersonation, resource exhaustion, data exfiltration.
+- **Mitigation**: Token-based authentication (fail-closed), server-derived plugin identity, permission declarations in registry (enforcement is alpha-grade). See Plugin Sandbox Security below for the target architecture.
 
 ---
 
@@ -218,20 +218,26 @@ Parameters are validated using typed validators:
 
 ---
 
-## Plugin Sandbox Security (6-Layer Model)
+## Plugin Sandbox Security (Target Architecture -- 6-Layer Model)
 
-| Layer | Control                    | Implementation                                                |
-|-------|----------------------------|---------------------------------------------------------------|
-| 1     | Resource limits            | CPU (default 50% of one core), RAM (256 MB), disk (100 MB)  |
-| 2     | Network isolation          | Plugins run on `rex-internal` network only; no internet       |
-| 3     | Filesystem isolation       | Read-only root filesystem in container                        |
-| 4     | Capability dropping        | `cap_drop: ALL`, `no_new_privileges: true`                   |
-| 5     | API gating                 | Plugin API endpoints check permissions from manifest          |
-| 6     | No shell access            | No shell binary in plugin container image                     |
+> **Alpha status**: The table below describes the *target* sandbox architecture.
+> In the current alpha, plugins run in-process with token-authenticated API
+> access and a file-backed registry.  Docker-based isolation (layers 1-4, 6) is
+> not yet implemented.  Layer 5 (API gating) is partially implemented:
+> permissions are declared in the registry but enforcement is minimal.
 
-Plugins communicate with REX exclusively through the Plugin API (`/plugin-api/*`), authenticated with a per-plugin API token. Each request is checked against the plugin's declared `permissions` from its manifest.
+| Layer | Control                    | Implementation                                                | Status   |
+|-------|----------------------------|---------------------------------------------------------------|----------|
+| 1     | Resource limits            | CPU (default 50% of one core), RAM (256 MB), disk (100 MB)  | Planned  |
+| 2     | Network isolation          | Plugins run on `rex-internal` network only; no internet       | Planned  |
+| 3     | Filesystem isolation       | Read-only root filesystem in container                        | Planned  |
+| 4     | Capability dropping        | `cap_drop: ALL`, `no_new_privileges: true`                   | Planned  |
+| 5     | API gating                 | Plugin API endpoints check permissions from manifest          | Partial  |
+| 6     | No shell access            | No shell binary in plugin container image                     | Planned  |
 
-Plugin crashes are auto-restarted up to 3 times. After the third crash, the plugin is disabled and the operator is notified.
+Plugins communicate with REX exclusively through the Plugin API (`/plugin-api/*`), authenticated with a per-plugin API token (SHA-256 hashed in the registry, never stored in cleartext). Plugin identity is always server-derived. Unregistered tokens are rejected (fail-closed).
+
+Plugin crashes are auto-restarted up to 3 times with exponential backoff. After the third crash, the plugin is disabled and the operator is notified.
 
 ---
 
@@ -250,7 +256,7 @@ Plugin crashes are auto-restarted up to 3 times. After the third crash, the plug
 - Redis is configured with `requirepass` for authentication.
 - The credential file (`.credentials`) is stored with `0o600` permissions.
 - The knowledge base is stored in a git repository on the local filesystem.
-- Plugin data is isolated per-plugin in Docker volumes.
+- Plugin data is isolated per-plugin (Docker volume isolation is planned; currently file-based).
 
 ### In Transit
 

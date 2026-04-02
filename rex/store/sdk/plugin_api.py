@@ -125,12 +125,11 @@ def set_plugin_registry(registry: PluginRegistry) -> None:
 async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
     """Verify plugin API token against the registry. Returns plugin_id.
 
-    Alpha contract:
+    Alpha contract (fail-closed):
     - Tokens must be at least 32 characters.
-    - If a registry file exists, the token must be registered.
-    - If no registry file exists (fresh install), tokens are accepted
-      with a hash-derived plugin_id as a transitional measure.
+    - The token must be registered in the plugin registry.
     - Plugin identity is always derived server-side (never self-chosen).
+    - Unregistered tokens are always rejected.
     """
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:
         raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
@@ -141,19 +140,10 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
     if entry is not None:
         return entry["plugin_id"]
 
-    # Transitional alpha behavior: if no registry entries exist at all,
-    # accept the token with a hash-derived ID (unregistered plugin).
-    # Once any plugin is registered, unregistered tokens are rejected.
-    registry._ensure_loaded()
-    if registry._entries:
-        raise HTTPException(
-            status_code=401,
-            detail="Plugin token not registered. Register via the plugin installer.",
-        )
-
-    # No registry — derive a stable plugin_id from the token hash
-    plugin_id = f"plugin-{PluginRegistry.hash_token(x_plugin_token)[:16]}"
-    return plugin_id
+    raise HTTPException(
+        status_code=401,
+        detail="Plugin token not registered. Register via the plugin installer.",
+    )
 
 
 @router.get("/devices")

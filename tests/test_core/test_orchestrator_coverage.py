@@ -451,7 +451,8 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 1
 
@@ -463,7 +464,8 @@ class TestAutoRestart:
         orch.register(svc)
         orch._restart_counts[ServiceName.STORE] = 1
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 2
 
@@ -487,10 +489,43 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.SCHEDULER, fail_start=True)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.SCHEDULER)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.SCHEDULER)
 
         assert orch._restart_counts[ServiceName.SCHEDULER] == 1
         assert orch._status[ServiceName.SCHEDULER] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_auto_restart_backoff_increases(self) -> None:
+        """Backoff duration should increase with each restart attempt."""
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.STORE)
+        orch.register(svc)
+
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await orch._auto_restart(ServiceName.STORE)
+            first_backoff = mock_sleep.call_args[0][0]
+            await orch._auto_restart(ServiceName.STORE)
+            second_backoff = mock_sleep.call_args[0][0]
+
+        assert second_backoff > first_backoff, "Backoff should increase"
+
+    @pytest.mark.asyncio
+    async def test_auto_restart_decay_resets_count(self) -> None:
+        """If enough time passes since last restart, counter resets."""
+        import time
+        orch = _make_orchestrator_with_bus()
+        svc = _mock_service(ServiceName.STORE)
+        orch.register(svc)
+        orch._restart_counts[ServiceName.STORE] = 2
+        # Simulate last restart was long ago (beyond decay window)
+        orch._last_restart_time[ServiceName.STORE] = time.monotonic() - 600
+
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
+
+        # Counter should have been reset before incrementing, so it's 1 now
+        assert orch._restart_counts[ServiceName.STORE] == 1
 
 
 # ------------------------------------------------------------------

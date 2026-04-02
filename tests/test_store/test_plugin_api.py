@@ -21,10 +21,25 @@ _app = FastAPI()
 _app.include_router(router)
 
 
+VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
+HEADERS = {"X-Plugin-Token": VALID_TOKEN}
+_EXPECTED_PLUGIN_ID = f"plugin-{PluginRegistry.hash_token(VALID_TOKEN)[:16]}"
+
+
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Ensure each test gets a clean in-memory plugin registry."""
-    set_plugin_registry(PluginRegistry())
+    """Ensure each test gets a registry with the test token pre-registered.
+
+    Alpha contract: all plugin tokens must be registered (fail-closed).
+    """
+    registry = PluginRegistry()
+    registry.register(
+        VALID_TOKEN,
+        plugin_id=_EXPECTED_PLUGIN_ID,
+        name="test-plugin",
+        permissions=["devices:read", "alerts:write"],
+    )
+    set_plugin_registry(registry)
     yield
     set_plugin_registry(PluginRegistry())
 
@@ -33,10 +48,6 @@ def _clean_registry():
 def client() -> TestClient:
     """Return a TestClient wired to the plugin API router."""
     return TestClient(_app)
-
-
-VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
-HEADERS = {"X-Plugin-Token": VALID_TOKEN}
 
 
 # ------------------------------------------------------------------
@@ -105,8 +116,6 @@ class TestGetEvents:
 class TestPostAlerts:
 
     def test_submit_alert_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
         resp = client.post(
             "/plugin-api/alerts",
             params={"severity": "high", "message": "Brute force detected"},
@@ -115,7 +124,7 @@ class TestPostAlerts:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "queued"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == _EXPECTED_PLUGIN_ID
 
     def test_submit_alert_missing_params(self, client: TestClient) -> None:
         resp = client.post("/plugin-api/alerts", headers=HEADERS)
@@ -145,8 +154,6 @@ class TestPostAlerts:
 class TestPostActions:
 
     def test_request_action_success(self, client: TestClient) -> None:
-        import hashlib
-        expected_id = f"plugin-{hashlib.sha256(VALID_TOKEN.encode()).hexdigest()[:16]}"
         resp = client.post(
             "/plugin-api/actions",
             params={"action_type": "block_ip"},
@@ -155,7 +162,7 @@ class TestPostActions:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "pending_approval"
-        assert data["plugin"] == expected_id
+        assert data["plugin"] == _EXPECTED_PLUGIN_ID
 
     def test_request_action_with_params(self, client: TestClient) -> None:
         resp = client.post(

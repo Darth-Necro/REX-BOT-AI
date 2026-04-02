@@ -54,11 +54,15 @@ def test_hash_produces_unique_salts():
 # JWT create / verify
 # ------------------------------------------------------------------
 
+# 32-byte hex key (256 bits) avoids PyJWT InsecureKeyLengthWarning
+_TEST_SECRET = "a" * 64
+_TEST_SECRET_B = "b" * 64
+
+
 def test_create_and_verify_token():
     """create_token and verify_token_str round-trip correctly."""
-    secret = "test-secret-key-1234"
-    token = create_token({"sub": "admin"}, secret, expires_hours=1)
-    payload = verify_token_str(token, secret)
+    token = create_token({"sub": "admin"}, _TEST_SECRET, expires_hours=1)
+    payload = verify_token_str(token, _TEST_SECRET)
     assert payload is not None
     assert payload["sub"] == "admin"
     assert "exp" in payload
@@ -67,32 +71,30 @@ def test_create_and_verify_token():
 
 def test_expired_token_rejected():
     """A token with an expiry in the past is rejected."""
-    secret = "test-secret"
     # Create a token that already expired
     payload = {
         "sub": "admin",
         "exp": datetime.now(UTC) - timedelta(hours=1),
         "iat": datetime.now(UTC) - timedelta(hours=2),
     }
-    token = pyjwt.encode(payload, secret, algorithm=_JWT_ALGORITHM)
-    assert verify_token_str(token, secret) is None
+    token = pyjwt.encode(payload, _TEST_SECRET, algorithm=_JWT_ALGORITHM)
+    assert verify_token_str(token, _TEST_SECRET) is None
 
 
 def test_wrong_secret_rejected():
     """A token verified with the wrong secret is rejected."""
-    token = create_token({"sub": "admin"}, "secret-A")
-    assert verify_token_str(token, "secret-B") is None
+    token = create_token({"sub": "admin"}, _TEST_SECRET)
+    assert verify_token_str(token, _TEST_SECRET_B) is None
 
 
 def test_token_missing_required_claims():
     """A token without the required 'sub' claim is rejected."""
-    secret = "test-secret"
     payload = {
         "exp": datetime.now(UTC) + timedelta(hours=1),
         "iat": datetime.now(UTC),
     }
-    token = pyjwt.encode(payload, secret, algorithm=_JWT_ALGORITHM)
-    assert verify_token_str(token, secret) is None
+    token = pyjwt.encode(payload, _TEST_SECRET, algorithm=_JWT_ALGORITHM)
+    assert verify_token_str(token, _TEST_SECRET) is None
 
 
 # ------------------------------------------------------------------

@@ -680,6 +680,7 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
+        import ipaddress as _ipaddress
         from urllib.parse import urlparse
 
         local_hosts = {
@@ -697,18 +698,36 @@ class PrivacyAuditor:
         if hostname in local_hosts:
             return True
 
+        # urlparse handles bracketed IPv6 (e.g. http://[::1]:6379)
+        # and returns hostname="::1" (without brackets).  Try to
+        # parse as an IP address for robust loopback/private detection.
+        if hostname:
+            try:
+                addr = _ipaddress.ip_address(hostname)
+                return addr.is_loopback or addr.is_private or addr.is_link_local
+            except ValueError:
+                pass
+
         # Handle unbracketed IPv6 that urlparse fails to parse
-        # (e.g. "http://::1:6379" — urlparse returns hostname=None)
+        # (e.g. "redis://::1:6379" — urlparse returns hostname=None).
+        # Conservatively check common loopback shorthand forms.
         if not hostname:
             import re
-            # Extract host portion between :// and the next /
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
+                # Strip brackets if present
+                if host_port.startswith("["):
+                    bracket_end = host_port.find("]")
+                    if bracket_end > 0:
+                        bare_ip = host_port[1:bracket_end]
+                        try:
+                            addr = _ipaddress.ip_address(bare_ip)
+                            return addr.is_loopback or addr.is_private or addr.is_link_local
+                        except ValueError:
+                            pass
+                # Unbracketed ::1 forms
                 if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
                     for local in ("::1",):
                         if host_port == local or host_port.startswith(local + ":"):
                             return True

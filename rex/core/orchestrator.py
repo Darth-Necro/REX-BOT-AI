@@ -41,6 +41,8 @@ _START_ORDER = [
 
 _MAX_RESTART_ATTEMPTS = 3
 _HEALTH_CHECK_INTERVAL = 30  # seconds
+_RESTART_DECAY_SECONDS = 300  # 5 minutes: successful uptime resets restart budget
+_RESTART_BACKOFF_BASE = 5  # seconds: exponential backoff between restarts
 
 
 class ServiceOrchestrator:
@@ -57,6 +59,7 @@ class ServiceOrchestrator:
         self._services: dict[ServiceName, BaseService] = {}
         self._status: dict[ServiceName, str] = {}
         self._restart_counts: dict[ServiceName, int] = {}
+        self._last_restart_time: dict[ServiceName, float] = {}
         self._start_time: float = 0
         self._running = False
         self._config: RexConfig | None = None
@@ -271,21 +274,42 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service."""
+        """Attempt to auto-restart a failed service with anti-flapping.
+
+        Uses exponential backoff between restart attempts and a decay
+        window: if a service stays healthy for ``_RESTART_DECAY_SECONDS``
+        its restart budget is reset.
+        """
+        now = time.monotonic()
+
+        # Decay: if the service has been running long enough since its
+        # last restart, reset the failure counter.
+        last_restart = self._last_restart_time.get(name, 0)
+        if last_restart and (now - last_restart) > _RESTART_DECAY_SECONDS:
+            self._restart_counts[name] = 0
+
         count = self._restart_counts.get(name, 0)
         if count >= _MAX_RESTART_ATTEMPTS:
-            self._status[name] = "disabled"
-            logger.error(
-                "Service %s exceeded max restarts (%d) — disabled",
-                name.value, _MAX_RESTART_ATTEMPTS,
-            )
+            if self._status.get(name) != "disabled":
+                self._status[name] = "disabled"
+                logger.error(
+                    "Service %s exceeded max restarts (%d) — disabled. "
+                    "Manual restart required.",
+                    name.value, _MAX_RESTART_ATTEMPTS,
+                )
             return
 
+        # Exponential backoff: 5s, 10s, 20s
+        backoff = _RESTART_BACKOFF_BASE * (2 ** count)
         self._restart_counts[name] = count + 1
+        self._last_restart_time[name] = now
         logger.info(
-            "Auto-restarting %s (attempt %d/%d)",
-            name.value, count + 1, _MAX_RESTART_ATTEMPTS,
+            "Auto-restarting %s (attempt %d/%d, backoff %ds)",
+            name.value, count + 1, _MAX_RESTART_ATTEMPTS, backoff,
         )
+
+        await asyncio.sleep(backoff)
+
         # Stop the service first to avoid duplicate tasks / port conflicts
         svc = self._services.get(name)
         if svc and self._status.get(name) == "running":
