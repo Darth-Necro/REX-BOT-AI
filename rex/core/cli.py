@@ -34,6 +34,8 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+_DEFAULT_API_URL = "http://localhost:8443"
+
 
 def _setup_logging(level: str = "info") -> None:
     """Configure structured logging."""
@@ -121,7 +123,7 @@ def status() -> None:
     typer.echo(f"REX-BOT-AI v{VERSION}")
     typer.echo("")
     try:
-        resp = httpx.get("https://localhost:8443/api/status", timeout=5, verify=not _DEV_INSECURE)
+        resp = httpx.get(f"{_DEFAULT_API_URL}/api/status", timeout=5, verify=not _DEV_INSECURE)
         data = resp.json()
         typer.echo(f"  Status:     {data.get('status', 'unknown')}")
         typer.echo(f"  Devices:    {data.get('device_count', 0)}")
@@ -147,6 +149,38 @@ def version() -> None:
 
 
 @app.command()
+def login(
+    username: str = typer.Option("admin", help="Username"),
+    password: str = typer.Option(..., prompt=True, hide_input=True, help="Password"),
+) -> None:
+    """Authenticate with the REX API and save token for future CLI commands."""
+    import httpx
+    import os
+
+    try:
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/auth/login",
+            json={"username": username, "password": password},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            token = data.get("token", "")
+            if token:
+                token_file = os.path.expanduser("~/.rex-token")
+                with open(token_file, "w") as f:
+                    f.write(token)
+                os.chmod(token_file, 0o600)
+                typer.echo("Login successful. Token saved to ~/.rex-token")
+            else:
+                typer.echo("Login response did not contain a token.")
+        else:
+            typer.echo(f"Login failed: {resp.status_code} {resp.text}")
+    except Exception as e:
+        typer.echo(f"Cannot reach REX API: {e}")
+
+
+@app.command()
 def scan(
     quick: bool = typer.Option(True, help="Quick scan (top 100 ports) vs deep (all ports)"),
     target: str = typer.Option("", help="Specific IP to scan (default: entire network)"),
@@ -162,38 +196,63 @@ def scan(
         body: dict[str, str] = {"scan_type": scan_type}
         if target:
             body["target"] = target
-        resp = httpx.post("https://localhost:8443/api/devices/scan", timeout=10,
-                          json=body, verify=not _DEV_INSECURE,
-                          headers={"Authorization": f"Bearer {_get_token()}"})
-        typer.echo(f"  {resp.json().get('status', 'unknown')}")
-    except Exception:
-        typer.echo("  Cannot reach REX. Is it running?")
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/devices/scan",
+            json=body,
+            timeout=10,
+            verify=not _DEV_INSECURE,
+            headers={"Authorization": f"Bearer {_get_token()}"},
+        )
+        data = resp.json()
+        typer.echo(f"  {data.get('status', 'unknown')}")
+        if data.get("delivered"):
+            typer.echo("  Scan command delivered to event bus.")
+    except Exception as e:
+        typer.echo(f"  Cannot reach REX: {e}")
 
 
 @app.command()
 def sleep() -> None:
     """Put REX into ALERT_SLEEP mode (lightweight watchdog only)."""
+    typer.echo("Requesting ALERT_SLEEP mode...")
     try:
         import httpx
-        httpx.post("https://localhost:8443/api/schedule/sleep", timeout=5,
-                    verify=not _DEV_INSECURE,
-                    headers={"Authorization": f"Bearer {_get_token()}"})
-        typer.echo("REX is sleeping with one ear open. Lightweight monitoring active.")
-    except Exception:
-        typer.echo("  Cannot reach REX. Is it running?")
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/schedule/sleep",
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers={"Authorization": f"Bearer {_get_token()}"},
+        )
+        data = resp.json()
+        typer.echo(f"  Status: {data.get('status', 'unknown')}")
+        if data.get("delivered"):
+            typer.echo("  REX is sleeping with one ear open. Lightweight monitoring active.")
+        else:
+            typer.echo(f"  Detail: {data.get('detail', 'No response')}")
+    except Exception as e:
+        typer.echo(f"  Cannot reach REX: {e}")
 
 
 @app.command()
 def wake() -> None:
     """Wake REX to full AWAKE mode."""
+    typer.echo("Requesting AWAKE mode...")
     try:
         import httpx
-        httpx.post("https://localhost:8443/api/schedule/wake", timeout=5,
-                    verify=not _DEV_INSECURE,
-                    headers={"Authorization": f"Bearer {_get_token()}"})
-        typer.echo("REX is awake. Full monitoring and protection active.")
-    except Exception:
-        typer.echo("  Cannot reach REX. Is it running?")
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/schedule/wake",
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers={"Authorization": f"Bearer {_get_token()}"},
+        )
+        data = resp.json()
+        typer.echo(f"  Status: {data.get('status', 'unknown')}")
+        if data.get("delivered"):
+            typer.echo("  REX is awake. Full monitoring and protection active.")
+        else:
+            typer.echo(f"  Detail: {data.get('detail', 'No response')}")
+    except Exception as e:
+        typer.echo(f"  Cannot reach REX: {e}")
 
 
 @app.command()
@@ -248,8 +307,25 @@ def backup() -> None:
 
 
 @app.command()
-def privacy() -> None:
+def privacy(
+    remote: bool = typer.Option(False, help="Query the API instead of running locally"),
+) -> None:
     """Run a privacy audit and display results."""
+    if remote:
+        try:
+            import httpx
+            resp = httpx.get(
+                f"{_DEFAULT_API_URL}/api/privacy/audit",
+                timeout=10,
+                headers={"Authorization": f"Bearer {_get_token()}"},
+            )
+            data = resp.json()
+            import json
+            typer.echo(json.dumps(data, indent=2))
+        except Exception as e:
+            typer.echo(f"Cannot reach REX API: {e}")
+        return
+
     typer.echo("Running privacy audit...")
     from rex.core.privacy.audit import PrivacyAuditor
     from rex.pal import get_adapter
@@ -271,7 +347,7 @@ def _get_token() -> str:
     from pathlib import Path
     token_file = Path(os.path.expanduser("~/.rex-token"))
     if token_file.exists():
-        # Check file permissions — warn if group/other-readable
+        # Check file permissions -- warn if group/other-readable
         try:
             mode = token_file.stat().st_mode & 0o777
             if mode & 0o077:

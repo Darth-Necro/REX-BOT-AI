@@ -85,14 +85,32 @@ class BarkService(BaseService):
             task.cancel()
 
     async def _consume_loop(self) -> None:
-        """Subscribe to brain decisions and dispatch notifications."""
+        """Subscribe to brain decisions and dashboard notification requests."""
+        from rex.shared.constants import STREAM_BARK_NOTIFICATIONS
+
         async def handler(event: RexEvent) -> None:
             if event.event_type in ("decision_made", "decision_execute"):
                 payload = event.payload
                 severity = payload.get("severity", "medium")
                 await self._manager.send(payload, severity)
+            elif event.event_type == "notification_request":
+                # Dashboard-originated test/manual notification
+                payload = event.payload
+                channel_name = payload.get("channel", "")
+                message = payload.get("message", "REX notification")
+                if channel_name and channel_name in self._manager._channels:
+                    channel = self._manager._channels[channel_name]
+                    with contextlib.suppress(Exception):
+                        await channel.send(message, {"title": "REX Alert", "severity": "info"})
+                    logger.info("Sent notification to channel: %s", channel_name)
+                else:
+                    # Send to all channels if no specific channel requested
+                    for ch in self._manager._channels.values():
+                        with contextlib.suppress(Exception):
+                            await ch.send(message, {"title": "REX Alert", "severity": "info"})
+                    logger.info("Sent notification to all %d channels", len(self._manager._channels))
 
-        await self.bus.subscribe([STREAM_BRAIN_DECISIONS], handler)
+        await self.bus.subscribe([STREAM_BRAIN_DECISIONS, STREAM_BARK_NOTIFICATIONS], handler)
 
     async def _digest_loop(self) -> None:
         """Send batched MEDIUM alerts every 15 minutes."""

@@ -647,8 +647,8 @@ class TestRunMethod:
         ):
             await orch.run()
 
-        # create_task should have been called (for health monitor)
-        mock_ct.assert_called_once()
+        # create_task should have been called (for power consumer + health monitor)
+        assert mock_ct.call_count == 2
         assert orch._health_task is mock_task
 
         # Clean up the unawaited coroutine to suppress warning

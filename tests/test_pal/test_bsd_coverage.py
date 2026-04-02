@@ -225,13 +225,14 @@ class TestBSDGetNetworkInfo:
 
 
 class TestBSDCapturePackets:
-    """Cover capture_packets stub."""
+    """Cover capture_packets -- returns empty when tcpdump not found."""
 
-    def test_raises(self):
+    def test_no_tcpdump(self):
         from rex.pal.bsd import BSDAdapter
         adapter = BSDAdapter()
-        with pytest.raises(RexPlatformNotSupportedError):
-            list(adapter.capture_packets("em0"))
+        # tcpdump not found on test host -> generator yields nothing
+        result = list(adapter.capture_packets("em0"))
+        assert result == []
 
 
 # =====================================================================
@@ -608,96 +609,324 @@ class TestBSDWriteAndReloadAnchor:
 
 
 # =====================================================================
-# Phase 2 stubs
+# Phase 2 implementations
 # =====================================================================
 
-class TestBSDPhase2Stubs:
-    """Cover all Phase 2 stubs that raise RexPlatformNotSupportedError."""
+class TestBSDPhase2Implementations:
+    """Cover Phase 2 implementations that replaced stubs."""
 
     def setup_method(self):
         from rex.pal.bsd import BSDAdapter
         self.adapter = BSDAdapter()
 
-    def test_get_dhcp_leases(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_dhcp_leases()
+    @patch("rex.pal.bsd.Path")
+    def test_get_dhcp_leases_no_dir(self, mock_path_cls):
+        mock_dir = MagicMock()
+        mock_dir.is_dir.return_value = False
+        mock_path_cls.return_value = mock_dir
+        leases = self.adapter.get_dhcp_leases()
+        assert isinstance(leases, list)
 
-    def test_get_routing_table(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_routing_table()
+    @patch("rex.pal.bsd._run")
+    def test_get_routing_table(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netstat"], 0,
+            stdout=(
+                "Routing tables\n"
+                "\n"
+                "Internet:\n"
+                "Destination        Gateway            Flags     Netif\n"
+                "default            10.0.0.1           UGS       em0\n"
+                "10.0.0.0/24        link#1             U         em0\n"
+                "\n"
+                "Internet6:\n"
+                "::1                ::1                UH        lo0\n"
+            ),
+            stderr="",
+        )
+        routes = self.adapter.get_routing_table()
+        assert len(routes) == 2
+        assert routes[0]["destination"] == "default"
+        assert routes[0]["gateway"] == "10.0.0.1"
+        assert routes[0]["interface"] == "em0"
 
-    def test_check_promiscuous_mode(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.check_promiscuous_mode("em0")
+    @patch("rex.pal.bsd._run")
+    def test_get_routing_table_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netstat"], 1, stdout="", stderr="err",
+        )
+        assert self.adapter.get_routing_table() == []
 
-    def test_enable_ip_forwarding(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.enable_ip_forwarding()
+    @patch("rex.pal.bsd._run")
+    def test_check_promiscuous_mode_true(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ifconfig"], 0,
+            stdout="em0: flags=8963<UP,BROADCAST,PROMISC,RUNNING>\n",
+            stderr="",
+        )
+        assert self.adapter.check_promiscuous_mode("em0") is True
 
-    def test_get_wifi_networks(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_wifi_networks()
+    @patch("rex.pal.bsd._run")
+    def test_check_promiscuous_mode_false(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ifconfig"], 0,
+            stdout="em0: flags=8863<UP,BROADCAST,RUNNING>\n",
+            stderr="",
+        )
+        assert self.adapter.check_promiscuous_mode("em0") is False
 
-    def test_isolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.isolate_device("1.2.3.4")
+    @patch("rex.pal.bsd._run")
+    def test_enable_ip_forwarding(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 0, stdout="net.inet.ip.forwarding: 1", stderr="",
+        )
+        assert self.adapter.enable_ip_forwarding(True) is True
 
-    def test_unisolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unisolate_device("1.2.3.4")
+    @patch("rex.pal.bsd._run")
+    def test_enable_ip_forwarding_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 1, stdout="", stderr="perm denied",
+        )
+        assert self.adapter.enable_ip_forwarding() is False
 
-    def test_rate_limit_ip(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.rate_limit_ip("1.2.3.4")
+    @patch("rex.pal.bsd._run")
+    def test_get_wifi_networks_no_iface(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ifconfig"], 1, stdout="", stderr="",
+        )
+        networks = self.adapter.get_wifi_networks()
+        assert isinstance(networks, list)
+        assert len(networks) == 0
 
-    def test_create_rex_chains(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.create_rex_chains()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    @patch("rex.pal.bsd._REX_RULES_DIR")
+    def test_isolate_device(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        rules = self.adapter.isolate_device("1.2.3.4", mac="aa:bb:cc:dd:ee:ff")
+        assert isinstance(rules, list)
+        assert len(rules) == 4
+        assert rules[0].ip == "1.2.3.4"
 
-    def test_persist_rules(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.persist_rules()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    @patch("rex.pal.bsd._REX_RULES_DIR")
+    def test_unisolate_device_found(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = (
+            "block in quick from 1.2.3.4 to any  # REX:isolate-drop-all unknown\n"
+        )
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.unisolate_device("1.2.3.4") is True
 
-    def test_unregister_autostart(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unregister_autostart()
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    def test_unisolate_device_not_found(self, mock_file):
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = "block from 5.6.7.8 to any\n"
+        assert self.adapter.unisolate_device("1.2.3.4") is False
 
-    def test_set_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.set_wake_timer(60)
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    @patch("rex.pal.bsd._REX_RULES_DIR")
+    def test_rate_limit_ip(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        rule = self.adapter.rate_limit_ip("1.2.3.4", kbps=256, reason="throttle")
+        assert rule.ip == "1.2.3.4"
+        assert rule.direction == "both"
 
-    def test_cancel_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.cancel_wake_timer()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.Path")
+    def test_create_rex_chains(self, mock_path_cls, mock_run):
+        mock_pf_conf = MagicMock()
+        mock_pf_conf.exists.return_value = True
+        mock_pf_conf.read_text.return_value = "# pf.conf\n"
 
-    def test_install_dependency(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_dependency("pkg")
+        def path_side_effect(p):
+            if p == "/etc/pf.conf":
+                return mock_pf_conf
+            return MagicMock()
 
-    def test_install_docker(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_docker()
+        mock_path_cls.side_effect = path_side_effect
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        with patch("rex.pal.bsd._REX_RULES_DIR") as m_dir, \
+             patch("rex.pal.bsd._REX_RULES_FILE") as m_file:
+            m_file.exists.return_value = False
+            result = self.adapter.create_rex_chains()
+            assert isinstance(result, bool)
 
-    def test_is_docker_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_docker_running()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.Path")
+    @patch("rex.pal.bsd._REX_RULES_DIR")
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    def test_persist_rules(self, mock_file, mock_dir, mock_path_cls, mock_run):
+        mock_pf_conf = MagicMock()
+        mock_pf_conf.exists.return_value = True
+        mock_pf_conf.read_text.return_value = "# pf.conf\n"
 
-    def test_install_ollama(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_ollama()
+        mock_rc_conf = MagicMock()
+        mock_rc_conf.exists.return_value = True
+        mock_rc_conf.read_text.return_value = ""
 
-    def test_is_ollama_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_ollama_running()
+        def path_side_effect(p):
+            if p == "/etc/pf.conf":
+                return mock_pf_conf
+            if p == "/etc/rc.conf":
+                return mock_rc_conf
+            return MagicMock()
 
-    def test_get_gpu_info(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_gpu_info()
+        mock_path_cls.side_effect = path_side_effect
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        with patch("builtins.open", mock_open()):
+            result = self.adapter.persist_rules()
+            assert isinstance(result, bool)
 
-    def test_setup_egress_firewall(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.setup_egress_firewall()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd._RC_D_DIR")
+    def test_unregister_autostart(self, mock_rc_d, mock_run):
+        mock_script = MagicMock()
+        mock_script.exists.return_value = True
+        mock_rc_d.__truediv__ = MagicMock(return_value=mock_script)
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["service"], 0, stdout="", stderr="",
+        )
+        with patch("rex.pal.bsd.Path") as mock_path_cls:
+            rc_conf_inst = MagicMock()
+            rc_conf_inst.exists.return_value = True
+            rc_conf_inst.read_text.return_value = 'rex_bot_ai_enable="YES"\n'
+            mock_path_cls.return_value = rc_conf_inst
+            assert self.adapter.unregister_autostart() is True
 
-    def test_get_disk_encryption_status(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_disk_encryption_status()
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value="/usr/bin/at")
+    def test_set_wake_timer(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 0, stdout="machdep.acpi_timer_freq: 3579545", stderr="",
+        )
+        assert self.adapter.set_wake_timer(60) is True
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_set_wake_timer_cron_fallback(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 1, stdout="", stderr="unknown",
+        )
+        with patch("rex.pal.bsd.Path") as mock_path_cls:
+            mock_cron = MagicMock()
+            mock_cron.exists.return_value = False
+            mock_path_cls.return_value = mock_cron
+            with patch("builtins.open", mock_open()):
+                result = self.adapter.set_wake_timer(60)
+                assert isinstance(result, bool)
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_cancel_wake_timer(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["atq"], 1, stdout="", stderr="",
+        )
+        with patch("rex.pal.bsd.Path") as mock_path_cls:
+            mock_cron = MagicMock()
+            mock_cron.exists.return_value = False
+            mock_path_cls.return_value = mock_cron
+            assert self.adapter.cancel_wake_timer() is True
+
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_install_dependency_no_pkg(self, _which):
+        assert self.adapter.install_dependency("nmap") is False
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value="/usr/sbin/pkg")
+    def test_install_dependency_success(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pkg"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.install_dependency("nmap") is True
+
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_install_docker_no_pkg(self, _which):
+        assert self.adapter.install_docker() is False
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.os.path.exists", return_value=False)
+    def test_is_docker_running_false(self, _exists, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["service"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.is_docker_running() is False
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_install_ollama_no_pkg_no_fetch(self, _which, _run):
+        assert self.adapter.install_ollama() is False
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_is_ollama_running_false(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["service"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.is_ollama_running() is False
+
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_get_gpu_info_no_pciconf(self, _which):
+        assert self.adapter.get_gpu_info() is None
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value="/usr/sbin/pciconf")
+    def test_get_gpu_info_none(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pciconf"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.get_gpu_info() is None
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd._REX_RULES_FILE")
+    @patch("rex.pal.bsd._REX_RULES_DIR")
+    def test_setup_egress_firewall(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        result = self.adapter.setup_egress_firewall(
+            allowed_hosts=["1.2.3.4"],
+            allowed_ports=[443],
+        )
+        assert result is True
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which", return_value=None)
+    def test_get_disk_encryption_status_no_tools(self, _which, _run):
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is False
+        assert status["method"] is None
+
+    @patch("rex.pal.bsd._run")
+    @patch("rex.pal.bsd.shutil.which")
+    def test_get_disk_encryption_status_geli(self, mock_which, mock_run):
+        def which_side_effect(name):
+            if name == "geli":
+                return "/sbin/geli"
+            return None
+
+        mock_which.side_effect = which_side_effect
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["geli"], 0,
+            stdout="Geom name: ada0p3.eli\n",
+            stderr="",
+        )
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is True
+        assert status["method"] == "GELI"

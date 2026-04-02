@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 _bus_instance: Any = None
 _auth_manager: Any = None
 _ws_manager: Any = None
+_interview_service: Any = None
+_federation_service: Any = None
 
 
 def set_bus(bus: Any) -> None:
@@ -61,6 +63,28 @@ def get_auth() -> Any:
 def get_ws() -> Any:
     """Provide the WebSocketManager instance."""
     return _ws_manager
+
+
+def set_interview_service(svc: Any) -> None:
+    """Set the global InterviewService instance."""
+    global _interview_service
+    _interview_service = svc
+
+
+def get_interview_service() -> Any:
+    """Provide the InterviewService instance."""
+    return _interview_service
+
+
+def set_federation_service(svc: Any) -> None:
+    """Set the global FederationService instance."""
+    global _federation_service
+    _federation_service = svc
+
+
+def get_federation_service() -> Any:
+    """Provide the FederationService instance."""
+    return _federation_service
 
 
 async def get_current_user(

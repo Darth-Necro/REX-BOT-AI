@@ -169,3 +169,11 @@ tmp/
 temp/
 *.tmp
 REX-BOT-AI (Copy)
+
+# Release / test archives (do not ship nested zips)
+Test/
+*.zip
+!frontend/**/*.zip
+
+# Package lock files that should not be committed
+package-lock.json.bak

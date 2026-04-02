@@ -201,7 +201,11 @@ class TestConsumeLoop:
 
         service.bus.subscribe.assert_called_once()
         call_args = service.bus.subscribe.call_args
-        assert call_args[0][0] == [STREAM_BRAIN_DECISIONS]
+        streams = call_args[0][0]
+        assert STREAM_BRAIN_DECISIONS in streams
+        # BarkService also subscribes to STREAM_BARK_NOTIFICATIONS for dashboard-originated alerts
+        from rex.shared.constants import STREAM_BARK_NOTIFICATIONS
+        assert STREAM_BARK_NOTIFICATIONS in streams
 
         for t in service._tasks:
             t.cancel()

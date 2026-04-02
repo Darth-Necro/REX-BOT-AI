@@ -97,3 +97,29 @@ class FederationService(BaseService):
                     )
             else:
                 await asyncio.sleep(5)
+
+    async def enable(self) -> None:
+        """Enable federation at runtime."""
+        if not self._sharing._enabled:
+            self._sharing.enable()
+            await self._gossip.register_self(node_id=f"rex-{id(self):x}")
+            self._tasks.append(asyncio.create_task(self._peer_discovery_loop()))
+            self._tasks.append(asyncio.create_task(self._receive_loop()))
+            logger.info("Federation enabled at runtime")
+
+    async def disable(self) -> None:
+        """Disable federation at runtime."""
+        if self._sharing._enabled:
+            self._sharing._enabled = False
+            for task in self._tasks:
+                task.cancel()
+            self._tasks.clear()
+            logger.info("Federation disabled at runtime")
+
+    def get_status(self) -> dict[str, Any]:
+        """Return federation status summary."""
+        return {
+            "enabled": self._sharing._enabled,
+            "peer_count": len(self._gossip.get_known_peers()) if hasattr(self._gossip, "get_known_peers") else 0,
+            "shared_ioc_count": self._sharing.get_shared_count() if hasattr(self._sharing, "get_shared_count") else 0,
+        }

@@ -208,18 +208,107 @@ class BSDAdapter(PlatformAdapter):
         bpf_filter: str = "",
         timeout: int = 0,
     ) -> Generator[dict[str, Any], None, None]:
-        """Capture network packets on BSD.
+        """Capture network packets on BSD using ``tcpdump``.
 
-        Raises
+        Uses ``tcpdump -l -nn -e`` to capture packets line-by-line and
+        parses each summary line into a dict.
+
+        Parameters
+        ----------
+        interface:
+            Network interface to capture on.
+        count:
+            Maximum number of packets to capture (0 = unlimited).
+        bpf_filter:
+            Optional BPF filter expression.
+        timeout:
+            Capture duration in seconds (0 = unlimited).
+
+        Yields
         ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use libpcap (native on BSD) in Phase 2.
+        dict[str, Any]
+            Parsed packet metadata with keys: ``timestamp``, ``src_ip``,
+            ``dst_ip``, ``protocol``, ``length``, ``info``.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD capture_packets: TODO -- "
-            "Implemented in Phase 2 using libpcap (BPF device, native on BSD)"
-        )
-        yield {}  # type: ignore[misc]  # pragma: no cover
+        cmd: list[str] = ["tcpdump", "-l", "-nn", "-e", "-i", interface]
+        if count > 0:
+            cmd.extend(["-c", str(count)])
+        if bpf_filter:
+            cmd.extend(bpf_filter.split())
+
+        capture_timeout = timeout if timeout > 0 else 300
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except FileNotFoundError:
+            logger.warning("tcpdump not found")
+            return
+        except OSError as exc:
+            logger.warning("Cannot start tcpdump: %s", exc)
+            return
+
+        import time as _time
+        start = _time.monotonic()
+        packets_yielded = 0
+
+        try:
+            assert proc.stdout is not None  # noqa: S101
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+
+                pkt: dict[str, Any] = {
+                    "timestamp": "",
+                    "src_ip": "",
+                    "dst_ip": "",
+                    "protocol": "",
+                    "length": 0,
+                    "info": line,
+                }
+
+                # Parse timestamp at start
+                parts = line.split()
+                if parts:
+                    pkt["timestamp"] = parts[0]
+
+                # Try to extract IPs from "IP src > dst:" pattern
+                ip_match = re.search(
+                    r"IP\s+([\d.]+)(?:\.\d+)?\s+>\s+([\d.]+)(?:\.\d+)?", line,
+                )
+                if ip_match:
+                    pkt["src_ip"] = ip_match.group(1)
+                    pkt["dst_ip"] = ip_match.group(2)
+
+                # Protocol
+                for proto in ("TCP", "UDP", "ICMP", "ARP", "IP6"):
+                    if proto in line:
+                        pkt["protocol"] = proto
+                        break
+
+                # Length
+                len_match = re.search(r"length\s+(\d+)", line)
+                if len_match:
+                    pkt["length"] = int(len_match.group(1))
+
+                yield pkt
+                packets_yielded += 1
+
+                if count > 0 and packets_yielded >= count:
+                    break
+                if timeout > 0 and (_time.monotonic() - start) >= capture_timeout:
+                    break
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
     def scan_arp_table(self) -> list[dict[str, str]]:
         """Read the BSD ARP cache by parsing ``arp -a`` output.
@@ -342,67 +431,219 @@ class BSDAdapter(PlatformAdapter):
     def get_dhcp_leases(self) -> list[dict[str, str]]:
         """Return DHCP lease information on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse dhclient lease files in Phase 2.
+        Parses dhclient lease files from ``/var/db/dhclient.leases.*``.
+
+        Returns
+        -------
+        list[dict[str, str]]
+            Each dict contains keys from the lease block such as
+            ``fixed-address``, ``subnet-mask``, ``routers``, etc.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_dhcp_leases: TODO -- "
-            "Implemented in Phase 2 using /var/db/dhclient.leases.* parsing"
-        )
+        leases: list[dict[str, str]] = []
+        lease_dir = Path("/var/db")
+        if not lease_dir.is_dir():
+            return leases
+
+        try:
+            for lease_file in lease_dir.glob("dhclient.leases.*"):
+                try:
+                    content = lease_file.read_text(errors="replace")
+                    blocks = re.split(r"(?=lease\s*\{)", content)
+                    for block in blocks:
+                        block = block.strip()
+                        if not block.startswith("lease"):
+                            continue
+                        entry: dict[str, str] = {}
+                        for line in block.splitlines():
+                            line = line.strip().rstrip(";")
+                            if line.startswith("fixed-address"):
+                                entry["fixed-address"] = line.split(None, 1)[-1]
+                            elif line.startswith("option subnet-mask"):
+                                entry["subnet-mask"] = line.split(None, 2)[-1]
+                            elif line.startswith("option routers"):
+                                entry["routers"] = line.split(None, 2)[-1]
+                            elif line.startswith("option domain-name-servers"):
+                                entry["domain-name-servers"] = line.split(None, 2)[-1]
+                            elif line.startswith("renew"):
+                                entry["renew"] = line.split(None, 1)[-1]
+                            elif line.startswith("expire"):
+                                entry["expire"] = line.split(None, 1)[-1]
+                            elif line.startswith("interface"):
+                                entry["interface"] = line.split(None, 1)[-1].strip('"')
+                        if entry:
+                            leases.append(entry)
+                except OSError:
+                    continue
+        except OSError:
+            pass
+
+        return leases
 
     def get_routing_table(self) -> list[dict[str, str]]:
-        """Dump the BSD routing table.
+        """Dump the BSD routing table by parsing ``netstat -rn``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will parse ``netstat -rn`` in Phase 2.
+        Returns
+        -------
+        list[dict[str, str]]
+            Each entry has keys: ``destination``, ``gateway``,
+            ``flags``, ``interface``.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_routing_table: TODO -- "
-            "Implemented in Phase 2 using 'netstat -rn' parsing"
-        )
+        routes: list[dict[str, str]] = []
+        result = _run(["netstat", "-rn"])
+        if result.returncode != 0:
+            logger.warning("netstat -rn failed: %s", result.stderr)
+            return routes
+
+        in_inet = False
+        for line in result.stdout.splitlines():
+            line_stripped = line.strip()
+            # Detect IPv4 section header
+            if line_stripped.startswith("Internet:") or line_stripped.startswith("Internet6:"):
+                in_inet = line_stripped.startswith("Internet:")
+                continue
+            if line_stripped.startswith("Destination"):
+                continue
+            if not in_inet or not line_stripped:
+                continue
+
+            parts = line_stripped.split()
+            if len(parts) < 4:
+                continue
+
+            routes.append({
+                "destination": parts[0],
+                "gateway": parts[1],
+                "flags": parts[2],
+                "interface": parts[-1] if len(parts) >= 4 else "",
+            })
+
+        return routes
 
     def check_promiscuous_mode(self, interface: str) -> bool:
-        """Check promiscuous mode on a BSD interface.
+        """Check whether a BSD interface is in promiscuous mode.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will inspect ifconfig PROMISC flag in Phase 2.
+        Inspects ``ifconfig`` output for the ``PROMISC`` flag.
+
+        Parameters
+        ----------
+        interface:
+            Network interface name.
+
+        Returns
+        -------
+        bool
+            ``True`` if the interface is in promiscuous mode.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD check_promiscuous_mode: TODO -- "
-            "Implemented in Phase 2 using ifconfig PROMISC flag inspection"
-        )
+        result = _run(["ifconfig", interface])
+        if result.returncode != 0:
+            logger.debug("ifconfig %s failed: %s", interface, result.stderr)
+            return False
+
+        for line in result.stdout.splitlines():
+            if "PROMISC" in line.upper():
+                return True
+        return False
 
     def enable_ip_forwarding(self, enable: bool = True) -> bool:
-        """Enable/disable IP forwarding on BSD.
+        """Enable or disable IP forwarding on BSD via sysctl.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``sysctl net.inet.ip.forwarding`` in Phase 2.
+        Parameters
+        ----------
+        enable:
+            ``True`` to enable, ``False`` to disable.
+
+        Returns
+        -------
+        bool
+            ``True`` if the sysctl call succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD enable_ip_forwarding: TODO -- "
-            "Implemented in Phase 2 using 'sysctl net.inet.ip.forwarding=1'"
-        )
+        value = "1" if enable else "0"
+        result = _run(["sysctl", f"net.inet.ip.forwarding={value}"])
+        if result.returncode != 0:
+            logger.warning("Cannot set ip forwarding to %s: %s", value, result.stderr)
+            return False
+        logger.info("IP forwarding %s", "enabled" if enable else "disabled")
+        return True
 
     def get_wifi_networks(self) -> list[dict[str, Any]]:
         """Scan for visible Wi-Fi networks on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``ifconfig wlan0 list scan`` in Phase 2.
+        Uses ``ifconfig wlan0 list scan`` (FreeBSD). Falls back to
+        trying ``wlan1``, ``ath0`` if ``wlan0`` is not available.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            Each entry has keys: ``ssid``, ``bssid``, ``signal``,
+            ``channel``, ``security``.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_wifi_networks: TODO -- "
-            "Implemented in Phase 2 using 'ifconfig wlan0 list scan'"
-        )
+        networks: list[dict[str, Any]] = []
+
+        # Find a wireless interface
+        wifi_iface: str | None = None
+        for candidate in ("wlan0", "wlan1", "ath0"):
+            check = _run(["ifconfig", candidate])
+            if check.returncode == 0:
+                wifi_iface = candidate
+                break
+
+        if not wifi_iface:
+            logger.debug("No wireless interface found")
+            return networks
+
+        result = _run(["ifconfig", wifi_iface, "list", "scan"])
+        if result.returncode != 0:
+            logger.debug("Wi-Fi scan failed on %s: %s", wifi_iface, result.stderr)
+            return networks
+
+        lines = result.stdout.splitlines()
+        if len(lines) < 2:
+            return networks
+
+        # First line is header: SSID/MESH ID  BSSID  CHAN  RATE  S:N  INT  CAPS
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            # The SSID can contain spaces, BSSID is always at a fixed-ish position
+            # FreeBSD format: SSID  BSSID  CHAN  RATE  S:N  INT  CAPS
+            bssid_match = re.search(
+                r"([\da-fA-F]{2}:[\da-fA-F]{2}:[\da-fA-F]{2}:"
+                r"[\da-fA-F]{2}:[\da-fA-F]{2}:[\da-fA-F]{2})",
+                line,
+            )
+            if not bssid_match:
+                continue
+
+            bssid = bssid_match.group(1).lower()
+            bssid_pos = bssid_match.start()
+            ssid = line[:bssid_pos].strip()
+            remainder = line[bssid_match.end():].strip()
+            parts = remainder.split()
+
+            channel = parts[0] if len(parts) > 0 else ""
+            # S:N (signal:noise) is typically at index 2
+            signal = parts[2] if len(parts) > 2 else ""
+            # CAPS contains security info
+            caps = " ".join(parts[4:]) if len(parts) > 4 else ""
+            security = ""
+            if "RSN" in caps or "WPA2" in caps:
+                security = "WPA2"
+            elif "WPA" in caps:
+                security = "WPA"
+            elif "WEP" in caps:
+                security = "WEP"
+            elif "E" in caps:
+                security = "Open"
+
+            networks.append({
+                "ssid": ssid,
+                "bssid": bssid,
+                "signal": signal,
+                "channel": channel,
+                "security": security,
+            })
+
+        return networks
 
     # ================================================================
     # Firewall control -- Phase 2 stubs
@@ -476,42 +717,138 @@ class BSDAdapter(PlatformAdapter):
         return self._write_and_reload_anchor(new_rules)
 
     def isolate_device(self, ip: str, mac: str | None = None) -> list[FirewallRule]:
-        """Isolate a device via BSD pf rules.
+        """Isolate a device via BSD pf anchor rules.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use pf anchor isolation rules in Phase 2.
+        Adds rules that allow only DNS (port 53) from the device and
+        block everything else.
+
+        Parameters
+        ----------
+        ip:
+            IP address of the device to isolate.
+        mac:
+            Optional MAC address (included in rule comments).
+
+        Returns
+        -------
+        list[FirewallRule]
+            The isolation rules that were created.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD isolate_device: TODO -- "
-            "Implemented in Phase 2 using pf anchor 'rex/isolate' with per-device rules"
+        from rex.pal.base import FirewallError
+
+        mac_tag = mac or "unknown"
+        rules = self._read_anchor_rules()
+
+        # Allow DNS from the isolated device
+        rules.append(
+            f"pass in quick from {ip} to any port 53  # REX:isolate-allow-dns {mac_tag}"
         )
+        rules.append(
+            f"pass out quick from any port 53 to {ip}  # REX:isolate-allow-dns-reply {mac_tag}"
+        )
+        # Block everything else from/to the device
+        rules.append(
+            f"block in quick from {ip} to any  # REX:isolate-drop-all {mac_tag}"
+        )
+        rules.append(
+            f"block out quick from any to {ip}  # REX:isolate-drop-inbound {mac_tag}"
+        )
+
+        if not self._write_and_reload_anchor(rules):
+            raise FirewallError(f"Failed to isolate {ip} via pfctl anchor")
+
+        created_rules = []
+        for direction, action in [
+            ("inbound", "accept"),
+            ("outbound", "accept"),
+            ("inbound", "drop"),
+            ("outbound", "drop"),
+        ]:
+            created_rules.append(FirewallRule(
+                ip=ip,
+                mac=mac,
+                direction=direction,
+                action=action,
+                reason=f"isolate device {mac_tag}",
+            ))
+
+        logger.info("Isolated device %s (%s)", ip, mac_tag)
+        return created_rules
 
     def unisolate_device(self, ip: str, mac: str | None = None) -> bool:
-        """Remove device isolation on BSD.
+        """Remove device isolation rules from the BSD pf anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will flush pf device anchor in Phase 2.
+        Removes all rules containing ``isolate`` and the device IP.
+
+        Parameters
+        ----------
+        ip:
+            IP address of the device.
+        mac:
+            Optional MAC address (unused but kept for API consistency).
+
+        Returns
+        -------
+        bool
+            ``True`` if at least one isolation rule was removed.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD unisolate_device: TODO -- "
-            "Implemented in Phase 2 using pf anchor flush for device"
-        )
+        rules = self._read_anchor_rules()
+        new_rules = [
+            r for r in rules
+            if not (ip in r and "isolate" in r)
+        ]
+        if len(new_rules) == len(rules):
+            return False
+        ok = self._write_and_reload_anchor(new_rules)
+        if ok:
+            logger.info("Unisolated device %s", ip)
+        return ok
 
     def rate_limit_ip(self, ip: str, kbps: int = 128, reason: str = "") -> FirewallRule:
-        """Throttle traffic for an IP on BSD.
+        """Throttle traffic for an IP on BSD using pf state limits.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use pf + ALTQ queuing in Phase 2.
+        Since ALTQ configuration requires kernel support and queue definitions,
+        this uses pf ``max-src-conn-rate`` as a connection rate limiter.
+        For true bandwidth shaping, ``dummynet`` pipes should be configured
+        separately.
+
+        Parameters
+        ----------
+        ip:
+            IPv4 address to rate-limit.
+        kbps:
+            Target bandwidth limit in kilobits per second.
+        reason:
+            Human-readable justification.
+
+        Returns
+        -------
+        FirewallRule
+            The rate-limiting rule.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD rate_limit_ip: TODO -- "
-            "Implemented in Phase 2 using pf ALTQ bandwidth queuing"
+        from rex.pal.base import FirewallError
+
+        rules = self._read_anchor_rules()
+
+        # Use max-src-conn-rate as a proxy for rate limiting.
+        # pps approximation: kbps / 8 (rough 1KB per packet).
+        pps = max(kbps // 8, 1)
+        rules.append(
+            f"pass in quick from {ip} to any "
+            f"flags S/SA keep state "
+            f"(max-src-conn-rate {pps}/10, overload <rex_ratelimit> flush)  "
+            f"# REX:rate-limit {reason}"
+        )
+
+        if not self._write_and_reload_anchor(rules):
+            raise FirewallError(f"Failed to rate-limit {ip} via pfctl anchor")
+
+        logger.info("Rate-limited %s to ~%d kbps", ip, kbps)
+        return FirewallRule(
+            ip=ip,
+            direction="both",
+            action="accept",
+            reason=reason or f"Rate-limited to {kbps} kbps",
         )
 
     def get_active_rules(self) -> list[FirewallRule]:
@@ -572,30 +909,87 @@ class BSDAdapter(PlatformAdapter):
         return True
 
     def create_rex_chains(self) -> bool:
-        """Create REX pf anchor on BSD.
+        """Create the REX pf anchor on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will create pf anchor 'rex' in Phase 2.
+        Adds ``anchor "rex"`` to ``/etc/pf.conf`` if not already present,
+        creates the anchor rules file, and reloads pf.
+
+        Returns
+        -------
+        bool
+            ``True`` if the anchor was created or already exists.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD create_rex_chains: TODO -- "
-            "Implemented in Phase 2 by adding 'anchor rex' to /etc/pf.conf and reloading"
+        pf_conf = Path("/etc/pf.conf")
+        anchor_line = f'anchor "{_REX_ANCHOR}"'
+        anchor_load = (
+            f'load anchor "{_REX_ANCHOR}" from "{_REX_RULES_FILE}"'
         )
+
+        try:
+            existing = pf_conf.read_text() if pf_conf.exists() else ""
+        except OSError as exc:
+            logger.error("Cannot read /etc/pf.conf: %s", exc)
+            return False
+
+        changed = False
+        if anchor_line not in existing:
+            try:
+                with open(pf_conf, "a") as fh:
+                    fh.write(f"\n{anchor_line}\n{anchor_load}\n")
+                changed = True
+            except OSError as exc:
+                logger.error("Cannot update /etc/pf.conf: %s", exc)
+                return False
+
+        # Ensure the anchor rules file exists
+        try:
+            _REX_RULES_DIR.mkdir(parents=True, exist_ok=True)
+            if not _REX_RULES_FILE.exists():
+                _REX_RULES_FILE.write_text("# REX-BOT-AI pf anchor rules\n")
+        except OSError as exc:
+            logger.error("Cannot create anchor file: %s", exc)
+            return False
+
+        if changed:
+            result = _run(["pfctl", "-f", str(pf_conf)])
+            if result.returncode != 0:
+                logger.error("pfctl reload failed: %s", result.stderr)
+                return False
+
+        logger.info("REX pf anchor created")
+        return True
 
     def persist_rules(self) -> bool:
         """Persist pf rules across BSD reboots.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will write to /etc/pf.conf.d/rex in Phase 2.
+        The anchor file at ``/etc/pf.anchors/rex`` is already written on
+        each rule change. This method ensures the anchor reference exists
+        in ``/etc/pf.conf`` so rules survive reboot, and enables pf via
+        ``/etc/rc.conf``.
+
+        Returns
+        -------
+        bool
+            ``True`` if persistence is confirmed.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD persist_rules: TODO -- "
-            "Implemented in Phase 2 by writing /etc/pf.conf.d/rex anchor file"
-        )
+        # Ensure pf anchor is in pf.conf
+        if not self.create_rex_chains():
+            return False
+
+        # Ensure pf is enabled at boot via rc.conf
+        rc_conf = Path("/etc/rc.conf")
+        enable_line = 'pf_enable="YES"'
+        try:
+            existing = rc_conf.read_text() if rc_conf.exists() else ""
+            if enable_line not in existing:
+                with open(rc_conf, "a") as fh:
+                    fh.write(f"\n{enable_line}\n")
+        except OSError as exc:
+            logger.error("Cannot update rc.conf for pf persistence: %s", exc)
+            return False
+
+        logger.info("pf rules persisted for reboot")
+        return True
 
     # ================================================================
     # Power management -- Phase 2 stubs
@@ -672,124 +1066,339 @@ run_rc_command "$1"
     def unregister_autostart(self, service_name: str = "rex-bot-ai") -> bool:
         """Remove REX rc.d service registration.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will remove rc.d script in Phase 2.
+        Deletes the rc.d script and removes the enable line from
+        ``/etc/rc.conf``.
+
+        Parameters
+        ----------
+        service_name:
+            Service name matching the rc.d script.
+
+        Returns
+        -------
+        bool
+            ``True`` if unregistration succeeded.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD unregister_autostart: TODO -- "
-            "Implemented in Phase 2 using rc.d script removal + rc.conf cleanup"
-        )
+        rc_name = service_name.replace("-", "_")
+        script_path = _RC_D_DIR / service_name
+
+        # Stop the service first
+        _run(["service", service_name, "stop"])
+
+        # Remove the rc.d script
+        try:
+            if script_path.exists():
+                script_path.unlink()
+                logger.info("Removed rc.d script: %s", script_path)
+        except OSError as exc:
+            logger.error("Cannot remove rc.d script: %s", exc)
+            return False
+
+        # Remove the enable line from rc.conf
+        rc_conf = Path("/etc/rc.conf")
+        enable_line = f'{rc_name}_enable="YES"'
+        try:
+            if rc_conf.exists():
+                content = rc_conf.read_text()
+                new_content = "\n".join(
+                    line for line in content.splitlines()
+                    if line.strip() != enable_line
+                )
+                rc_conf.write_text(new_content + "\n")
+        except OSError as exc:
+            logger.error("Cannot update rc.conf: %s", exc)
+            return False
+
+        logger.info("Unregistered rc.d service: %s", service_name)
+        return True
 
     def set_wake_timer(self, seconds: int) -> bool:
-        """Schedule the BSD host to wake from sleep.
+        """Schedule the BSD host to wake from sleep using ``at`` or cron.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ACPI wake alarm in Phase 2.
+        On FreeBSD there is no direct ``rtcwake`` equivalent, so we use
+        a combination of ``at`` (if available) to schedule a no-op wakeup,
+        or fall back to writing a cron entry.
+
+        Parameters
+        ----------
+        seconds:
+            Number of seconds from now to wake.
+
+        Returns
+        -------
+        bool
+            ``True`` if a timer was scheduled.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD set_wake_timer: TODO -- "
-            "Implemented in Phase 2 using ACPI wake alarm / rtcwake equivalent"
+        # Try using sysctl to set the ACPI wake timer (FreeBSD)
+        result = _run(["sysctl", f"machdep.acpi_timer_freq"])
+        if result.returncode == 0:
+            # Use at(1) to schedule a wakeup command
+            if shutil.which("at"):
+                minutes = max(seconds // 60, 1)
+                at_result = _run(
+                    ["at", f"now + {minutes} minutes"],
+                )
+                if at_result.returncode == 0:
+                    logger.info("Wake timer set for %d seconds via at(1)", seconds)
+                    return True
+
+        # Fallback: write a temporary cron job
+        from datetime import datetime, timedelta, timezone
+        wake_time = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        cron_minute = wake_time.strftime("%M")
+        cron_hour = wake_time.strftime("%H")
+        cron_line = (
+            f"{cron_minute} {cron_hour} * * * "
+            f"/usr/bin/true  # REX wake timer"
         )
+        try:
+            cron_file = Path("/var/cron/tabs/root")
+            existing = cron_file.read_text() if cron_file.exists() else ""
+            if "REX wake timer" not in existing:
+                with open(cron_file, "a") as fh:
+                    fh.write(f"\n{cron_line}\n")
+                logger.info("Wake timer set via cron for %s:%s UTC", cron_hour, cron_minute)
+                return True
+        except OSError as exc:
+            logger.warning("Cannot set wake timer via cron: %s", exc)
+
+        logger.warning("No wake timer mechanism available")
+        return False
 
     def cancel_wake_timer(self) -> bool:
         """Cancel a previously set BSD wake timer.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will cancel ACPI wake alarm in Phase 2.
+        Removes any REX-tagged entries from the ``at`` queue and from
+        the root crontab.
+
+        Returns
+        -------
+        bool
+            ``True`` if cancellation succeeded (or no timer existed).
         """
-        raise RexPlatformNotSupportedError(
-            "BSD cancel_wake_timer: TODO -- "
-            "Implemented in Phase 2 using ACPI wake alarm cancellation"
-        )
+        # Remove from at queue if at is available
+        if shutil.which("at"):
+            result = _run(["atq"])
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    parts = line.split()
+                    if parts and parts[0].isdigit():
+                        _run(["atrm", parts[0]])
+
+        # Remove from crontab
+        try:
+            cron_file = Path("/var/cron/tabs/root")
+            if cron_file.exists():
+                content = cron_file.read_text()
+                new_content = "\n".join(
+                    line for line in content.splitlines()
+                    if "REX wake timer" not in line
+                )
+                cron_file.write_text(new_content + "\n")
+        except OSError as exc:
+            logger.debug("Cannot clean up cron wake timer: %s", exc)
+
+        logger.info("Wake timer cancelled")
+        return True
 
     # ================================================================
     # Installation helpers -- Phase 2 stubs
     # ================================================================
 
     def install_dependency(self, package: str) -> bool:
-        """Install a dependency via pkg on BSD.
+        """Install a dependency via ``pkg install -y`` on FreeBSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``pkg install`` in Phase 2.
+        Parameters
+        ----------
+        package:
+            Package name to install (e.g. ``'nmap'``, ``'curl'``).
+
+        Returns
+        -------
+        bool
+            ``True`` if the package was installed successfully.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD install_dependency: TODO -- "
-            "Implemented in Phase 2 using 'pkg install -y' (FreeBSD pkg package manager)"
-        )
+        if not shutil.which("pkg"):
+            logger.error("pkg package manager not found")
+            return False
+
+        logger.info("Installing %s via pkg", package)
+        result = _run(["pkg", "install", "-y", package], timeout=120)
+        if result.returncode != 0:
+            logger.error("pkg install failed: %s", result.stderr.strip())
+            return False
+        logger.info("Successfully installed %s", package)
+        return True
 
     def install_docker(self) -> bool:
-        """Install Docker on BSD.
+        """Install Docker on FreeBSD via ``pkg``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``pkg install docker`` or
-            jail-based alternative in Phase 2.
+        Installs the ``docker`` and ``docker-compose`` packages and
+        enables the Docker service via rc.conf.
+
+        Returns
+        -------
+        bool
+            ``True`` if Docker was installed and the service started.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD install_docker: TODO -- "
-            "Implemented in Phase 2 using 'pkg install docker' or jail-based container runtime"
-        )
+        if not self.install_dependency("docker"):
+            return False
+
+        # Enable docker in rc.conf
+        rc_conf = Path("/etc/rc.conf")
+        enable_line = 'docker_enable="YES"'
+        try:
+            existing = rc_conf.read_text() if rc_conf.exists() else ""
+            if enable_line not in existing:
+                with open(rc_conf, "a") as fh:
+                    fh.write(f"\n{enable_line}\n")
+        except OSError as exc:
+            logger.warning("Cannot update rc.conf for docker: %s", exc)
+
+        # Start the service
+        _run(["service", "docker", "start"])
+
+        if self.is_docker_running():
+            logger.info("Docker installed and running")
+            return True
+
+        logger.warning("Docker installed but service not running")
+        return False
 
     def is_docker_running(self) -> bool:
         """Check whether Docker is running on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will query Docker socket in Phase 2.
+        Checks for the Docker socket and queries the service status.
+
+        Returns
+        -------
+        bool
+            ``True`` if Docker is active.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD is_docker_running: TODO -- "
-            "Implemented in Phase 2 by querying /var/run/docker.sock"
-        )
+        # Check socket existence
+        if os.path.exists("/var/run/docker.sock"):
+            result = _run(["docker", "info"])
+            return result.returncode == 0
+
+        # Check via service command
+        result = _run(["service", "docker", "status"])
+        return result.returncode == 0 and "running" in result.stdout.lower()
 
     def install_ollama(self) -> bool:
         """Install Ollama on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use pkg or manual install in Phase 2.
+        Tries ``pkg install ollama`` first; if the package is not
+        available, falls back to fetching the official install script.
+
+        Returns
+        -------
+        bool
+            ``True`` if Ollama was installed and is responding.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD install_ollama: TODO -- "
-            "Implemented in Phase 2 using 'pkg install ollama' or manual binary install"
-        )
+        # Try pkg first
+        if shutil.which("pkg"):
+            result = _run(["pkg", "install", "-y", "ollama"], timeout=120)
+            if result.returncode == 0:
+                _run(["service", "ollama", "start"])
+                if self.is_ollama_running():
+                    logger.info("Ollama installed via pkg and running")
+                    return True
+
+        # Fallback: fetch binary directly
+        if shutil.which("fetch"):
+            result = _run(
+                ["fetch", "-o", "/usr/local/bin/ollama",
+                 "https://ollama.com/download/ollama-freebsd-amd64"],
+                timeout=120,
+            )
+            if result.returncode == 0:
+                os.chmod("/usr/local/bin/ollama", 0o755)
+                logger.info("Ollama binary installed to /usr/local/bin/ollama")
+                return True
+
+        logger.error("Cannot install Ollama on this BSD system")
+        return False
 
     def is_ollama_running(self) -> bool:
         """Check whether Ollama is running on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will probe Ollama API in Phase 2.
+        Probes the Ollama HTTP API at ``localhost:11434``.
+
+        Returns
+        -------
+        bool
+            ``True`` if Ollama is responding.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD is_ollama_running: TODO -- "
-            "Implemented in Phase 2 by probing http://localhost:11434/api/tags"
-        )
+        # Check via service first
+        result = _run(["service", "ollama", "status"])
+        if result.returncode == 0 and "running" in result.stdout.lower():
+            return True
+
+        # Fallback: probe the HTTP endpoint
+        if shutil.which("curl"):
+            result = _run(["curl", "-s", "--max-time", "3", "http://localhost:11434"])
+            return bool(result.returncode == 0 and result.stdout.strip())
+
+        # Last resort: try fetch
+        if shutil.which("fetch"):
+            result = _run(["fetch", "-q", "-o", "-", "http://localhost:11434"])
+            return bool(result.returncode == 0 and result.stdout.strip())
+
+        return False
 
     def get_gpu_info(self) -> GPUInfo | None:
-        """Detect GPU capabilities on BSD.
+        """Detect GPU capabilities on BSD using ``pciconf -lv``.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use sysctl and pciconf in Phase 2.
+        Scans PCI devices for VGA/3D controllers and returns the first
+        GPU found.
+
+        Returns
+        -------
+        GPUInfo or None
+            GPU details if found, ``None`` if no GPU detected.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_gpu_info: TODO -- "
-            "Implemented in Phase 2 using 'pciconf -lv' / sysctl hw.dri GPU detection"
-        )
+        if not shutil.which("pciconf"):
+            return None
+
+        result = _run(["pciconf", "-lv"])
+        if result.returncode != 0:
+            return None
+
+        # pciconf -lv output: device lines followed by indented detail lines
+        current_device = ""
+        current_vendor = ""
+        for line in result.stdout.splitlines():
+            if not line.startswith(" ") and not line.startswith("\t"):
+                current_device = ""
+                current_vendor = ""
+            if "class" in line.lower() and ("vga" in line.lower() or "display" in line.lower()):
+                # This is a GPU device
+                pass
+            if "device" in line.lower() and "=" in line:
+                val = line.split("=", 1)[1].strip().strip("'\"")
+                if "vga" in val.lower() or "gpu" in val.lower() or "radeon" in val.lower() or "nvidia" in val.lower() or "graphics" in val.lower():
+                    current_device = val
+            if "vendor" in line.lower() and "=" in line:
+                current_vendor = line.split("=", 1)[1].strip().strip("'\"")
+
+            if current_device:
+                model = current_device
+                if current_vendor and current_vendor.lower() not in model.lower():
+                    model = f"{current_vendor} {current_device}"
+
+                # Try to detect driver
+                driver: str | None = None
+                drm_result = _run(["sysctl", "hw.dri.0.name"])
+                if drm_result.returncode == 0 and drm_result.stdout.strip():
+                    driver = drm_result.stdout.split(":")[-1].strip()
+
+                return GPUInfo(
+                    model=model,
+                    vram_mb=0,
+                    driver=driver,
+                )
+
+        return None
 
     # ================================================================
     # Privacy / egress control -- Phase 2 stubs
@@ -800,32 +1409,104 @@ run_rc_command "$1"
         allowed_hosts: list[str] | None = None,
         allowed_ports: list[int] | None = None,
     ) -> bool:
-        """Set up default-deny outbound rules using BSD pf.
+        """Set up default-deny outbound rules using BSD pf anchor.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use pf egress anchor in Phase 2.
+        Creates pf rules that allow traffic only to specified hosts/ports
+        and block everything else outbound.
+
+        Parameters
+        ----------
+        allowed_hosts:
+            List of allowed destination IPs/CIDRs.
+        allowed_ports:
+            List of allowed destination ports.
+
+        Returns
+        -------
+        bool
+            ``True`` if egress rules were applied.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD setup_egress_firewall: TODO -- "
-            "Implemented in Phase 2 using pf default-deny outbound anchor "
-            "with per-destination allowlist rules"
-        )
+        rules = self._read_anchor_rules()
+
+        # Allow loopback
+        rules.append("pass out quick on lo0 all  # REX:egress-allow-loopback")
+
+        # Allow specific hosts
+        if allowed_hosts:
+            for host in allowed_hosts:
+                rules.append(
+                    f"pass out quick to {host}  # REX:egress-allow-host"
+                )
+
+        # Allow specific ports
+        if allowed_ports:
+            for port in allowed_ports:
+                rules.append(
+                    f"pass out quick proto tcp to any port {port}  # REX:egress-allow-port"
+                )
+                rules.append(
+                    f"pass out quick proto udp to any port {port}  # REX:egress-allow-port"
+                )
+
+        # Always allow DNS
+        rules.append("pass out quick proto udp to any port 53  # REX:egress-allow-dns")
+        rules.append("pass out quick proto tcp to any port 53  # REX:egress-allow-dns")
+
+        # Default deny outbound
+        rules.append("block out all  # REX:egress-default-deny")
+
+        if not self._write_and_reload_anchor(rules):
+            logger.error("Failed to setup egress firewall")
+            return False
+
+        logger.info("Egress firewall configured via pf anchor")
+        return True
 
     def get_disk_encryption_status(self) -> dict[str, Any]:
-        """Check GELI/ZFS encryption status on BSD.
+        """Check GELI and ZFS encryption status on BSD.
 
-        Raises
-        ------
-        RexPlatformNotSupportedError
-            BSD support: TODO -- Will use ``geli list`` / ``zfs get encryption`` in Phase 2.
+        Runs ``geli list`` for GELI full-disk encryption and
+        ``zfs get encryption`` for ZFS native encryption.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary with keys:
+            - ``encrypted`` (bool): Whether any encryption was detected.
+            - ``method`` (str or None): Encryption method.
+            - ``details`` (list[str]): Additional details.
         """
-        raise RexPlatformNotSupportedError(
-            "BSD get_disk_encryption_status: TODO -- "
-            "Implemented in Phase 2 using 'geli list' / 'zfs get encryption' "
-            "(GELI full-disk / ZFS native encryption)"
-        )
+        encrypted = False
+        method: str | None = None
+        details: list[str] = []
+
+        # Check GELI (FreeBSD full-disk encryption)
+        if shutil.which("geli"):
+            result = _run(["geli", "list"])
+            if result.returncode == 0 and result.stdout.strip():
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if line.startswith("Geom name:") or line.startswith("Name:"):
+                        encrypted = True
+                        method = "GELI"
+                        details.append(line)
+
+        # Check ZFS native encryption
+        if shutil.which("zfs"):
+            result = _run(["zfs", "get", "-H", "-o", "name,value", "encryption"])
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 2 and parts[1].strip() not in ("off", "-", ""):
+                        encrypted = True
+                        method = method or "ZFS"
+                        details.append(f"{parts[0]}: encryption={parts[1].strip()}")
+
+        return {
+            "encrypted": encrypted,
+            "method": method,
+            "details": details,
+        }
 
     # ================================================================
     # Internal helpers

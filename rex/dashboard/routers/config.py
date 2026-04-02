@@ -131,19 +131,24 @@ async def set_mode(
     user_settings["mode"] = mode
     _save_user_settings(user_settings)
 
-    # Publish event so other services can react
+    # Publish mode change event so all services can react
     try:
         from rex.dashboard.deps import get_bus
+        from rex.shared.constants import STREAM_CORE_COMMANDS
         from rex.shared.enums import ServiceName
-        from rex.shared.events import RexEvent
+        from rex.shared.events import ModeChangeEvent
 
         bus = await get_bus()
-        event = RexEvent(
-            source=ServiceName.DASHBOARD,
-            event_type="mode_change",
-            payload={"old_mode": old_mode, "new_mode": mode},
+        await bus.publish(
+            STREAM_CORE_COMMANDS,
+            ModeChangeEvent(
+                source=ServiceName.DASHBOARD,
+                payload={
+                    "old_mode": old_mode,
+                    "new_mode": mode,
+                },
+            ),
         )
-        await bus.publish("rex:core:commands", event)
     except Exception:
         logger.warning("Could not publish mode_change event (bus unavailable)")
 

@@ -243,12 +243,14 @@ class TestMacOSGetNetworkInfo:
 
 
 class TestMacOSCapturePackets:
-    """Cover capture_packets stub."""
+    """Cover capture_packets -- requires root so raises PermissionDeniedError."""
 
-    def test_raises(self):
+    @patch("rex.pal.macos.os.geteuid", return_value=1000)
+    def test_raises_permission_error_when_not_root(self, _mock_euid):
         from rex.pal.macos import MacOSAdapter
+        from rex.shared.errors import RexPermissionError
         adapter = MacOSAdapter()
-        with pytest.raises(RexPlatformNotSupportedError):
+        with pytest.raises(RexPermissionError):
             list(adapter.capture_packets("en0"))
 
 
@@ -625,93 +627,326 @@ class TestMacOSWriteAndReloadAnchor:
 # Phase 2 stubs -- verify they raise
 # =====================================================================
 
-class TestMacOSPhase2Stubs:
-    """Cover all Phase 2 stubs that raise RexPlatformNotSupportedError."""
+class TestMacOSPhase2Implementations:
+    """Cover Phase 2 implementations that replaced stubs."""
 
     def setup_method(self):
         from rex.pal.macos import MacOSAdapter
         self.adapter = MacOSAdapter()
 
-    def test_get_dhcp_leases(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_dhcp_leases()
+    @patch("rex.pal.macos._run")
+    def test_get_dhcp_leases_no_dir(self, _mock_run):
+        # No lease directory on this system -> empty list
+        with patch("rex.pal.macos.Path") as mock_path_cls:
+            result = self.adapter.get_dhcp_leases()
+            assert isinstance(result, list)
 
-    def test_get_routing_table(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_routing_table()
+    @patch("rex.pal.macos._run")
+    def test_get_routing_table(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netstat"], 0,
+            stdout=(
+                "Routing tables\n"
+                "\n"
+                "Internet:\n"
+                "Destination        Gateway            Flags        Netif\n"
+                "default            192.168.1.1        UGSc         en0\n"
+                "192.168.1.0/24     link#6             UCS          en0\n"
+            ),
+            stderr="",
+        )
+        routes = self.adapter.get_routing_table()
+        assert len(routes) == 2
+        assert routes[0]["destination"] == "default"
+        assert routes[0]["gateway"] == "192.168.1.1"
+        assert routes[0]["interface"] == "en0"
 
-    def test_check_promiscuous_mode(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.check_promiscuous_mode("en0")
+    @patch("rex.pal.macos._run")
+    def test_get_routing_table_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netstat"], 1, stdout="", stderr="err",
+        )
+        assert self.adapter.get_routing_table() == []
 
-    def test_enable_ip_forwarding(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.enable_ip_forwarding()
+    @patch("rex.pal.macos._run")
+    def test_check_promiscuous_mode_true(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ifconfig"], 0,
+            stdout="en0: flags=8963<UP,BROADCAST,PROMISC,RUNNING>\n",
+            stderr="",
+        )
+        assert self.adapter.check_promiscuous_mode("en0") is True
 
-    def test_get_wifi_networks(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_wifi_networks()
+    @patch("rex.pal.macos._run")
+    def test_check_promiscuous_mode_false(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ifconfig"], 0,
+            stdout="en0: flags=8863<UP,BROADCAST,RUNNING>\n",
+            stderr="",
+        )
+        assert self.adapter.check_promiscuous_mode("en0") is False
 
-    def test_isolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.isolate_device("1.2.3.4")
+    @patch("rex.pal.macos._run")
+    def test_enable_ip_forwarding(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 0, stdout="net.inet.ip.forwarding: 1", stderr="",
+        )
+        assert self.adapter.enable_ip_forwarding(True) is True
 
-    def test_unisolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unisolate_device("1.2.3.4")
+    @patch("rex.pal.macos._run")
+    def test_enable_ip_forwarding_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["sysctl"], 1, stdout="", stderr="perm denied",
+        )
+        assert self.adapter.enable_ip_forwarding() is False
 
-    def test_rate_limit_ip(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.rate_limit_ip("1.2.3.4")
+    @patch("rex.pal.macos._run")
+    def test_get_wifi_networks_empty(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["system_profiler"], 1, stdout="", stderr="",
+        )
+        with patch("rex.pal.macos.Path.exists", return_value=False):
+            networks = self.adapter.get_wifi_networks()
+            assert isinstance(networks, list)
 
-    def test_create_rex_chains(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.create_rex_chains()
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    @patch("rex.pal.macos._REX_RULES_DIR")
+    def test_isolate_device(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        rules = self.adapter.isolate_device("1.2.3.4", mac="aa:bb:cc:dd:ee:ff")
+        assert len(rules) == 3
+        assert rules[0].ip == "1.2.3.4"
 
-    def test_persist_rules(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.persist_rules()
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    @patch("rex.pal.macos._REX_RULES_DIR")
+    def test_unisolate_device_found(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = (
+            "block in quick from 1.2.3.4 to any  # REX:isolate-device:1.2.3.4\n"
+        )
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.unisolate_device("1.2.3.4") is True
 
-    def test_unregister_autostart(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unregister_autostart()
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    def test_unisolate_device_not_found(self, mock_file):
+        mock_file.exists.return_value = True
+        mock_file.read_text.return_value = "block from 5.6.7.8 to any\n"
+        assert self.adapter.unisolate_device("1.2.3.4") is False
 
-    def test_set_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.set_wake_timer(60)
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    @patch("rex.pal.macos._REX_RULES_DIR")
+    def test_rate_limit_ip(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["dnctl"], 0, stdout="", stderr="",
+        )
+        rule = self.adapter.rate_limit_ip("1.2.3.4", kbps=256, reason="throttle")
+        assert rule.ip == "1.2.3.4"
+        assert rule.direction == "both"
 
-    def test_cancel_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.cancel_wake_timer()
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos.Path")
+    def test_create_rex_chains(self, mock_path_cls, mock_run):
+        mock_pf_conf = MagicMock()
+        mock_pf_conf.read_text.return_value = "# pf.conf\n"
 
-    def test_install_dependency(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_dependency("pkg")
+        def path_side_effect(p):
+            if p == "/etc/pf.conf":
+                return mock_pf_conf
+            return MagicMock()
 
-    def test_install_docker(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_docker()
+        mock_path_cls.side_effect = path_side_effect
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pfctl"], 0, stdout="", stderr="",
+        )
+        # Mock _REX_RULES_DIR and _REX_RULES_FILE at module level
+        with patch("rex.pal.macos._REX_RULES_DIR") as mock_dir, \
+             patch("rex.pal.macos._REX_RULES_FILE") as mock_file:
+            mock_file.exists.return_value = False
+            result = self.adapter.create_rex_chains()
+            assert isinstance(result, bool)
 
-    def test_is_docker_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_docker_running()
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    def test_persist_rules_no_file(self, mock_file):
+        mock_file.exists.return_value = False
+        assert self.adapter.persist_rules() is False
 
-    def test_install_ollama(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_ollama()
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos._LAUNCHD_DIR")
+    def test_unregister_autostart(self, mock_dir, mock_run):
+        mock_plist = MagicMock()
+        mock_plist.exists.return_value = True
+        mock_dir.__truediv__ = MagicMock(return_value=mock_plist)
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["launchctl"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.unregister_autostart() is True
 
-    def test_is_ollama_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_ollama_running()
+    @patch("rex.pal.macos._run")
+    def test_set_wake_timer(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pmset"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.set_wake_timer(60) is True
 
-    def test_get_gpu_info(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_gpu_info()
+    @patch("rex.pal.macos._run")
+    def test_set_wake_timer_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pmset"], 1, stdout="", stderr="permission denied",
+        )
+        assert self.adapter.set_wake_timer(60) is False
 
-    def test_setup_egress_firewall(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.setup_egress_firewall()
+    @patch("rex.pal.macos._run")
+    def test_cancel_wake_timer(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["pmset"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.cancel_wake_timer() is True
 
-    def test_get_disk_encryption_status(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_disk_encryption_status()
+    @patch("rex.pal.macos.shutil.which", return_value=None)
+    def test_install_dependency_no_brew(self, _which):
+        assert self.adapter.install_dependency("pkg") is False
+
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos.shutil.which", return_value="/usr/local/bin/brew")
+    def test_install_dependency_success(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["brew"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.install_dependency("nmap") is True
+
+    @patch("rex.pal.macos.shutil.which", return_value=None)
+    def test_install_docker_no_brew(self, _which):
+        assert self.adapter.install_docker() is False
+
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos.shutil.which", return_value="/usr/local/bin/brew")
+    def test_install_docker_success(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["brew"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.install_docker() is True
+
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos.Path")
+    def test_is_docker_running_no_socket(self, mock_path, mock_run):
+        mock_instance = MagicMock()
+        mock_instance.exists.return_value = False
+        mock_path.return_value = mock_instance
+        assert self.adapter.is_docker_running() is False
+
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos.shutil.which", return_value=None)
+    def test_install_ollama_no_brew(self, _which, _run):
+        assert self.adapter.install_ollama() is False
+
+    @patch("rex.pal.macos._run")
+    def test_is_ollama_running(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["curl"], 0, stdout="Ollama is running", stderr="",
+        )
+        assert self.adapter.is_ollama_running() is True
+
+    @patch("rex.pal.macos._run")
+    def test_is_ollama_not_running(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["curl"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.is_ollama_running() is False
+
+    @patch("rex.pal.macos._run")
+    def test_get_gpu_info_apple_silicon(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if "system_profiler" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout="  Chipset Model: Apple M2 Pro\n  VRAM (Dynamic, Max): 16384 MB\n",
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        info = self.adapter.get_gpu_info()
+        assert info is not None
+        assert "M2" in info.model
+        assert info.metal_available is True
+
+    @patch("rex.pal.macos._run")
+    def test_get_gpu_info_none(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["system_profiler"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.get_gpu_info() is None
+
+    @patch("rex.pal.macos._run")
+    @patch("rex.pal.macos._REX_RULES_FILE")
+    @patch("rex.pal.macos._REX_RULES_DIR")
+    def test_setup_egress_firewall(self, mock_dir, mock_file, mock_run):
+        mock_file.exists.return_value = False
+
+        def run_side_effect(cmd, **kwargs):
+            if cmd[0] == "route":
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout="   interface: en0\n   gateway: 192.168.1.1\n",
+                    stderr="",
+                )
+            if cmd[0] == "ifconfig":
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout="\tinet 192.168.1.100 netmask 0xffffff00",
+                    stderr="",
+                )
+            if cmd[0] == "scutil":
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout="  nameserver[0] : 8.8.8.8\n",
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        result = self.adapter.setup_egress_firewall(
+            allowed_hosts=["1.2.3.4"],
+            allowed_ports=[443],
+        )
+        assert result is True
+
+    @patch("rex.pal.macos._run")
+    def test_get_disk_encryption_status_on(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if "fdesetup" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0, stdout="FileVault is On.", stderr="",
+                )
+            if "diskutil" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0, stdout="", stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is True
+        assert status["method"] == "FileVault 2"
+
+    @patch("rex.pal.macos._run")
+    def test_get_disk_encryption_status_off(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if "fdesetup" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0, stdout="FileVault is Off.", stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is False

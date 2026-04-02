@@ -121,13 +121,40 @@ class PowerManager:
             return True
         return False
 
+    def get_affected_services(self) -> list[str]:
+        """Return service names that should be suspended in the current power state.
+
+        In ALERT_SLEEP, non-essential services are suspended.
+        In DEEP_SLEEP, everything except Eyes (watchdog) is suspended.
+        In AWAKE, nothing is suspended.
+        """
+        from rex.shared.enums import ServiceName
+
+        if self._state == PowerState.ALERT_SLEEP:
+            return [
+                ServiceName.STORE,
+                ServiceName.FEDERATION,
+                ServiceName.INTERVIEW,
+            ]
+        if self._state == PowerState.DEEP_SLEEP:
+            return [
+                ServiceName.STORE,
+                ServiceName.FEDERATION,
+                ServiceName.INTERVIEW,
+                ServiceName.BARK,
+                ServiceName.BRAIN,
+                ServiceName.TEETH,
+                ServiceName.SCHEDULER,
+            ]
+        return []
+
     def get_status(self) -> dict[str, Any]:
         """Return power manager status."""
         return {
             "state": self._state.value,
-            "note": "Power state is tracked but does not yet suspend services in ALERT_SLEEP",
             "uptime_seconds": self.get_uptime(),
             "transition_time": self._transition_time.isoformat(),
             "scheduled_wake": self._scheduled_wake.isoformat() if self._scheduled_wake else None,
             "scheduled_sleep": self._scheduled_sleep.isoformat() if self._scheduled_sleep else None,
+            "suspended_services": self.get_affected_services(),
         }

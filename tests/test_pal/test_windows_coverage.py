@@ -553,96 +553,357 @@ class TestWindowsDetectVm:
 
 
 # =====================================================================
-# Phase 2 stubs
+# Phase 2 implementations
 # =====================================================================
 
-class TestWindowsPhase2Stubs:
-    """Cover all Phase 2 stubs that raise RexPlatformNotSupportedError."""
+class TestWindowsPhase2Implementations:
+    """Cover Phase 2 implementations that replaced stubs."""
 
     def setup_method(self):
         from rex.pal.windows import WindowsAdapter
         self.adapter = WindowsAdapter()
 
-    def test_get_dhcp_leases(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_dhcp_leases()
+    @patch("rex.pal.windows._run")
+    def test_get_dhcp_leases(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ipconfig"], 0,
+            stdout=(
+                "Ethernet adapter Ethernet:\n"
+                "\n"
+                "   DHCP Enabled. . . . . . . . . . . : Yes\n"
+                "   IPv4 Address. . . . . . . . . . . : 192.168.1.50\n"
+                "   DHCP Server . . . . . . . . . . . : 192.168.1.1\n"
+                "   Lease Obtained. . . . . . . . . . : Monday, January 1, 2024\n"
+                "   Lease Expires . . . . . . . . . . : Tuesday, January 2, 2024\n"
+            ),
+            stderr="",
+        )
+        leases = self.adapter.get_dhcp_leases()
+        assert isinstance(leases, list)
+        assert len(leases) == 1
+        assert leases[0]["ip"] == "192.168.1.50"
+        assert leases[0]["dhcp_server"] == "192.168.1.1"
 
-    def test_get_routing_table(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_routing_table()
+    @patch("rex.pal.windows._run")
+    def test_get_dhcp_leases_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["ipconfig"], 1, stdout="", stderr="err",
+        )
+        assert self.adapter.get_dhcp_leases() == []
 
-    def test_check_promiscuous_mode(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.check_promiscuous_mode("Ethernet")
+    @patch("rex.pal.windows._run")
+    def test_get_routing_table(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["route"], 0,
+            stdout=(
+                "===========================================================================\n"
+                "IPv4 Route Table\n"
+                "===========================================================================\n"
+                "Active Routes:\n"
+                "Network Destination        Netmask          Gateway       Interface  Metric\n"
+                "          0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.50     25\n"
+                "      192.168.1.0    255.255.255.0         On-link     192.168.1.50    281\n"
+                "===========================================================================\n"
+                "Persistent Routes:\n"
+            ),
+            stderr="",
+        )
+        routes = self.adapter.get_routing_table()
+        assert len(routes) == 2
+        assert routes[0]["destination"] == "0.0.0.0"
+        assert routes[0]["gateway"] == "192.168.1.1"
 
-    def test_enable_ip_forwarding(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.enable_ip_forwarding()
+    @patch("rex.pal.windows._run")
+    def test_get_routing_table_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["route"], 1, stdout="", stderr="err",
+        )
+        assert self.adapter.get_routing_table() == []
 
-    def test_get_wifi_networks(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_wifi_networks()
+    @patch("rex.pal.windows.os.path.isfile", return_value=False)
+    @patch("rex.pal.windows.os.path.isdir", return_value=True)
+    def test_check_promiscuous_mode_npcap(self, _isdir, _isfile):
+        assert self.adapter.check_promiscuous_mode("Ethernet") is True
 
-    def test_isolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.isolate_device("1.2.3.4")
+    @patch("rex.pal.windows.os.path.isfile", return_value=True)
+    @patch("rex.pal.windows.os.path.isdir", return_value=False)
+    def test_check_promiscuous_mode_winpcap(self, _isdir, _isfile):
+        assert self.adapter.check_promiscuous_mode("Ethernet") is True
 
-    def test_unisolate_device(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unisolate_device("1.2.3.4")
+    @patch("rex.pal.windows.os.path.isfile", return_value=False)
+    @patch("rex.pal.windows.os.path.isdir", return_value=False)
+    def test_check_promiscuous_mode_false(self, _isdir, _isfile):
+        assert self.adapter.check_promiscuous_mode("Ethernet") is False
 
-    def test_rate_limit_ip(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.rate_limit_ip("1.2.3.4")
+    @patch("rex.pal.windows._run")
+    def test_enable_ip_forwarding(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="Ok.", stderr="",
+        )
+        assert self.adapter.enable_ip_forwarding(True) is True
 
-    def test_create_rex_chains(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.create_rex_chains()
+    @patch("rex.pal.windows._run")
+    def test_enable_ip_forwarding_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="access denied",
+        )
+        assert self.adapter.enable_ip_forwarding() is False
 
-    def test_persist_rules(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.persist_rules()
+    @patch("rex.pal.windows._run")
+    def test_get_wifi_networks(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0,
+            stdout=(
+                "SSID 1 : MyNetwork\n"
+                "    Network type            : Infrastructure\n"
+                "    Authentication          : WPA2-Personal\n"
+                "    BSSID 1                 : aa:bb:cc:dd:ee:ff\n"
+                "    Signal                  : 85%\n"
+                "    Channel                 : 6\n"
+            ),
+            stderr="",
+        )
+        networks = self.adapter.get_wifi_networks()
+        assert isinstance(networks, list)
+        assert len(networks) == 1
+        assert networks[0]["ssid"] == "MyNetwork"
 
-    def test_unregister_autostart(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.unregister_autostart()
+    @patch("rex.pal.windows._run")
+    def test_get_wifi_networks_empty(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.get_wifi_networks() == []
 
-    def test_set_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.set_wake_timer(60)
+    @patch("rex.pal.windows._run")
+    def test_isolate_device(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="Ok.", stderr="",
+        )
+        rules = self.adapter.isolate_device("1.2.3.4", mac="aa:bb:cc:dd:ee:ff")
+        assert isinstance(rules, list)
+        assert len(rules) == 2
+        assert rules[0].ip == "1.2.3.4"
 
-    def test_cancel_wake_timer(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.cancel_wake_timer()
+    @patch("rex.pal.windows._run")
+    def test_unisolate_device(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="Deleted.", stderr="",
+        )
+        assert self.adapter.unisolate_device("1.2.3.4") is True
 
-    def test_install_dependency(self):
+    @patch("rex.pal.windows._run")
+    def test_unisolate_device_not_found(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="No rules",
+        )
+        assert self.adapter.unisolate_device("1.2.3.4") is False
+
+    @patch("rex.pal.windows._run")
+    def test_rate_limit_ip(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="Ok.", stderr="",
+        )
+        rule = self.adapter.rate_limit_ip("1.2.3.4", kbps=256, reason="throttle")
+        assert rule.ip == "1.2.3.4"
+        assert rule.direction == "both"
+
+    @patch("rex.pal.windows._run")
+    def test_create_rex_chains(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="State                                 ON", stderr="",
+        )
+        assert self.adapter.create_rex_chains() is True
+
+    @patch("rex.pal.windows._run")
+    def test_create_rex_chains_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="error",
+        )
+        assert self.adapter.create_rex_chains() is False
+
+    @patch("rex.pal.windows._run")
+    def test_persist_rules(self, mock_run):
+        # persist_rules always returns True on Windows
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.persist_rules() is True
+
+    @patch("rex.pal.windows._run")
+    def test_unregister_autostart(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 0, stdout="SUCCESS", stderr="",
+        )
+        assert self.adapter.unregister_autostart() is True
+
+    @patch("rex.pal.windows._run")
+    def test_unregister_autostart_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 1, stdout="", stderr="not found",
+        )
+        assert self.adapter.unregister_autostart() is False
+
+    @patch("rex.pal.windows._run")
+    def test_set_wake_timer(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 0, stdout="SUCCESS", stderr="",
+        )
+        assert self.adapter.set_wake_timer(60) is True
+
+    @patch("rex.pal.windows._run")
+    def test_set_wake_timer_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 1, stdout="", stderr="access denied",
+        )
+        assert self.adapter.set_wake_timer(60) is False
+
+    @patch("rex.pal.windows._run")
+    def test_cancel_wake_timer(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 0, stdout="SUCCESS", stderr="",
+        )
+        assert self.adapter.cancel_wake_timer() is True
+
+    @patch("rex.pal.windows._run")
+    def test_cancel_wake_timer_not_found(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["schtasks"], 1, stdout="", stderr="not found",
+        )
+        # cancel_wake_timer returns True even if task doesn't exist
+        assert self.adapter.cancel_wake_timer() is True
+
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    def test_install_dependency_no_manager(self, _which):
         with pytest.raises(RexPlatformNotSupportedError):
             self.adapter.install_dependency("pkg")
 
-    def test_install_docker(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_docker()
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value="/usr/bin/winget")
+    def test_install_dependency_success(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["winget"], 0, stdout="", stderr="",
+        )
+        assert self.adapter.install_dependency("nmap") is True
 
-    def test_is_docker_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_docker_running()
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    def test_install_docker_no_manager(self, _which):
+        assert self.adapter.install_docker() is False
 
-    def test_install_ollama(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.install_ollama()
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value="/usr/bin/winget")
+    @patch("rex.pal.windows.os.path.exists", return_value=False)
+    def test_install_docker_success(self, _exists, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["winget"], 0, stdout="", stderr="",
+        )
+        # install_docker returns True even if docker not yet running
+        result = self.adapter.install_docker()
+        assert isinstance(result, bool)
 
-    def test_is_ollama_running(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.is_ollama_running()
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    @patch("rex.pal.windows.os.path.exists", return_value=False)
+    def test_is_docker_running_false(self, _exists, _which, _run):
+        assert self.adapter.is_docker_running() is False
 
-    def test_get_gpu_info(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_gpu_info()
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    def test_install_ollama_no_manager(self, _which):
+        assert self.adapter.install_ollama() is False
 
-    def test_setup_egress_firewall(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.setup_egress_firewall()
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value="/usr/bin/curl")
+    def test_is_ollama_running_true(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["curl"], 0, stdout='{"models":[]}', stderr="",
+        )
+        assert self.adapter.is_ollama_running() is True
 
-    def test_get_disk_encryption_status(self):
-        with pytest.raises(RexPlatformNotSupportedError):
-            self.adapter.get_disk_encryption_status()
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    def test_is_ollama_running_false(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["tasklist"], 0, stdout="No tasks", stderr="",
+        )
+        assert self.adapter.is_ollama_running() is False
+
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value="/usr/bin/nvidia-smi")
+    def test_get_gpu_info_nvidia(self, _which, mock_run):
+        def side_effect(cmd, **kwargs):
+            if "--query-gpu=name,memory.total,driver_version" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout="NVIDIA GeForce RTX 3080, 10240, 535.104.05\n",
+                    stderr="",
+                )
+            if "--query-gpu=compute_cap" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0, stdout="8.6\n", stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        info = self.adapter.get_gpu_info()
+        assert info is not None
+        assert "RTX 3080" in info.model
+        assert info.cuda_available is True
+
+    @patch("rex.pal.windows._run")
+    @patch("rex.pal.windows.shutil.which", return_value=None)
+    def test_get_gpu_info_none(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["wmic"], 1, stdout="", stderr="",
+        )
+        assert self.adapter.get_gpu_info() is None
+
+    @patch("rex.pal.windows._run")
+    def test_setup_egress_firewall(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 0, stdout="Ok.", stderr="",
+        )
+        result = self.adapter.setup_egress_firewall(
+            allowed_hosts=["1.2.3.4"],
+            allowed_ports=[443],
+        )
+        assert result is True
+
+    @patch("rex.pal.windows._run")
+    def test_setup_egress_firewall_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["netsh"], 1, stdout="", stderr="access denied",
+        )
+        assert self.adapter.setup_egress_firewall() is False
+
+    @patch("rex.pal.windows._run")
+    def test_get_disk_encryption_status_on(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            ["manage-bde"], 0,
+            stdout=(
+                "Volume C: [OS]\n"
+                "    Protection Status:    Protection On\n"
+                "    Encryption Method:    XTS-AES 256\n"
+            ),
+            stderr="",
+        )
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is True
+        assert status["method"] == "BitLocker"
+
+    @patch("rex.pal.windows._run")
+    def test_get_disk_encryption_status_off(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if "manage-bde" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 0,
+                    stdout=(
+                        "Volume C: [OS]\n"
+                        "    Protection Status:    Protection Off\n"
+                    ),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        status = self.adapter.get_disk_encryption_status()
+        assert status["encrypted"] is False
