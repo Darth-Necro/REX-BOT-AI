@@ -76,7 +76,7 @@ class FederationService(BaseService):
                 if peers:
                     logger.debug("Known federation peers: %d", len(peers))
             except Exception:
-                pass
+                logger.debug("Peer discovery cycle failed", exc_info=True)
             await asyncio.sleep(300)  # Every 5 minutes
 
     async def _receive_loop(self) -> None:

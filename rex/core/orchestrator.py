@@ -41,7 +41,7 @@ _START_ORDER = [
 
 _MAX_RESTART_ATTEMPTS = 3
 _HEALTH_CHECK_INTERVAL = 30  # seconds
-_RESTART_DECAY_SECONDS = 300  # Reset restart counter after 5 minutes of stability
+_RESTART_DECAY_WINDOW = 300  # seconds -- restart counter resets after this period of stability
 
 
 class ServiceOrchestrator:
@@ -133,6 +133,7 @@ class ServiceOrchestrator:
         self._services[name] = service
         self._status[name] = "registered"
         self._restart_counts[name] = 0
+        self._last_restart_time[name] = 0.0
 
     async def start_all(self) -> None:
         """Start every registered service in dependency order."""
@@ -203,8 +204,10 @@ class ServiceOrchestrator:
             return False
         svc = self._services[name]
         if self._status.get(name) == "running":
-            with contextlib.suppress(Exception):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before restart", name.value, exc_info=True)
         success = await self._start_service(name)
         if success:
             logger.info("Restarted %s", name.value)
@@ -273,23 +276,22 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service with anti-flapping.
+        """Attempt to auto-restart a failed service with decay-window anti-flapping.
 
-        Restart budget decays after ``_RESTART_DECAY_SECONDS`` of stability
-        so that a service which ran healthily for a long time gets a fresh
-        budget.  This prevents both infinite restart loops (hard cap) and
-        overly-strict permanent disabling after transient failures.
+        The restart counter resets after ``_RESTART_DECAY_WINDOW`` seconds of
+        stability (no restarts), preventing a service that briefly recovers
+        from permanently exhausting its restart budget.
         """
         now = time.monotonic()
         last_restart = self._last_restart_time.get(name, 0.0)
         count = self._restart_counts.get(name, 0)
 
-        # Decay: if the service was stable for long enough, reset counter
-        # Only decay if there was a prior restart (last_restart > 0)
-        if count > 0 and last_restart > 0 and (now - last_restart) > _RESTART_DECAY_SECONDS:
+        # Decay: reset counter if the service has been stable long enough.
+        # last_restart == 0 means no restart has occurred yet, so no decay applies.
+        if count > 0 and last_restart > 0 and (now - last_restart) > _RESTART_DECAY_WINDOW:
             logger.info(
-                "Service %s stable for >%ds — resetting restart counter",
-                name.value, _RESTART_DECAY_SECONDS,
+                "Service %s restart counter reset (stable for %.0fs)",
+                name.value, now - last_restart,
             )
             count = 0
             self._restart_counts[name] = 0
@@ -297,7 +299,7 @@ class ServiceOrchestrator:
         if count >= _MAX_RESTART_ATTEMPTS:
             self._status[name] = "disabled"
             logger.error(
-                "Service %s exceeded max restarts (%d) — disabled",
+                "Service %s exceeded max restarts (%d) within decay window — disabled",
                 name.value, _MAX_RESTART_ATTEMPTS,
             )
             return
@@ -305,14 +307,19 @@ class ServiceOrchestrator:
         self._restart_counts[name] = count + 1
         self._last_restart_time[name] = now
         logger.info(
-            "Auto-restarting %s (attempt %d/%d)",
-            name.value, count + 1, _MAX_RESTART_ATTEMPTS,
+            "Auto-restarting %s in %ds (attempt %d/%d in %ds window)",
+            name.value, backoff, attempt, _MAX_RESTART_ATTEMPTS,
+            _RESTART_WINDOW_SECONDS,
         )
+        await asyncio.sleep(backoff)
+
         # Stop the service first to avoid duplicate tasks / port conflicts
         svc = self._services.get(name)
-        if svc and self._status.get(name) == "running":
-            with contextlib.suppress(Exception):
+        if svc and self._status.get(name) in ("running", "failed"):
+            try:
                 await svc.stop()
+            except Exception:
+                logger.warning("Error stopping %s before auto-restart", name.value, exc_info=True)
         await self._start_service(name)
 
     @property
@@ -322,7 +329,7 @@ class ServiceOrchestrator:
 
     def get_status(self) -> dict[str, Any]:
         """Return full orchestrator status."""
-        uptime = time.monotonic() - self._start_time if self._start_time else 0
+        uptime = max(0.0, time.monotonic() - self._start_time) if self._start_time else 0.0
         degraded = self._health_agg.get_degraded_services()
         return {
             "uptime_seconds": round(uptime, 1),

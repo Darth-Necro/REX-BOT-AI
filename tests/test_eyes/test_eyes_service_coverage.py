@@ -6,6 +6,7 @@ and accessors to push coverage above 50%.
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -142,9 +143,13 @@ class TestOnStartCreatesDeviceStore:
             # At least one bg task (periodic scan); more if interface detected
             assert len(svc._bg_tasks) >= 1
 
-            # Clean up background tasks
-            for task in svc._bg_tasks:
+            # Clean up background tasks to avoid coroutine-not-awaited warnings
+            svc._running = False
+            all_tasks = svc._bg_tasks + svc._tasks
+            for task in all_tasks:
                 task.cancel()
+            if all_tasks:
+                await asyncio.gather(*all_tasks, return_exceptions=True)
 
 
 # ------------------------------------------------------------------

@@ -93,7 +93,7 @@ class FirewallManager:
                 self._rex_ip = s.getsockname()[0]
                 s.close()
             except Exception:
-                pass
+                self._logger.debug("Could not determine REX IP via socket probe", exc_info=True)
         except Exception:
             self._logger.warning(
                 "Could not discover gateway/REX IPs; safety checks will "

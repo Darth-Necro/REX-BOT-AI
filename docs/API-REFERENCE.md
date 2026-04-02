@@ -1219,9 +1219,10 @@ wss://localhost:8443/ws
 
 ### Authentication
 
-WebSocket connections use **first-message auth** -- the JWT token is sent as
-the first JSON message after the connection opens (not as a query parameter,
-to prevent token leakage into server/proxy access logs).
+WebSocket connections use **first-message auth** to prevent JWT leakage into
+server/proxy access logs. Do NOT pass the token as a query parameter.
+
+After the connection opens, the client must send an auth message within 5 seconds:
 
 ```json
 {
@@ -1230,9 +1231,8 @@ to prevent token leakage into server/proxy access logs).
 }
 ```
 
-The server expects this message within **5 seconds** of connection.  If the
-token is missing or invalid, the connection is closed with code `4001`
-(missing) or `4003` (invalid/expired).
+If the token is missing, invalid, or not received within the timeout, the server
+closes the connection with code `4001` (missing token) or `4003` (invalid token).
 
 ### Client-to-Server Messages
 

@@ -1,8 +1,8 @@
 /**
  * WebSocket client singleton.
  *
- * - Authenticates via first-message auth (JWT sent as JSON after connect).
- * - No token in URL to prevent leakage into server/proxy access logs.
+ * - Authenticates via first-message auth (no token in URL to prevent
+ *   JWT leakage into server/proxy access logs).
  * - Exponential backoff with jitter on disconnect.
  * - Clean disconnect on logout (no reconnect loop).
  * - Connection state exposed via handler callbacks.

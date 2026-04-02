@@ -89,6 +89,10 @@ class PluginRegistry:
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             self._path.write_text(json.dumps(self._entries, indent=2))
+            # Restrict permissions — registry contains token hashes
+            import contextlib
+            with contextlib.suppress(OSError):
+                self._path.chmod(0o600)
         except Exception:
             logger.warning("Failed to persist plugin registry")
 

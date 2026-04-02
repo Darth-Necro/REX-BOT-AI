@@ -290,12 +290,10 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 ### Password Security
 
-- Passwords are hashed with **bcrypt** (random salt per hash)
-- Long passwords are SHA-256 pre-hashed to prevent bcrypt's 72-byte silent truncation vulnerability
-- Null bytes in passwords are explicitly rejected to prevent truncation-at-null attacks
+- Passwords are pre-hashed with SHA-256 (to handle bcrypt's 72-byte limit safely) then hashed with bcrypt using a unique random salt per hash
 - Minimum password length: 12 characters (enforced on password change)
-- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via CLI (never logged)
-- Password changes require the current password and rotate the JWT secret (invalidating all sessions)
+- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via CLI stderr only (never logged)
+- Password changes require the current password and invalidate all existing JWT tokens
 
 ### Rate Limiting and Lockout
 

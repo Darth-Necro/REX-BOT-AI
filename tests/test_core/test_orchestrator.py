@@ -135,6 +135,8 @@ def test_get_status_returns_all_services():
 @pytest.mark.asyncio
 async def test_auto_restart_on_failure():
     """A failed service should be auto-restarted up to MAX attempts."""
+    import time
+    from unittest.mock import patch as sync_patch
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
     orch._bus.connect = AsyncMock()
@@ -144,8 +146,9 @@ async def test_auto_restart_on_failure():
     orch.register(svc)
     orch._status[ServiceName.EYES] = "failed"
 
-    # Auto-restart should attempt to start the service
-    await orch._auto_restart(ServiceName.EYES)
+    # Auto-restart should attempt to start the service (patch sleep for speed)
+    with sync_patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+        await orch._auto_restart(ServiceName.EYES)
 
     assert orch._restart_counts[ServiceName.EYES] == 1
     # After start succeeds, status should be "running"
@@ -154,13 +157,16 @@ async def test_auto_restart_on_failure():
 
 @pytest.mark.asyncio
 async def test_auto_restart_max_attempts():
-    """After MAX restarts, service should be disabled."""
+    """After MAX restarts in the sliding window, service should be disabled."""
+    import time
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
 
     svc = _mock_service(ServiceName.EYES, fail_start=True)
     orch.register(svc)
-    orch._restart_counts[ServiceName.EYES] = 3  # Already at max
+    # Simulate 3 recent restarts within the sliding window
+    now = time.monotonic()
+    orch._restart_timestamps[ServiceName.EYES] = [now - 10, now - 5, now - 1]
 
     await orch._auto_restart(ServiceName.EYES)
 
