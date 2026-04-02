@@ -552,10 +552,15 @@ class TestRunMethod:
 
         mock_loop.add_signal_handler = _capture_signal_handler
 
+        def _close_coro_and_return_mock(coro):
+            """Close the coroutine to avoid 'was never awaited' warning."""
+            coro.close()
+            return MagicMock()
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
