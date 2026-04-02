@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
+
 import shutil
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
@@ -27,12 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("rex.eyes.dns_monitor")
 
-_SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "LOGNAME"}
-
-
-def _safe_env() -> dict[str, str]:
-    """Return environment with sensitive variables stripped."""
-    return {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS or k.startswith("LC_")}
+from rex.shared.subprocess_util import run_subprocess_async
 
 
 # ---------------------------------------------------------------------------
@@ -159,23 +154,14 @@ class DNSMonitor:
         if not shutil.which("curl"):
             return 0
 
-        try:
-            logger.info("Subprocess: %s %s", "curl", "-sL --max-time 15 " + url)
-            proc = await asyncio.create_subprocess_exec(
-                "curl", "-sL", "--max-time", "15", url,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_safe_env(),
-            )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
-        except (TimeoutError, OSError) as exc:
-            self._logger.debug("Feed download failed for %s: %s", url, exc)
+        rc, stdout, _ = await run_subprocess_async(
+            "curl", "-sL", "--max-time", "15", url,
+            timeout=20, label="curl-threat-feed",
+        )
+        if rc != 0 or not stdout:
             return 0
 
-        if proc.returncode != 0 or not stdout:
-            return 0
-
-        text = stdout.decode(errors="replace")
+        text = stdout
         count = 0
         for line in text.splitlines():
             line = line.strip()

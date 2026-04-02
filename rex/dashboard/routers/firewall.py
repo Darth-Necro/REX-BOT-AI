@@ -40,12 +40,21 @@ async def list_rules(user: dict = Depends(get_current_user)) -> dict[str, Any]:
 
 @router.post("/rules")
 async def add_rule(
-    ip: str = Body(..., max_length=45),
-    direction: str = Body("both"),
-    reason: str = Body("", max_length=500),
+    payload: dict = Body(...),
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Add a manual firewall rule via the platform adapter."""
+    """Add a manual firewall rule via the platform adapter.
+
+    Accepts a JSON body with at least an IP address (as ``ip`` or ``source``)
+    and optional ``direction``, ``action``, ``port``, ``protocol``, ``reason``.
+    """
+    # Resolve the IP: accept "ip", or fall back to "source" / "destination"
+    ip = payload.get("ip") or payload.get("source") or payload.get("destination") or ""
+    if not ip:
+        raise HTTPException(status_code=422, detail="ip (or source/destination) is required")
+    if len(ip) > 45:
+        raise HTTPException(status_code=422, detail="IP/CIDR too long")
+
     # Validate IP address or CIDR notation
     try:
         ipaddress.ip_address(ip)
@@ -56,6 +65,15 @@ async def add_rule(
             raise HTTPException(
                 status_code=422, detail="Invalid IP address or CIDR notation"
             )
+
+    direction = payload.get("direction", "both")
+    if direction not in ("inbound", "outbound", "both"):
+        raise HTTPException(status_code=422, detail="direction must be inbound, outbound, or both")
+
+    reason = payload.get("reason", "")
+    if len(reason) > 500:
+        raise HTTPException(status_code=422, detail="reason must be 500 characters or less")
+
     try:
         from rex.pal import get_adapter
 
@@ -65,11 +83,15 @@ async def add_rule(
             "status": "added",
             "ip": ip,
             "direction": direction,
+            "action": payload.get("action", "block"),
+            "port": payload.get("port"),
+            "protocol": payload.get("protocol"),
+            "reason": reason,
             "rule": rule.model_dump() if hasattr(rule, "model_dump") else str(rule),
         }
     except Exception as e:
         logger.exception("Failed to add firewall rule for %s: %s", ip, e)
-        return {"status": "error", "ip": ip, "detail": "Failed to add firewall rule"}
+        raise HTTPException(status_code=500, detail=f"Failed to add firewall rule for {ip}")
 
 
 @router.delete("/rules/{rule_id}")
@@ -87,7 +109,7 @@ async def remove_rule(
         # Validate that rule_id is a valid IP address before passing to PAL
         ipaddress.ip_address(rule_id)
     except ValueError:
-        return {"status": "error", "rule_id": rule_id, "detail": "Invalid IP address"}
+        raise HTTPException(status_code=422, detail=f"Invalid IP address: {rule_id}")
 
     try:
         from rex.pal import get_adapter
@@ -100,7 +122,7 @@ async def remove_rule(
         }
     except Exception as e:
         logger.exception("Failed to remove firewall rule %s: %s", rule_id, e)
-        return {"status": "error", "rule_id": rule_id, "detail": "Failed to remove firewall rule"}
+        raise HTTPException(status_code=500, detail=f"Failed to remove firewall rule {rule_id}")
 
 
 @router.post("/panic")
@@ -117,7 +139,7 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
         }
     except Exception as e:
         logger.exception("Panic button failed: %s", e)
-        return {"status": "error", "detail": "Panic restore failed"}
+        raise HTTPException(status_code=500, detail="Panic restore failed")
 
 
 @router.post("/panic/restore")
@@ -134,4 +156,4 @@ async def panic_restore(user: dict = Depends(get_current_user)) -> dict[str, Any
         }
     except Exception as e:
         logger.exception("Panic restore failed: %s", e)
-        return {"status": "error", "detail": "Panic restore failed"}
+        raise HTTPException(status_code=500, detail="Panic restore failed")

@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import bcrypt
+
+from rex.shared.fileutil import atomic_write_json
 import jwt  # PyJWT
 
 from rex.shared.audit import audit_event
@@ -84,6 +86,22 @@ def verify_password(password: str, hashed: str) -> bool:
     """
     _reject_null_bytes(password)
     return bcrypt.checkpw(_prehash_password(password), hashed.encode())
+
+
+def _is_legacy_hash(password: str, pw_hash: str) -> bool:
+    """Detect if a hash was created without SHA-256 pre-hashing.
+
+    Returns True if the hash does NOT verify under the current pre-hashed
+    scheme but DOES verify with the raw password fed directly to bcrypt.
+    This indicates the hash was created with the old method and should be
+    upgraded.
+    """
+    try:
+        if bcrypt.checkpw(_prehash_password(password), pw_hash.encode()):
+            return False  # current scheme — not legacy
+        return bcrypt.checkpw(password.encode("utf-8"), pw_hash.encode())
+    except Exception:
+        return False
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -343,7 +361,10 @@ class AuthManager:
             try:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
-                self._jwt_secret = data.get("jwt_secret", "")
+                # jwt_secret may be absent from plaintext storage (by design —
+                # see security comment below).  Generate a fresh ephemeral one
+                # so existing sessions are invalidated but the app still starts.
+                self._jwt_secret = data.get("jwt_secret") or secrets.token_hex(32)
                 # Migrate to SecretsManager if available, then remove plaintext
                 if self._store_to_secrets_manager():
                     try:
@@ -370,11 +391,11 @@ class AuthManager:
             # token-forging capability.  The trade-off: a restart without
             # SecretsManager generates a new JWT secret (invalidating
             # existing sessions).
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-            }))
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            atomic_write_json(
+                self._creds_file,
+                {"password_hash": self._password_hash},
+                chmod=0o600,
+            )
             logger.warning(
                 "Credentials stored WITHOUT encryption -- only password hash persisted. "
                 "Install SecretsManager dependencies for full encrypted storage."
@@ -492,11 +513,11 @@ class AuthManager:
                 with contextlib.suppress(OSError):
                     self._creds_file.unlink()
         else:
-            self._creds_file.write_text(json.dumps({
-                "password_hash": self._password_hash,
-            }))
-            with contextlib.suppress(OSError):
-                self._creds_file.chmod(0o600)
+            atomic_write_json(
+                self._creds_file,
+                {"password_hash": self._password_hash},
+                chmod=0o600,
+            )
 
         audit_event("password_change", username=username)
         logger.info("Password changed for user %s", username)

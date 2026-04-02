@@ -13,7 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.eyes.port_scanner import PortScanner, SERVICE_MAP, _safe_env
+from rex.eyes.port_scanner import PortScanner, SERVICE_MAP
+from rex.shared.subprocess_util import safe_env as _safe_env
 
 
 class TestSafeEnv:

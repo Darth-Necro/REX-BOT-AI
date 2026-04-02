@@ -66,7 +66,7 @@ class TestReadFile:
 class TestRunCmd:
     """Cover _run_cmd helper."""
 
-    @patch("rex.pal.detector.subprocess.run")
+    @patch("rex.shared.subprocess_util.subprocess.run")
     def test_run_cmd_success(self, mock_run):
         from rex.pal.detector import _run_cmd
         mock_run.return_value = subprocess.CompletedProcess(
@@ -74,20 +74,20 @@ class TestRunCmd:
         )
         assert _run_cmd(["echo", "hi"]) == "output"
 
-    @patch("rex.pal.detector.subprocess.run", side_effect=FileNotFoundError)
+    @patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError)
     def test_run_cmd_file_not_found(self, _mock):
         from rex.pal.detector import _run_cmd
         assert _run_cmd(["nonexist"]) == ""
 
     @patch(
-        "rex.pal.detector.subprocess.run",
+        "rex.shared.subprocess_util.subprocess.run",
         side_effect=subprocess.TimeoutExpired(cmd=["x"], timeout=10),
     )
     def test_run_cmd_timeout(self, _mock):
         from rex.pal.detector import _run_cmd
         assert _run_cmd(["slow"]) == ""
 
-    @patch("rex.pal.detector.subprocess.run", side_effect=OSError("boom"))
+    @patch("rex.shared.subprocess_util.subprocess.run", side_effect=OSError("boom"))
     def test_run_cmd_oserror(self, _mock):
         from rex.pal.detector import _run_cmd
         assert _run_cmd(["bad"]) == ""

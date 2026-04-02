@@ -23,7 +23,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 
-from rex.shared.audit import audit_event
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
 
@@ -65,20 +65,11 @@ class PluginRegistry:
         self._hmac_key = self._load_or_create_key()
         if self._path is None:
             return
-        if self._path.exists():
-            try:
-                raw = json.loads(self._path.read_text())
-                # Migration: add missing metadata fields to old entries
-                for token_hash, entry in raw.items():
-                    if "issued_at" not in entry:
-                        entry["issued_at"] = time.time()
-                    if "revoked" not in entry:
-                        entry["revoked"] = False
-                    entry.setdefault("last_used_at", None)
-                    entry.setdefault("expires_at", None)
-                self._entries = raw
-            except Exception:
-                logger.warning("Failed to load plugin registry from %s", self._path)
+        data = safe_read_json(self._path, default={})
+        if isinstance(data, dict):
+            self._entries = data
+        else:
+            logger.warning("Plugin registry at %s has unexpected type — using empty", self._path)
 
     def _load_or_create_key(self) -> bytes:
         """Load or generate the HMAC key used for token hashing."""
@@ -195,11 +186,8 @@ class PluginRegistry:
         if self._path is None:
             return
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(json.dumps(self._entries, indent=2))
-            with contextlib.suppress(OSError):
-                self._path.chmod(0o600)
-        except Exception:
+            atomic_write_json(self._path, self._entries, chmod=0o600)
+        except OSError:
             logger.warning("Failed to persist plugin registry")
 
 

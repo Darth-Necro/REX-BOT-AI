@@ -184,11 +184,9 @@ class TestTestNotification:
         with patch.object(deps, "_bus_instance", None):
             response = client.post("/api/notifications/test/slack")
 
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
-        assert data["status"] == "not_sent"
-        assert data["channel"] == "slack"
-        assert data["delivered_to_bus"] is False
+        assert "detail" in data
 
     def test_notification_requires_auth(self) -> None:
         """Unauthenticated test notification returns 401."""

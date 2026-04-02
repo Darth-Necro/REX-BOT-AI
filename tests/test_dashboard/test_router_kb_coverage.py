@@ -205,10 +205,9 @@ class TestRevertCoverage:
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post("/api/knowledge-base/revert/nonexistent")
 
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
-        assert data["status"] == "not_found"
-        assert data["commit"] == "nonexistent"
+        assert "detail" in data
 
     def test_revert_error_handling(self, tmp_path) -> None:
         """Revert returns error status when file operation fails."""
@@ -221,15 +220,14 @@ class TestRevertCoverage:
 
         with (
             patch("rex.shared.config.get_config", return_value=test_cfg),
-            patch.object(Path, "write_text", side_effect=OSError("disk full")),
+            patch("rex.dashboard.routers.knowledge_base.atomic_write_text", side_effect=OSError("disk full")),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(f"/api/knowledge-base/revert/{ts}")
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         data = response.json()
-        assert data["status"] == "error"
-        assert "detail" in data  # Generic error message (no internal details leaked)
+        assert "detail" in data
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +297,6 @@ class TestUpdateKBCoverage:
                 json={"content": "test"},
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         data = response.json()
-        assert data["status"] == "error"
-        assert "detail" in data  # Generic error message (no internal details leaked)
+        assert "detail" in data

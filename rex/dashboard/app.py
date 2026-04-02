@@ -274,17 +274,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.warning("Event bus not available — dashboard running without real-time events")
 
-    # Initialize interview service (non-fatal if dependencies unavailable)
-    try:
-        from rex.interview.service import InterviewService
-
-        interview_bus_instance = deps._bus_instance
-        interview_svc = InterviewService(config=config, bus=interview_bus_instance)
-        await interview_svc.start()
-        deps.set_interview_service(interview_svc)
-        logger.info("Interview service connected to dashboard")
-    except Exception:
-        logger.warning("Interview service not available in dashboard context")
+    # InterviewService lifecycle is owned by the orchestrator.
+    # The dashboard accesses it via deps.get_interview_service().
 
     logger.info("Dashboard initialized (port %d)", config.dashboard_port)
 
@@ -363,13 +354,38 @@ def create_app() -> FastAPI:
     app.include_router(agent.router)
     app.include_router(federation.router)
 
-    # Static frontend files (served if the build exists)
+    # Static frontend files -- resolve the dist directory deterministically.
+    # Priority: REX_FRONTEND_DIR env var > source-tree-relative path.
     import os
-    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    _frontend_override = os.environ.get("REX_FRONTEND_DIR", "").strip()
+    if _frontend_override:
+        frontend_dist = _frontend_override
+    else:
+        frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+
+    _serving_frontend = False
     if os.path.isdir(frontend_dist):
+        _serving_frontend = True
+
+    # Register frontend-status BEFORE the static mount (which catches all paths)
+    @app.get("/api/frontend-status")
+    async def frontend_status() -> dict:
+        """Report whether the dashboard UI is being served."""
+        return {
+            "serving": _serving_frontend,
+            "path": frontend_dist if _serving_frontend else None,
+        }
+
+    if _serving_frontend:
         from starlette.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
         logger.info("Serving frontend from %s", frontend_dist)
+    else:
+        logger.warning(
+            "Frontend assets not found at %s — dashboard will serve API only. "
+            "Build the frontend (npm run build) or set REX_FRONTEND_DIR.",
+            frontend_dist,
+        )
 
     # WebSocket endpoint
     @app.websocket("/ws")
@@ -394,20 +410,37 @@ def create_app() -> FastAPI:
             content={"detail": "Internal server error"},
         )
 
-    # Privacy audit endpoint (no auth, limited info)
+    # Privacy status endpoint (no auth, limited info)
     @app.get("/api/privacy/status")
     async def privacy_status() -> dict:
         """Public privacy status -- safe to expose without auth.
 
-        Reports design-level privacy properties of REX.  For a full
-        runtime audit (outbound connections, encryption verification),
-        use ``GET /api/privacy/audit`` which requires authentication.
+        Returns design-level privacy signals in the shape the frontend
+        expects: ``signals``, ``retention``, ``data_local_only``,
+        ``encryption_at_rest``, ``telemetry_enabled``, ``capabilities``.
+        For a full runtime audit, use ``GET /api/privacy/audit`` (auth required).
         """
+        from rex.shared.config import get_config as _get_config
+
+        cfg = _get_config()
+        # Retention days from user settings (if available)
+        try:
+            from rex.dashboard.routers.config import _load_user_settings
+            retention_days = _load_user_settings().get("data_retention_days", 90)
+        except Exception:
+            retention_days = 90
+
         return {
-            "design_local_only": True,
+            "signals": [
+                {"key": "local_only", "label": "All data stored locally", "ok": True},
+                {"key": "llm_local", "label": "LLM runs on localhost", "ok": True},
+                {"key": "no_telemetry", "label": "No telemetry sent", "ok": True},
+            ],
+            "retention": {"policy": "local_only", "days": retention_days},
+            "data_local_only": True,
+            "encryption_at_rest": False,
             "telemetry_enabled": False,
-            "llm_localhost_enforced": True,
-            "note": "For a full runtime privacy audit, authenticate and use /api/privacy/audit",
+            "capabilities": {"audit": True},
         }
 
     return app

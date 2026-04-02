@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 from io import StringIO
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
 
@@ -68,7 +69,7 @@ class TestVersionCommand:
 
     def test_version_output_contains_prefix(self) -> None:
         result = runner.invoke(app, ["version"])
-        assert "REX-BOT-AI" in result.output
+        assert "*woof!*" in result.output
 
 
 # ------------------------------------------------------------------

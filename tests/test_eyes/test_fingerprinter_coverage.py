@@ -16,7 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.eyes.fingerprinter import DeviceFingerprinter, _safe_env
+from rex.eyes.fingerprinter import DeviceFingerprinter
+from rex.shared.subprocess_util import safe_env as _safe_env
 from rex.shared.enums import DeviceType
 from rex.shared.models import Device
 
@@ -217,10 +218,11 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(big_csv.encode(), b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
+            patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
         ):
             result = await fp._download_oui_csv()
 
@@ -234,10 +236,11 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(short.encode(), b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
+            patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
         ):
             result = await fp._download_oui_csv()
 
@@ -249,10 +252,11 @@ class TestDownloadOuiCsv:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
+            patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
         ):
             result = await fp._download_oui_csv()
 
@@ -264,7 +268,7 @@ class TestDownloadOuiCsv:
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", side_effect=TimeoutError),
+            patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", side_effect=TimeoutError),
         ):
             result = await fp._download_oui_csv()
 
@@ -276,7 +280,7 @@ class TestDownloadOuiCsv:
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", side_effect=OSError("exec failed")),
+            patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", side_effect=OSError("exec failed")),
         ):
             result = await fp._download_oui_csv()
 
@@ -412,8 +416,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result == "Linux 5.15 (98% confidence)"
@@ -436,7 +441,7 @@ class TestNmapOsDetect:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result == "Linux 5.15"
@@ -450,7 +455,7 @@ class TestNmapOsDetect:
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -460,7 +465,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -470,7 +475,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=FileNotFoundError):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=FileNotFoundError):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -484,7 +489,7 @@ class TestNmapOsDetect:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"<not valid xml><<>", b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -505,7 +510,7 @@ class TestNmapOsDetect:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -526,7 +531,7 @@ class TestNmapOsDetect:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -547,7 +552,7 @@ class TestTtlOsGuess:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result == "Linux/Unix"
@@ -562,7 +567,7 @@ class TestTtlOsGuess:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result == "Windows"
@@ -577,7 +582,7 @@ class TestTtlOsGuess:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.1")
 
         assert result == "Network Equipment"
@@ -592,7 +597,7 @@ class TestTtlOsGuess:
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None
@@ -605,7 +610,7 @@ class TestTtlOsGuess:
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None
@@ -614,7 +619,7 @@ class TestTtlOsGuess:
     async def test_ping_timeout(self) -> None:
         fp = _fp()
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None
@@ -623,7 +628,7 @@ class TestTtlOsGuess:
     async def test_ping_file_not_found(self) -> None:
         fp = _fp()
 
-        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=FileNotFoundError):
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=FileNotFoundError):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None
