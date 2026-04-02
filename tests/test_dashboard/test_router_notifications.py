@@ -126,14 +126,17 @@ class TestGetSettings:
 class TestUpdateSettings:
     """Tests for PUT /api/notifications/settings."""
 
-    def test_update_settings_returns_not_available(self) -> None:
+    def test_update_settings_returns_not_available(self, tmp_path) -> None:
         """Update settings returns not_available with echoed request."""
         app = _make_app()
         app.dependency_overrides[get_current_user] = _fake_user
-        client = TestClient(app, raise_server_exceptions=False)
+        test_cfg = _make_test_config(tmp_path)
+        (tmp_path / "rex-data").mkdir(parents=True, exist_ok=True)
 
         payload = {"channels": {"slack": {"enabled": True}}}
-        response = client.put("/api/notifications/settings", json=payload)
+        with patch("rex.shared.config.get_config", return_value=test_cfg):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.put("/api/notifications/settings", json=payload)
         assert response.status_code == 200
         data = response.json()
         # Returns the saved settings on success, or {"status": "error"} on disk failure

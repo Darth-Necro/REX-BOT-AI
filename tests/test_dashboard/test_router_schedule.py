@@ -84,14 +84,17 @@ class TestGetSchedule:
 class TestUpdateSchedule:
     """Tests for PUT /api/schedule/."""
 
-    def test_update_schedule_returns_not_available(self) -> None:
+    def test_update_schedule_returns_not_available(self, tmp_path) -> None:
         """Returns not_available with echoed request body."""
         app = _make_app()
         app.dependency_overrides[get_current_user] = _fake_user
-        client = TestClient(app, raise_server_exceptions=False)
+        test_cfg = _make_test_config(tmp_path)
+        (tmp_path / "rex-data").mkdir(parents=True, exist_ok=True)
 
         payload = {"scan_interval": 60, "sleep_at": "23:00"}
-        response = client.put("/api/schedule/", json=payload)
+        with patch("rex.shared.config.get_config", return_value=test_cfg):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.put("/api/schedule/", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "updated"

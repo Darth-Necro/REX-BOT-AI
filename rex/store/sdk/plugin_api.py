@@ -23,6 +23,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 
+from rex.shared.audit import audit_event
 from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
