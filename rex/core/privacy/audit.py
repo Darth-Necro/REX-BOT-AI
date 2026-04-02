@@ -669,10 +669,13 @@ class PrivacyAuditor:
     def _is_local_endpoint(url: str) -> bool:
         """Determine whether a URL points to a local endpoint.
 
-        Parameters
-        ----------
-        url:
-            URL string (e.g. ``"http://localhost:11434"``).
+        Handles:
+        - ``http://localhost:11434``
+        - ``http://127.0.0.1:6379``
+        - ``http://[::1]:6379`` (bracketed IPv6)
+        - ``redis://::1:6379`` (unbracketed IPv6 shorthand)
+        - ``http://0.0.0.0:8080``
+        - Private/loopback IP addresses
 
         Returns
         -------
@@ -680,38 +683,40 @@ class PrivacyAuditor:
             ``True`` if the host portion resolves to loopback or
             a private address.
         """
+        import ipaddress as _ipaddress
         from urllib.parse import urlparse
 
-        local_hosts = {
-            "localhost",
-            "127.0.0.1",
-            "::1",
-            "0.0.0.0",
-        }
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname or ""
         except Exception:
             hostname = ""
 
-        if hostname in local_hosts:
+        # Check well-known local hostnames first
+        if hostname in ("localhost", "0.0.0.0"):
             return True
 
+        # Try parsing as an IP address (covers both IPv4 and IPv6)
+        if hostname:
+            try:
+                addr = _ipaddress.ip_address(hostname)
+                return addr.is_loopback or addr.is_private or addr.is_link_local
+            except ValueError:
+                pass
+            # Not an IP — could be a hostname like "localhost" (already checked)
+            return False
+
         # Handle unbracketed IPv6 that urlparse fails to parse
-        # (e.g. "http://::1:6379" — urlparse returns hostname=None)
-        if not hostname:
-            import re
-            # Extract host portion between :// and the next /
-            m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
-            if m:
-                host_port = m.group(1)
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
-                if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
-                    for local in ("::1",):
-                        if host_port == local or host_port.startswith(local + ":"):
-                            return True
+        # (e.g. "redis://::1:6379" — urlparse returns hostname=None)
+        import re
+        m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
+        if m:
+            host_port = m.group(1)
+            # For shorthand like ::1:6379, the host is ::1
+            if host_port.startswith("::"):
+                for local in ("::1",):
+                    if host_port == local or host_port.startswith(local + ":"):
+                        return True
         return False
 
     @staticmethod

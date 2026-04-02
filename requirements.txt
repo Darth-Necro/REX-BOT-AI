@@ -8,7 +8,9 @@ pydantic-settings==2.7.1
 redis==5.2.1
 httpx==0.28.1
 scapy==2.6.1
-python-nmap==0.7.1
+# python-nmap requires Python <3.13 and may fail to build from source
+# on some systems. Install separately if needed: pip install python-nmap
+python-nmap==0.7.1; python_version < "3.13"
 ollama==0.4.7
 chromadb-client==0.6.3
 gitpython==3.1.44

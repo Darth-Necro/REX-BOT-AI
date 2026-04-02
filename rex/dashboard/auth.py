@@ -8,6 +8,7 @@ Session timeout: 4 hours by default.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import secrets
@@ -29,6 +30,9 @@ _MAX_LOGIN_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
+_MIN_JWT_SECRET_LENGTH = 32
+
+
 def _reject_null_bytes(password: str) -> None:
     """Raise ValueError if password contains NUL bytes.
 
@@ -40,8 +44,27 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prepare_password(password: str) -> bytes:
+    """Prepare a password for bcrypt hashing.
+
+    bcrypt has a 72-byte input limit.  Passwords longer than 72 bytes are
+    pre-hashed with SHA-256 (base64-encoded) to produce a fixed-length
+    input that preserves the full entropy of the original password.
+    This is a well-established pattern (used by Dropbox, Django, etc.).
+
+    Returns the bytes to pass to bcrypt.
+    """
+    pw_bytes = password.encode("utf-8")
+    if len(pw_bytes) > 72:
+        pw_bytes = hashlib.sha256(pw_bytes).hexdigest().encode("ascii")
+    return pw_bytes
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
+
+    Passwords longer than 72 bytes are pre-hashed with SHA-256 to avoid
+    bcrypt's silent truncation.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -49,17 +72,24 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prepare_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prepare_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
-    """Create an HS256 JWT token using PyJWT."""
+    """Create an HS256 JWT token using PyJWT.
+
+    Raises ValueError if the secret is too short for safe HS256 signing.
+    """
+    if len(secret) < _MIN_JWT_SECRET_LENGTH:
+        raise ValueError(
+            f"JWT secret must be at least {_MIN_JWT_SECRET_LENGTH} characters"
+        )
     payload = {
         **data,
         "exp": datetime.now(UTC) + timedelta(hours=expires_hours),
@@ -125,7 +155,14 @@ class AuthManager:
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
                 # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                migrated = self._store_to_secrets_manager()
+                if migrated:
+                    # Remove plaintext file after successful migration
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Plaintext credentials file removed after migration to encrypted storage")
+                    except OSError:
+                        logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
                 return None
             except Exception:
