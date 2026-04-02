@@ -134,15 +134,23 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
         "timestamp": utc_now().isoformat(),
     }
 
-    # Check if the caller is authenticated -- if so, include full details
+    # Check if the caller is authenticated -- if so, include full details.
+    # On failure, default to restricted (unauthenticated) view -- never
+    # silently upgrade to full disclosure when auth is unavailable.
     authed = False
     if authorization.startswith("Bearer "):
+        from fastapi import HTTPException
+
         from rex.dashboard.deps import get_auth
 
         try:
             auth = get_auth()
-            if auth.verify_token(authorization[7:]):
+            payload = auth.verify_token(authorization[7:])
+            if payload is not None:
                 authed = True
+        except HTTPException:
+            # Auth service not initialized -- return restricted view
+            pass
         except Exception:
             logger.debug("Auth check failed in health endpoint", exc_info=True)
 
@@ -183,14 +191,29 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
 
 @router.get("/health")
 async def health_check() -> dict[str, str]:
-    """Lightweight health check for load balancers and monitoring.
+    """Health check endpoint for load balancers and monitoring.
 
-    Returns ``{"status": "ok"}`` only if the dashboard process is responsive.
-    This is a *liveness* check — it confirms the process is running and can
-    serve requests.  For deeper *readiness* checks (Redis, Ollama, disk),
-    use ``GET /api/status`` with authentication.
+    Returns 200 with ``{"status": "ok"}`` if the dashboard is running
+    and can reach Redis.  Returns 200 with ``{"status": "degraded"}``
+    if Redis is unavailable (WAL fallback is active).
+
+    This is intentionally simple and fast -- detailed status is available
+    at ``/api/status`` with authentication.
     """
-    return {"status": "ok"}
+    from rex.shared.config import get_config
+
+    config = get_config()
+    try:
+        import redis as redis_lib
+
+        r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
+        try:
+            r.ping()
+        finally:
+            r.close()
+        return {"status": "ok"}
+    except Exception:
+        return {"status": "degraded"}
 
 
 @router.get("/privacy/audit")

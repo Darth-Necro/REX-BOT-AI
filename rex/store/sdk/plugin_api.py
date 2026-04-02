@@ -144,10 +144,10 @@ class PluginIdentity:
 async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> PluginIdentity:
     """Verify plugin API token against the registry. Returns PluginIdentity.
 
-    Alpha contract:
+    Alpha contract (fail-closed):
     - Tokens must be at least 32 characters.
     - Tokens MUST be registered in the plugin registry.
-    - Plugin identity and permissions are derived from the registry entry.
+    - Plugin identity and permissions are always derived server-side (never self-chosen).
     - Unregistered tokens are always rejected.
     """
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:

@@ -34,9 +34,17 @@ _ALL_PERMISSIONS = [
 ]
 
 
+VALID_TOKEN = "a" * 32 + "-test-plugin-token-for-ci"
+HEADERS = {"X-Plugin-Token": VALID_TOKEN}
+_EXPECTED_PLUGIN_ID = f"plugin-{PluginRegistry.hash_token(VALID_TOKEN)[:16]}"
+
+
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Each test gets a fresh registry with the test plugin registered."""
+    """Each test gets a fresh registry with the test plugin registered.
+
+    Alpha contract: all plugin tokens must be registered (fail-closed).
+    """
     reg = PluginRegistry()
     reg.register(VALID_TOKEN, PLUGIN_ID, "test-plugin", permissions=_ALL_PERMISSIONS)
     set_plugin_registry(reg)

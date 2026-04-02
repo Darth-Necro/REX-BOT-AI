@@ -50,8 +50,9 @@ def _reject_null_bytes(password: str) -> None:
 def _prehash_password(password: str) -> bytes:
     """Pre-hash a password with SHA-256 to work around bcrypt's 72-byte limit.
 
-    bcrypt silently truncates (or in newer versions, rejects) passwords
-    longer than 72 bytes.  By pre-hashing with SHA-256 and base64-encoding
+    bcrypt silently truncates at 72 bytes, meaning ``"A"*100`` and
+    ``"A"*72`` would produce the same hash -- a classic truncation
+    vulnerability.  By pre-hashing with SHA-256 and base64-encoding
     the result we get a fixed 44-byte input that preserves entropy from
     the full password.  This is the standard approach used by Dropbox and
     others.
@@ -251,7 +252,7 @@ class AuthManager:
                 if stored:
                     pw_hash = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during login; using cached credential")
 
         # Verify password
         if not verify_password(password, pw_hash):
@@ -284,7 +285,7 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during login; using cached JWT secret")
 
         # Generate JWT
         token = create_token({"sub": username}, jwt_secret)
@@ -329,5 +330,5 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                pass
+                logger.warning("SecretsManager read failed during token verification; using cached JWT secret")
         return verify_token_str(token, jwt_secret)

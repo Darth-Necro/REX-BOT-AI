@@ -698,37 +698,43 @@ class PrivacyAuditor:
         if hostname.lower() in local_hostnames:
             return True
 
-        # Check if hostname is a loopback/private IP address
+        # urlparse handles bracketed IPv6 (e.g. http://[::1]:6379)
+        # and returns hostname="::1" (without brackets).  Try to
+        # parse as an IP address for robust loopback/private detection.
         if hostname:
             try:
                 addr = _ipaddress.ip_address(hostname)
                 return addr.is_loopback or addr.is_private or addr.is_link_local
             except ValueError:
                 pass
+
             # Also handle 0.0.0.0 which is used as a bind address
             if hostname == "0.0.0.0":
                 return True
-            return False
 
         # Handle unbracketed IPv6 that urlparse fails to parse
-        # (e.g. "http://::1:6379" — urlparse returns hostname=None)
-        import re
-        m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
-        if m:
-            host_port = m.group(1)
-            # Strip bracketed form
-            bracket_m = re.match(r"^\[(.+?)\](?::(\d+))?$", host_port)
-            if bracket_m:
-                try:
-                    addr = _ipaddress.ip_address(bracket_m.group(1))
-                    return addr.is_loopback or addr.is_private or addr.is_link_local
-                except ValueError:
-                    pass
-            # IPv6 shorthand like ::1:port or just ::1
-            if host_port.startswith("::"):
-                for local in ("::1",):
-                    if host_port == local or host_port.startswith(local + ":"):
-                        return True
+        # (e.g. "redis://::1:6379" — urlparse returns hostname=None).
+        # Conservatively check common loopback shorthand forms.
+        if not hostname:
+            import re
+            m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
+            if m:
+                host_port = m.group(1)
+                # Strip brackets if present
+                if host_port.startswith("["):
+                    bracket_end = host_port.find("]")
+                    if bracket_end > 0:
+                        bare_ip = host_port[1:bracket_end]
+                        try:
+                            addr = _ipaddress.ip_address(bare_ip)
+                            return addr.is_loopback or addr.is_private or addr.is_link_local
+                        except ValueError:
+                            pass
+                # Unbracketed ::1 forms
+                if host_port.startswith("::"):
+                    for local in ("::1",):
+                        if host_port == local or host_port.startswith(local + ":"):
+                            return True
         return False
 
     @staticmethod

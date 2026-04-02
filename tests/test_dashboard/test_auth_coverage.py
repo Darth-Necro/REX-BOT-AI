@@ -259,7 +259,7 @@ async def test_old_token_invalid_after_password_change(tmp_path: Path) -> None:
 
 def test_create_token_expiry_hours() -> None:
     """create_token respects the expires_hours parameter."""
-    secret = "test-secret-padded-to-32-chars!!"
+    secret = "a" * 64  # 256-bit key avoids InsecureKeyLengthWarning
     token = create_token({"sub": "admin"}, secret, expires_hours=1)
     payload = verify_token_str(token, secret)
     assert payload is not None

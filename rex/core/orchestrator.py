@@ -42,6 +42,7 @@ _START_ORDER = [
 _MAX_RESTART_ATTEMPTS = 3
 _HEALTH_CHECK_INTERVAL = 30  # seconds
 _RESTART_DECAY_WINDOW = 300  # seconds -- restart counter resets after this period of stability
+_RESTART_BACKOFF_BASE = 5  # seconds: exponential backoff between restarts
 
 
 class ServiceOrchestrator:
@@ -351,11 +352,12 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service with decay-window anti-flapping.
+        """Attempt to auto-restart a failed service with anti-flapping.
 
-        The restart counter resets after ``_RESTART_DECAY_WINDOW`` seconds of
-        stability (no restarts), preventing a service that briefly recovers
-        from permanently exhausting its restart budget.
+        Uses exponential backoff between restart attempts and a decay
+        window: if a service stays healthy for ``_RESTART_DECAY_WINDOW``
+        seconds its restart budget is reset, preventing a service that
+        briefly recovers from permanently exhausting its restart budget.
         """
         now = time.monotonic()
         last_restart = self._last_restart_time.get(name, 0.0)
@@ -372,19 +374,22 @@ class ServiceOrchestrator:
             self._restart_counts[name] = 0
 
         if count >= _MAX_RESTART_ATTEMPTS:
-            self._status[name] = "disabled"
-            logger.error(
-                "Service %s exceeded max restarts (%d) within decay window — disabled",
-                name.value, _MAX_RESTART_ATTEMPTS,
-            )
+            if self._status.get(name) != "disabled":
+                self._status[name] = "disabled"
+                logger.error(
+                    "Service %s exceeded max restarts (%d) within decay window — disabled. "
+                    "Manual restart required.",
+                    name.value, _MAX_RESTART_ATTEMPTS,
+                )
             return
 
+        # Exponential backoff: 5s, 10s, 20s
+        backoff = _RESTART_BACKOFF_BASE * (2 ** count)
         self._restart_counts[name] = count + 1
         self._last_restart_time[name] = now
         logger.info(
-            "Auto-restarting %s in %ds (attempt %d/%d in %ds window)",
-            name.value, backoff, attempt, _MAX_RESTART_ATTEMPTS,
-            _RESTART_WINDOW_SECONDS,
+            "Auto-restarting %s (attempt %d/%d, backoff %ds)",
+            name.value, count + 1, _MAX_RESTART_ATTEMPTS, backoff,
         )
         await asyncio.sleep(backoff)
 

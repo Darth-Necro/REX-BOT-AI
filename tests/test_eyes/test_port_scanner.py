@@ -219,7 +219,7 @@ class TestDeepScanWithNmap:
 
         async def fake_open(host, port):
             if port in (80, 443):
-                return AsyncMock(), mock_writer
+                return MagicMock(), mock_writer
             raise ConnectionRefusedError()
 
         with patch("rex.eyes.port_scanner.asyncio.open_connection",

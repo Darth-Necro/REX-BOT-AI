@@ -96,6 +96,27 @@ class RexConfig(BaseSettings):
             _logging.getLogger(__name__).warning(msg)
         return v
 
+    @field_validator("dashboard_port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        """Ensure dashboard port is in the valid TCP range."""
+        if not 1 <= v <= 65535:
+            raise ValueError(
+                f"dashboard_port must be between 1 and 65535, got: {v}"
+            )
+        return v
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """Ensure log_level is a recognized Python logging level."""
+        allowed = {"debug", "info", "warning", "error", "critical"}
+        if v.lower() not in allowed:
+            raise ValueError(
+                f"log_level must be one of {sorted(allowed)}, got: {v!r}"
+            )
+        return v.lower()
+
     @field_validator("redis_url", "chroma_url")
     @classmethod
     def validate_local_url(cls, v: str) -> str:

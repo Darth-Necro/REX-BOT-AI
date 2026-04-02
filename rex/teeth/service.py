@@ -13,6 +13,7 @@ failure events, but does not touch the firewall.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -293,7 +294,7 @@ class TeethService(BaseService):
                 error=str(exc),
             )
 
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as exc:
             self._log.exception(
                 "Unexpected error executing %s for decision %s",
                 action_id, decision_id,

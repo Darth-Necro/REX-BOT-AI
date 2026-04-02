@@ -16,15 +16,19 @@ from datetime import UTC
 import typer
 
 # TLS verification is ENABLED by default.  For local development with
-# self-signed certs, set REX_DEV_INSECURE=1.  This is a development-only
-# escape hatch and MUST NOT be used in production or alpha deployments.
+# self-signed certs, set REX_DEV_INSECURE=1 in the environment.
+# This flag is intentionally narrow: it only disables TLS certificate
+# verification for CLI -> local dashboard requests, NOT for any other
+# HTTP client in the codebase.  MUST NOT be used in production or alpha deployments.
 import os as _os
 _DEV_INSECURE = _os.environ.get("REX_DEV_INSECURE", "").strip() in ("1", "true", "yes")
 if _DEV_INSECURE:
     logging.getLogger(__name__).warning(
-        "REX_DEV_INSECURE is set — TLS certificate verification DISABLED. "
+        "REX_DEV_INSECURE is set — TLS certificate verification DISABLED for CLI commands. "
         "Do NOT use this in production or alpha deployments."
     )
+    # Suppress only the specific httpx/urllib3 warning for unverified HTTPS
+    warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 from rex.shared.constants import VERSION
 

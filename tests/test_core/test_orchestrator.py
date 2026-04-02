@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -146,8 +146,8 @@ async def test_auto_restart_on_failure():
     orch.register(svc)
     orch._status[ServiceName.EYES] = "failed"
 
-    # Auto-restart should attempt to start the service (patch sleep for speed)
-    with sync_patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+    # Auto-restart should attempt to start the service (patch sleep for backoff)
+    with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
         await orch._auto_restart(ServiceName.EYES)
 
     assert orch._restart_counts[ServiceName.EYES] == 1
