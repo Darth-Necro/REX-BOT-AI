@@ -1,7 +1,7 @@
 /**
  * WebSocket client singleton.
  *
- * - Authenticates via token query param on connect.
+ * - Authenticates via first-message auth (JWT sent after connect, NOT in URL).
  * - Exponential backoff with jitter on disconnect.
  * - Clean disconnect on logout (no reconnect loop).
  * - Connection state exposed via handler callbacks.

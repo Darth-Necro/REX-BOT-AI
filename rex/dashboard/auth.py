@@ -40,6 +40,24 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _bcrypt_safe_encode(password: str) -> bytes:
+    """Encode a password for bcrypt, pre-hashing if it exceeds 72 bytes.
+
+    bcrypt silently truncates (or in newer versions, rejects) inputs
+    longer than 72 bytes.  To support arbitrary-length passwords safely
+    we SHA-256 the raw bytes and base64-encode the digest, producing a
+    44-byte string that is always within bcrypt's limit.  This is the
+    same approach used by Dropbox and Django.
+    """
+    import base64
+    import hashlib
+
+    raw = password.encode("utf-8")
+    if len(raw) > 72:
+        raw = base64.b64encode(hashlib.sha256(raw).digest())
+    return raw
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
 
@@ -49,13 +67,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_bcrypt_safe_encode(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_bcrypt_safe_encode(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:

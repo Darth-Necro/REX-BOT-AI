@@ -35,7 +35,9 @@ dependencies = [
     "redis>=5.2.0,<6.0",
     "httpx>=0.28.0,<1.0",
     "scapy>=2.6.0,<3.0",
-    "python-nmap>=0.7.1,<1.0;python_version<'3.13'",
+    # python-nmap removed: REX invokes nmap via CommandExecutor (direct exec),
+    # not through the python-nmap library.  The package also fails to build
+    # on modern setuptools.  If nmap scripting is needed later, use python3-nmap.
     "ollama>=0.4.0,<1.0",
     "chromadb-client>=0.6.0,<1.0",
     "gitpython>=3.1.43,<4.0",
