@@ -36,8 +36,10 @@ app = typer.Typer(
 
 
 def _setup_logging(level: str = "info") -> None:
-    """Configure structured JSON logging."""
-    numeric = getattr(logging, level.upper(), logging.INFO)
+    """Configure structured logging."""
+    numeric = getattr(logging, level.upper(), None)
+    if numeric is None:
+        numeric = logging.INFO
     logging.basicConfig(
         level=numeric,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -257,11 +259,27 @@ def privacy() -> None:
 
 
 def _get_token() -> str:
-    """Read cached auth token."""
+    """Read cached auth token from ~/.rex-token.
+
+    The token file should be owner-readable only (0600).
+    """
     import os
+    import stat
     from pathlib import Path
     token_file = Path(os.path.expanduser("~/.rex-token"))
     if token_file.exists():
+        # Warn if token file has overly permissive permissions
+        try:
+            mode = token_file.stat().st_mode
+            if mode & (stat.S_IRWXG | stat.S_IRWXO):
+                import sys
+                print(
+                    "WARNING: ~/.rex-token has group/world permissions. "
+                    "Run: chmod 600 ~/.rex-token",
+                    file=sys.stderr,
+                )
+        except OSError:
+            pass
         return token_file.read_text().strip()
     return ""
 

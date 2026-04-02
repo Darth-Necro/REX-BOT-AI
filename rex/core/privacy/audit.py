@@ -697,6 +697,17 @@ class PrivacyAuditor:
         if hostname in local_hosts:
             return True
 
+        # urlparse correctly handles bracketed IPv6 (e.g. http://[::1]:6379)
+        # but fails on unbracketed forms.  Also check for private ranges.
+        if hostname:
+            import ipaddress as _ipaddress
+            try:
+                addr = _ipaddress.ip_address(hostname)
+                if addr.is_loopback or addr.is_private or addr.is_link_local:
+                    return True
+            except ValueError:
+                pass
+
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
         if not hostname:
@@ -705,6 +716,19 @@ class PrivacyAuditor:
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
+                # Handle bracketed IPv6 that urlparse missed
+                bracket_m = re.match(r"\[([^\]]+)\]", host_port)
+                if bracket_m:
+                    ipv6_host = bracket_m.group(1)
+                    if ipv6_host in local_hosts:
+                        return True
+                    import ipaddress as _ipaddress
+                    try:
+                        addr = _ipaddress.ip_address(ipv6_host)
+                        if addr.is_loopback or addr.is_private or addr.is_link_local:
+                            return True
+                    except ValueError:
+                        pass
                 # Strip trailing port if present (last :N segment)
                 # For ::1:6379, the host is ::1
                 if host_port.startswith("::"):

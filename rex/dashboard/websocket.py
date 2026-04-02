@@ -47,7 +47,7 @@ class WebSocketManager:
 
     Supports channel-based subscriptions so clients only receive events
     they care about (e.g., threat.new, device.update, status.update).
-    Requires a valid JWT token in the ``token`` query parameter.
+    Requires a valid JWT sent as the first WebSocket message after connect.
     """
 
     def __init__(self) -> None:
@@ -176,4 +176,9 @@ class WebSocketManager:
                         websocket, {"type": "error", "message": "Invalid JSON"}
                     )
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            logger.debug("WebSocket error, closing connection", exc_info=True)
+        finally:
+            # Deterministic cleanup: always remove from connection pool
             await self.disconnect(websocket)

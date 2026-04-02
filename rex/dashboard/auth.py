@@ -40,6 +40,25 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prehash_long_password(password: str) -> bytes:
+    """Pre-hash passwords that exceed bcrypt's 72-byte limit.
+
+    bcrypt silently truncates input at 72 bytes, meaning two passwords
+    that share the first 72 bytes would compare as equal — a real
+    vulnerability.  We SHA-256 hash any password and base64-encode the
+    digest to produce a fixed-length (44-byte) input that preserves
+    full entropy and stays within the 72-byte limit.
+
+    We always pre-hash (regardless of length) so that the verification
+    path is deterministic and simple.
+    """
+    import base64
+    import hashlib
+    raw = password.encode("utf-8")
+    digest = hashlib.sha256(raw).digest()
+    return base64.b64encode(digest)
+
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
 
@@ -49,13 +68,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash_long_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prehash_long_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -124,8 +143,12 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
+                    # Migration succeeded — remove plaintext credential file
+                    with contextlib.suppress(OSError):
+                        self._creds_file.unlink()
+                    logger.info("Migrated credentials to encrypted storage, removed plaintext file")
                 self._initialized = True
                 return None
             except Exception:
@@ -243,7 +266,11 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            # Remove plaintext file if encrypted storage succeeded
+            with contextlib.suppress(OSError):
+                self._creds_file.unlink()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,

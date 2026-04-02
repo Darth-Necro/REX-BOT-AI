@@ -41,6 +41,7 @@ _START_ORDER = [
 
 _MAX_RESTART_ATTEMPTS = 3
 _HEALTH_CHECK_INTERVAL = 30  # seconds
+_RESTART_DECAY_SECONDS = 300  # Reset restart counter after 5 minutes of stability
 
 
 class ServiceOrchestrator:
@@ -57,6 +58,7 @@ class ServiceOrchestrator:
         self._services: dict[ServiceName, BaseService] = {}
         self._status: dict[ServiceName, str] = {}
         self._restart_counts: dict[ServiceName, int] = {}
+        self._last_restart_time: dict[ServiceName, float] = {}
         self._start_time: float = 0
         self._running = False
         self._config: RexConfig | None = None
@@ -271,8 +273,27 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service."""
+        """Attempt to auto-restart a failed service with anti-flapping.
+
+        Restart budget decays after ``_RESTART_DECAY_SECONDS`` of stability
+        so that a service which ran healthily for a long time gets a fresh
+        budget.  This prevents both infinite restart loops (hard cap) and
+        overly-strict permanent disabling after transient failures.
+        """
+        now = time.monotonic()
+        last_restart = self._last_restart_time.get(name, 0.0)
         count = self._restart_counts.get(name, 0)
+
+        # Decay: if the service was stable for long enough, reset counter
+        # Only decay if there was a prior restart (last_restart > 0)
+        if count > 0 and last_restart > 0 and (now - last_restart) > _RESTART_DECAY_SECONDS:
+            logger.info(
+                "Service %s stable for >%ds — resetting restart counter",
+                name.value, _RESTART_DECAY_SECONDS,
+            )
+            count = 0
+            self._restart_counts[name] = 0
+
         if count >= _MAX_RESTART_ATTEMPTS:
             self._status[name] = "disabled"
             logger.error(
@@ -282,6 +303,7 @@ class ServiceOrchestrator:
             return
 
         self._restart_counts[name] = count + 1
+        self._last_restart_time[name] = now
         logger.info(
             "Auto-restarting %s (attempt %d/%d)",
             name.value, count + 1, _MAX_RESTART_ATTEMPTS,
