@@ -77,6 +77,13 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra -q --strict-markers"
+filterwarnings = [
+    # CPython AsyncMock creates coroutine objects during attribute introspection
+    # (e.g. in inspect.py, mock.py) that are never awaited. These are GC-timing
+    # artifacts — they pass cleanly when run in isolation. Suppressing here to
+    # avoid masking real warnings with framework noise.
+    "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks integration tests requiring external services",
