@@ -164,9 +164,9 @@ async def test_auto_restart_max_attempts():
 
     svc = _mock_service(ServiceName.EYES, fail_start=True)
     orch.register(svc)
-    # Simulate 3 recent restarts within the sliding window
-    now = time.monotonic()
-    orch._restart_timestamps[ServiceName.EYES] = [now - 10, now - 5, now - 1]
+    # Simulate max restarts already exhausted within the decay window
+    orch._restart_counts[ServiceName.EYES] = 3
+    orch._last_restart_time[ServiceName.EYES] = time.monotonic()
 
     await orch._auto_restart(ServiceName.EYES)
 

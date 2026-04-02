@@ -306,10 +306,12 @@ class ServiceOrchestrator:
 
         self._restart_counts[name] = count + 1
         self._last_restart_time[name] = now
+        attempt = count + 1
+        backoff = min(2 ** (attempt - 1), 300)
         logger.info(
             "Auto-restarting %s in %ds (attempt %d/%d in %ds window)",
             name.value, backoff, attempt, _MAX_RESTART_ATTEMPTS,
-            _RESTART_WINDOW_SECONDS,
+            _RESTART_DECAY_WINDOW,
         )
         await asyncio.sleep(backoff)
 

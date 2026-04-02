@@ -522,10 +522,9 @@ class MessageAuthenticator:
     def _mark_dirty(self) -> None:
         """Mark that in-memory state has diverged from disk.
 
-        For simplicity, we save immediately on state changes that
-        affect pairing. For last_message_at updates, we batch saves.
+        Saves immediately to ensure last_message_at updates are persisted.
         """
-        pass  # last_message_at updates are saved periodically, not immediately.
+        self._save()
 
     def _load(self) -> None:
         """Load paired users from the JSON file on disk."""
