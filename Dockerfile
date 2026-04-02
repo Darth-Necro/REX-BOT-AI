@@ -90,9 +90,9 @@ ENV OLLAMA_NOTELEMETRY=1
 
 EXPOSE 8443
 
-# Health check
+# Health check — use TCP connect to avoid HTTP/HTTPS ambiguity
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -sf http://localhost:8443/api/health || exit 1
+    CMD curl -sf --insecure https://localhost:8443/api/health || curl -sf http://localhost:8443/api/health || exit 1
 
 # Run as non-root for most operations
 # Note: NET_ADMIN/NET_RAW capabilities granted via docker-compose
