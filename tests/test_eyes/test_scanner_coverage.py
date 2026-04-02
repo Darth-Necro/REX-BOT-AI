@@ -13,7 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.eyes.scanner import NetworkScanner, _safe_env
+from rex.eyes.scanner import NetworkScanner
+from rex.shared.subprocess_util import safe_env as _safe_env
 from rex.shared.config import RexConfig
 from rex.shared.models import Device, NetworkInfo
 from rex.shared.enums import DeviceStatus
@@ -221,10 +222,11 @@ class TestNmapPingSweep:
         mock_proc.communicate = AsyncMock(side_effect=TimeoutError)
         mock_proc.returncode = None
         mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock()
 
-        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
-            with patch("asyncio.wait_for", side_effect=TimeoutError):
-                result = await scanner._nmap_ping_sweep("192.168.1.0/24")
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
+                   new_callable=AsyncMock, return_value=mock_proc):
+            result = await scanner._nmap_ping_sweep("192.168.1.0/24")
 
         assert result == []
 

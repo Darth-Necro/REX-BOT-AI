@@ -243,11 +243,9 @@ class TestInstallPlugin:
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post("/api/plugins/install/unknown-plugin")
 
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
-        assert data["status"] == "not_found"
-        assert data["plugin_id"] == "unknown-plugin"
-        assert "bundled" in data["note"].lower()
+        assert "detail" in data
 
     def test_install_requires_auth(self) -> None:
         """Unauthenticated request returns 401."""
@@ -300,10 +298,9 @@ class TestRemovePlugin:
             client = TestClient(app, raise_server_exceptions=False)
             response = client.delete("/api/plugins/unknown-plugin")
 
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
-        assert data["status"] == "not_found"
-        assert data["plugin_id"] == "unknown-plugin"
+        assert "detail" in data
 
     def test_remove_requires_auth(self) -> None:
         """Unauthenticated request returns 401."""

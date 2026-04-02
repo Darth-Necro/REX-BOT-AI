@@ -94,7 +94,7 @@ async def trust_device(
         return {"mac": mac, "action": "trust", "status": "requested", "delivered": True}
     except Exception as e:
         logger.exception("Failed to trust device %s: %s", mac, e)
-        return {"mac": mac, "action": "trust", "status": "not_available", "delivered": False, "detail": "Event bus unavailable"}
+        raise HTTPException(status_code=503, detail="Event bus unavailable")
 
 
 @router.post("/{mac}/block")
@@ -118,7 +118,7 @@ async def block_device(
         return {"mac": mac, "action": "block", "status": "requested", "delivered": True}
     except Exception as e:
         logger.exception("Failed to block device %s: %s", mac, e)
-        return {"mac": mac, "action": "block", "status": "not_available", "delivered": False, "detail": "Event bus unavailable"}
+        raise HTTPException(status_code=503, detail="Event bus unavailable")
 
 
 @router.post("/scan")

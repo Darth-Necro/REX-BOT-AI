@@ -386,7 +386,7 @@ class TestDiscoverDevices:
         mock_proc.returncode = 0
 
         scanner._nmap_available = True
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner.discover_devices()
 
@@ -424,7 +424,7 @@ class TestDiscoverDevices:
         mock_proc.returncode = 0
 
         scanner._nmap_available = True
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner.discover_devices()
 
@@ -458,7 +458,7 @@ class TestDiscoverDevices:
 
         scanner = NetworkScanner(pal=mock_pal, config=config)
         scanner._nmap_available = True
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner.discover_devices()
 
@@ -567,7 +567,7 @@ class TestNmapPingSweep:
         mock_proc.returncode = None
         mock_proc.kill = MagicMock()
 
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         assert result == []
@@ -580,7 +580,7 @@ class TestNmapPingSweep:
         scanner = NetworkScanner(pal=mock_pal, config=config)
         scanner._nmap_available = True
 
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=FileNotFoundError("nmap")):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         assert result == []
@@ -593,7 +593,7 @@ class TestNmapPingSweep:
         scanner = NetworkScanner(pal=mock_pal, config=config)
         scanner._nmap_available = True
 
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=OSError("permission denied")):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         assert result == []
@@ -611,7 +611,7 @@ class TestNmapPingSweep:
         )
         mock_proc.returncode = 1
 
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         # Still parses XML even on non-zero exit
@@ -630,7 +630,7 @@ class TestNmapPingSweep:
         )
         mock_proc.returncode = 0
 
-        with patch("rex.eyes.scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         assert len(result) == 2
@@ -769,7 +769,7 @@ class TestSafeEnv:
     """Test environment variable sanitisation."""
 
     def test_filters_sensitive_vars(self):
-        from rex.eyes.scanner import _safe_env
+        from rex.shared.subprocess_util import safe_env as _safe_env
 
         with patch.dict("os.environ", {
             "PATH": "/usr/bin",

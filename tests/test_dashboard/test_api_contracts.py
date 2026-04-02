@@ -181,9 +181,9 @@ class TestProtectionModeContract:
                 json={"mode": "invalid_mode"},
             )
 
-        assert resp.status_code == 200
+        assert resp.status_code == 422
         data = resp.json()
-        assert data["status"] == "error"
+        assert "detail" in data
 
     def test_requires_auth(self) -> None:
         app = _make_app(config)
@@ -230,9 +230,9 @@ class TestPatrolContract:
                 json={"cron": "not a cron expression"},
             )
 
-        assert resp.status_code == 200
+        assert resp.status_code == 422
         data = resp.json()
-        assert data["status"] == "error"
+        assert "detail" in data
 
     def test_patrol_requires_auth(self) -> None:
         app = _make_app(schedule)

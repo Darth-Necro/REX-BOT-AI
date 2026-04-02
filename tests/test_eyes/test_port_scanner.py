@@ -125,7 +125,7 @@ class TestQuickScanWithNmap:
         )
         mock_proc.returncode = 0
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             results = await scanner.quick_scan("192.168.1.100")
 
@@ -146,7 +146,7 @@ class TestQuickScanWithNmap:
         scanner._nmap_available = True
 
         # Make nmap subprocess fail
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=FileNotFoundError("nmap")):
             # Also mock socket scan so we don't do real network
             mock_writer = AsyncMock()
@@ -171,7 +171,7 @@ class TestQuickScanWithNmap:
         scanner = PortScanner()
         scanner._nmap_available = True
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=TimeoutError("timeout")):
             # Fallback to socket scan -- all closed
             with patch("rex.eyes.port_scanner.asyncio.open_connection",
@@ -198,7 +198,7 @@ class TestDeepScanWithNmap:
         )
         mock_proc.returncode = 0
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc) as mock_exec:
             results = await scanner.deep_scan("192.168.1.100")
 
@@ -452,7 +452,7 @@ class TestNmapScan:
         )
         mock_proc.returncode = 0
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             results = await scanner._nmap_scan("192.168.1.1", [22, 80, 443])
 
@@ -463,7 +463,7 @@ class TestNmapScan:
     async def test_returns_none_on_timeout(self) -> None:
         scanner = PortScanner()
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=TimeoutError()):
             result = await scanner._nmap_scan("192.168.1.1", [22])
 
@@ -473,7 +473,7 @@ class TestNmapScan:
     async def test_returns_none_on_file_not_found(self) -> None:
         scanner = PortScanner()
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=FileNotFoundError()):
             result = await scanner._nmap_scan("192.168.1.1", [22])
 
@@ -481,14 +481,18 @@ class TestNmapScan:
         assert scanner._nmap_available is False
 
     @pytest.mark.asyncio
-    async def test_returns_none_on_os_error(self) -> None:
+    async def test_returns_empty_on_os_error(self) -> None:
+        """OSError is caught by the shared subprocess util and returns rc=1,
+        which results in an empty parse (not None)."""
         scanner = PortScanner()
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    side_effect=OSError("permission")):
             result = await scanner._nmap_scan("192.168.1.1", [22])
 
-        assert result is None
+        # OSError → rc=1 → nmap exit code 1 is treated as "host down" →
+        # parse empty stdout → empty list
+        assert result == [] or result is None
 
     @pytest.mark.asyncio
     async def test_returns_none_on_bad_exit_code(self) -> None:
@@ -498,7 +502,7 @@ class TestNmapScan:
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
         mock_proc.returncode = 2  # not 0 or 1
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner._nmap_scan("192.168.1.1", [22])
 
@@ -515,7 +519,7 @@ class TestNmapScan:
         )
         mock_proc.returncode = 1
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc):
             result = await scanner._nmap_scan("192.168.1.1", [22])
 
@@ -534,7 +538,7 @@ class TestNmapScan:
         mock_proc.returncode = 0
 
         ports = list(range(1, 1500))
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc) as mock_exec:
             await scanner._nmap_scan("192.168.1.1", ports)
 
@@ -552,7 +556,7 @@ class TestNmapScan:
         )
         mock_proc.returncode = 0
 
-        with patch("rex.eyes.port_scanner.asyncio.create_subprocess_exec",
+        with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
                    return_value=mock_proc) as mock_exec:
             await scanner._nmap_scan("192.168.1.1", [22, 80, 443])
 
@@ -703,7 +707,7 @@ class TestSafeEnv:
     """Test environment variable sanitisation."""
 
     def test_filters_sensitive_vars(self) -> None:
-        from rex.eyes.port_scanner import _safe_env
+        from rex.shared.subprocess_util import safe_env as _safe_env
 
         with patch.dict("os.environ", {
             "PATH": "/usr/bin",

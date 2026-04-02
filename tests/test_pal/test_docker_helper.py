@@ -38,14 +38,14 @@ class TestRunDocker:
             args=["docker", "--version"], returncode=0,
             stdout="Docker version 24.0.7", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = _run_docker(["--version"])
         assert result.returncode == 0
 
     def test_handles_file_not_found(self) -> None:
         """Missing docker binary returns returncode 127."""
         with patch(
-            "rex.pal.docker_helper.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=FileNotFoundError(),
         ):
             result = _run_docker(["--version"])
@@ -55,17 +55,17 @@ class TestRunDocker:
     def test_handles_timeout(self) -> None:
         """Timeout returns returncode 124."""
         with patch(
-            "rex.pal.docker_helper.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd="docker", timeout=10),
         ):
             result = _run_docker(["pull", "big-image"])
-        assert result.returncode == 124
-        assert "timed out" in result.stderr
+        assert result.returncode == -1
+        assert "timeout" in result.stderr
 
     def test_handles_oserror(self) -> None:
         """Generic OSError returns returncode 1."""
         with patch(
-            "rex.pal.docker_helper.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=OSError("permission denied"),
         ):
             result = _run_docker(["info"])
@@ -84,13 +84,13 @@ class TestIsDockerInstalled:
             args=["docker", "--version"], returncode=0,
             stdout="Docker version 24.0.7", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert is_docker_installed() is True
 
     def test_false_when_docker_not_found(self) -> None:
         """Returns False when docker is not on PATH."""
         with patch(
-            "rex.pal.docker_helper.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=FileNotFoundError(),
         ):
             assert is_docker_installed() is False
@@ -101,7 +101,7 @@ class TestIsDockerInstalled:
             args=["docker", "--version"], returncode=1,
             stdout="", stderr="error"
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert is_docker_installed() is False
 
 
@@ -115,7 +115,7 @@ class TestIsDockerRunning:
         fake = subprocess.CompletedProcess(
             args=["docker", "info"], returncode=0, stdout="OK", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert is_docker_running() is True
 
     def test_false_when_daemon_not_running(self) -> None:
@@ -123,7 +123,7 @@ class TestIsDockerRunning:
             args=["docker", "info"], returncode=1,
             stdout="", stderr="Cannot connect"
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert is_docker_running() is False
 
 
@@ -140,14 +140,14 @@ class TestGetDockerVersion:
             args=["docker", "--version"], returncode=0,
             stdout=version_str + "\n", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = get_docker_version()
         assert result == version_str
 
     def test_returns_none_when_unavailable(self) -> None:
         """Returns None when docker is not installed."""
         with patch(
-            "rex.pal.docker_helper.subprocess.run",
+            "rex.shared.subprocess_util.subprocess.run",
             side_effect=FileNotFoundError(),
         ):
             assert get_docker_version() is None
@@ -157,7 +157,7 @@ class TestGetDockerVersion:
         fake = subprocess.CompletedProcess(
             args=["docker", "--version"], returncode=1, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert get_docker_version() is None
 
     def test_returns_none_on_empty_stdout(self) -> None:
@@ -165,7 +165,7 @@ class TestGetDockerVersion:
         fake = subprocess.CompletedProcess(
             args=["docker", "--version"], returncode=0, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert get_docker_version() is None
 
 
@@ -191,7 +191,7 @@ class TestListContainers:
                   "--format", "{{json .}}"],
             returncode=0, stdout=container_json + "\n", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = list_containers()
         assert len(result) == 1
         assert result[0]["id"] == "abc123"
@@ -204,7 +204,7 @@ class TestListContainers:
         fake = subprocess.CompletedProcess(
             args=["docker", "ps"], returncode=1, stdout="", stderr="error"
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert list_containers() == []
 
     def test_returns_empty_on_empty_output(self) -> None:
@@ -212,7 +212,7 @@ class TestListContainers:
         fake = subprocess.CompletedProcess(
             args=["docker", "ps"], returncode=0, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert list_containers() == []
 
     def test_skips_invalid_json_lines(self) -> None:
@@ -221,7 +221,7 @@ class TestListContainers:
         fake = subprocess.CompletedProcess(
             args=["docker", "ps"], returncode=0, stdout=output, stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = list_containers()
         assert len(result) == 1
         assert result[0]["id"] == "def456"
@@ -231,7 +231,7 @@ class TestListContainers:
         fake = subprocess.CompletedProcess(
             args=["docker", "ps"], returncode=0, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake) as mock_run:
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake) as mock_run:
             list_containers(label="custom-label")
         call_args = mock_run.call_args[0][0]
         assert "label=custom-label" in " ".join(call_args)
@@ -248,7 +248,7 @@ class TestListContainers:
             args=["docker", "ps"], returncode=0,
             stdout="\n".join(lines) + "\n", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = list_containers()
         assert len(result) == 3
 
@@ -263,14 +263,14 @@ class TestPullImage:
         fake = subprocess.CompletedProcess(
             args=["docker", "pull"], returncode=0, stdout="Pulled", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert pull_image("ollama/ollama:latest") is True
 
     def test_pull_image_failure(self) -> None:
         fake = subprocess.CompletedProcess(
             args=["docker", "pull"], returncode=1, stdout="", stderr="error"
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert pull_image("bad/image") is False
 
 
@@ -284,14 +284,14 @@ class TestRestartContainer:
         fake = subprocess.CompletedProcess(
             args=["docker", "restart"], returncode=0, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert restart_container("rex-ollama") is True
 
     def test_restart_failure(self) -> None:
         fake = subprocess.CompletedProcess(
             args=["docker", "restart"], returncode=1, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert restart_container("missing") is False
 
 
@@ -316,7 +316,7 @@ class TestGetContainerStats:
             args=["docker", "stats"], returncode=0,
             stdout=stats_json + "\n", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             result = get_container_stats("rex-ollama")
         assert result["cpu_percent"] == 12.5
         assert result["memory_percent"] == 0.78
@@ -327,14 +327,14 @@ class TestGetContainerStats:
         fake = subprocess.CompletedProcess(
             args=["docker", "stats"], returncode=1, stdout="", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert get_container_stats("missing") == {}
 
     def test_returns_empty_on_invalid_json(self) -> None:
         fake = subprocess.CompletedProcess(
             args=["docker", "stats"], returncode=0, stdout="not json", stderr=""
         )
-        with patch("rex.pal.docker_helper.subprocess.run", return_value=fake):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=fake):
             assert get_container_stats("missing") == {}
 
 

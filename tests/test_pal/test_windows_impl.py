@@ -526,7 +526,7 @@ class TestRunHelper:
         """Should return rc=127 when command not found."""
         from rex.pal.windows import _run
 
-        with patch("rex.pal.windows.subprocess.run", side_effect=FileNotFoundError()):
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=FileNotFoundError()):
             result = _run(["nonexistent"])
         assert result.returncode == 127
 
@@ -534,7 +534,7 @@ class TestRunHelper:
         """Should pass through normal subprocess results."""
         from rex.pal.windows import _run
 
-        with patch("rex.pal.windows.subprocess.run", return_value=_completed(stdout="ok")):
+        with patch("rex.shared.subprocess_util.subprocess.run", return_value=_completed(stdout="ok")):
             result = _run(["echo", "ok"])
         assert result.stdout == "ok"
 

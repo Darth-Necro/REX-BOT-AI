@@ -91,7 +91,7 @@ async def add_rule(
         }
     except Exception as e:
         logger.exception("Failed to add firewall rule for %s: %s", ip, e)
-        return {"status": "error", "ip": ip, "detail": "Failed to add firewall rule"}
+        raise HTTPException(status_code=500, detail=f"Failed to add firewall rule for {ip}")
 
 
 @router.delete("/rules/{rule_id}")
@@ -109,7 +109,7 @@ async def remove_rule(
         # Validate that rule_id is a valid IP address before passing to PAL
         ipaddress.ip_address(rule_id)
     except ValueError:
-        return {"status": "error", "rule_id": rule_id, "detail": "Invalid IP address"}
+        raise HTTPException(status_code=422, detail=f"Invalid IP address: {rule_id}")
 
     try:
         from rex.pal import get_adapter
@@ -122,7 +122,7 @@ async def remove_rule(
         }
     except Exception as e:
         logger.exception("Failed to remove firewall rule %s: %s", rule_id, e)
-        return {"status": "error", "rule_id": rule_id, "detail": "Failed to remove firewall rule"}
+        raise HTTPException(status_code=500, detail=f"Failed to remove firewall rule {rule_id}")
 
 
 @router.post("/panic")
@@ -139,7 +139,7 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
         }
     except Exception as e:
         logger.exception("Panic button failed: %s", e)
-        return {"status": "error", "detail": "Panic restore failed"}
+        raise HTTPException(status_code=500, detail="Panic restore failed")
 
 
 @router.post("/panic/restore")
@@ -156,4 +156,4 @@ async def panic_restore(user: dict = Depends(get_current_user)) -> dict[str, Any
         }
     except Exception as e:
         logger.exception("Panic restore failed: %s", e)
-        return {"status": "error", "detail": "Panic restore failed"}
+        raise HTTPException(status_code=500, detail="Panic restore failed")

@@ -139,10 +139,9 @@ class TestTriggerSleep:
         with patch.object(deps, "_bus_instance", None):
             response = client.post("/api/schedule/sleep")
 
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
-        assert data["status"] == "not_available"
-        assert data["delivered"] is False
+        assert "detail" in data
 
     def test_sleep_requires_auth(self) -> None:
         """Unauthenticated sleep request returns 401."""
@@ -186,10 +185,9 @@ class TestTriggerWake:
         with patch.object(deps, "_bus_instance", None):
             response = client.post("/api/schedule/wake")
 
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
-        assert data["status"] == "not_available"
-        assert data["delivered"] is False
+        assert "detail" in data
 
     def test_wake_requires_auth(self) -> None:
         """Unauthenticated wake request returns 401."""

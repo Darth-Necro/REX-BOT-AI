@@ -317,10 +317,9 @@ class TestRevert:
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.post("/api/knowledge-base/revert/abc123def")
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
-        assert data["status"] in ("not_available", "not_found", "reverted")
-        assert "abc123def" in str(data)
+        assert "detail" in data
 
     def test_revert_requires_auth(self) -> None:
         """Unauthenticated revert returns 401."""

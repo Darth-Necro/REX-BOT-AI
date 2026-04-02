@@ -13,7 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+
+from rex.shared.fileutil import atomic_write_text
 
 from rex.dashboard.deps import get_current_user
 
@@ -51,7 +53,7 @@ def _snapshot_previous(kb_file: Path) -> str | None:
     hist_dir = _history_dir()
     hist_dir.mkdir(parents=True, exist_ok=True)
     hist_file = hist_dir / f"{ts}.md"
-    hist_file.write_text(old_content)
+    atomic_write_text(hist_file, old_content)
     logger.info("KB snapshot saved: %s (%d bytes)", hist_file.name, len(old_content))
     return ts
 
@@ -161,7 +163,7 @@ async def update_kb(
         # Archive the current content before overwriting
         snapshot_id = _snapshot_previous(kb_file)
 
-        kb_file.write_text(content)
+        atomic_write_text(kb_file, content)
         result: dict[str, Any] = {
             "status": "updated",
             "bytes_written": len(content),
@@ -171,7 +173,7 @@ async def update_kb(
         return result
     except Exception as e:
         logger.exception("Failed to update knowledge base: %s", e)
-        return {"status": "error", "detail": "Failed to update knowledge base"}
+        raise HTTPException(status_code=500, detail="Failed to update knowledge base")
 
 
 @router.get("/history")
@@ -202,28 +204,16 @@ async def revert(
 
     # Validate commit_hash format to prevent path traversal
     if not re.match(r'^[\w\-]+$', commit_hash):
-        return {
-            "status": "invalid",
-            "commit": commit_hash,
-            "note": "Invalid commit hash format.",
-        }
+        raise HTTPException(status_code=422, detail="Invalid commit hash format.")
 
     target = hist_dir / f"{commit_hash}.md"
 
     # Ensure resolved path is within hist_dir
     if not target.resolve().is_relative_to(hist_dir.resolve()):
-        return {
-            "status": "invalid",
-            "commit": commit_hash,
-            "note": "Invalid commit hash.",
-        }
+        raise HTTPException(status_code=422, detail="Invalid commit hash.")
 
     if not target.exists():
-        return {
-            "status": "not_found",
-            "commit": commit_hash,
-            "note": "No history entry matches that identifier.",
-        }
+        raise HTTPException(status_code=404, detail="No history entry matches that identifier.")
 
     try:
         old_content = target.read_text()
@@ -233,8 +223,7 @@ async def revert(
         # is recoverable).
         _snapshot_previous(kb_file)
 
-        kb_file.parent.mkdir(parents=True, exist_ok=True)
-        kb_file.write_text(old_content)
+        atomic_write_text(kb_file, old_content)
 
         logger.info("KB reverted to %s (%d bytes)", commit_hash, len(old_content))
         return {
@@ -244,4 +233,4 @@ async def revert(
         }
     except Exception as e:
         logger.exception("Failed to revert KB to %s: %s", commit_hash, e)
-        return {"status": "error", "commit": commit_hash, "detail": "Failed to revert knowledge base"}
+        raise HTTPException(status_code=500, detail="Failed to revert knowledge base")

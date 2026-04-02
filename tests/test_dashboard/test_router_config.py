@@ -140,10 +140,9 @@ class TestSetMode:
             client = TestClient(app, raise_server_exceptions=False)
             response = client.put("/api/config/mode", json={"mode": "turbo"})
 
-        assert response.status_code == 200
+        assert response.status_code == 422
         data = response.json()
-        assert data["status"] == "error"
-        assert "Invalid mode" in data["detail"]
+        assert "detail" in data
 
     def test_set_mode_requires_auth(self) -> None:
         """Unauthenticated request to set mode returns 401."""

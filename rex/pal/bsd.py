@@ -53,27 +53,9 @@ _RESOLV_CONF = "/etc/resolv.conf"
 
 
 # ---------------------------------------------------------------------------
-# Subprocess helper
+# Subprocess helper — centralised in rex.shared.subprocess_util
 # ---------------------------------------------------------------------------
-def _run(
-    cmd: list[str],
-    *,
-    timeout: int = _DEFAULT_SUBPROCESS_TIMEOUT,
-) -> subprocess.CompletedProcess[str]:
-    """Run a subprocess with standardised parameters."""
-    try:
-        return subprocess.run(
-            cmd,
-            timeout=timeout,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        logger.warning("Command not found: %s", cmd[0])
-        return subprocess.CompletedProcess(
-            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found",
-        )
+from rex.shared.subprocess_util import run_subprocess as _run  # noqa: E402
 
 
 class BSDAdapter(PlatformAdapter):
