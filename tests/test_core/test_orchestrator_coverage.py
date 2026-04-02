@@ -317,8 +317,12 @@ class TestStopAllOrder:
 
         svc.stop = _slow_stop
 
-        # Patch wait_for timeout to be very short
-        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=TimeoutError):
+        # Patch wait_for to close the coroutine and raise TimeoutError
+        def _wait_for_timeout(coro, **kwargs):
+            coro.close()
+            raise TimeoutError
+
+        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_wait_for_timeout):
             await orch.stop_all()
 
         assert orch._status[ServiceName.EYES] == "force_stopped"
@@ -521,12 +525,16 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_event.set = MagicMock()
 
+        def _close_coro_and_return_mock(coro):
+            """Close the coroutine to avoid 'was never awaited' warning."""
+            coro.close()
+            return MagicMock()
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task") as mock_create_task,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock) as mock_create_task,
             patch.object(orch, "stop_all", new_callable=AsyncMock) as mock_stop,
         ):
-            mock_create_task.return_value = MagicMock()
             await orch.run()
 
         # Should have called start_all, created health task, waited, then stopped
@@ -586,10 +594,15 @@ class TestRunMethod:
 
         mock_loop.add_signal_handler = _capture_signal_handler
 
+        def _close_coro_and_return_mock(coro):
+            """Close the coroutine to avoid 'was never awaited' warning."""
+            coro.close()
+            return MagicMock()
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -609,9 +622,14 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
 
+        def _close_coro_and_return_mock(coro):
+            """Close the coroutine to avoid 'was never awaited' warning."""
+            coro.close()
+            return mock_task
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=mock_task) as mock_ct,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock) as mock_ct,
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
