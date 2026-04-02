@@ -33,6 +33,9 @@ _MAX_LOGIN_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
+_MIN_JWT_SECRET_LENGTH = 32
+
+
 def _reject_null_bytes(password: str) -> None:
     """Raise ValueError if password contains NUL bytes.
 
@@ -65,6 +68,9 @@ def hash_password(password: str) -> str:
     Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
     safely.  This ensures long passwords retain their full entropy.
 
+    Passwords longer than 72 bytes are pre-hashed with SHA-256 to avoid
+    bcrypt's silent truncation.
+
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
     Argon2id should be adopted before a production release due to its
@@ -84,7 +90,14 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
-    """Create an HS256 JWT token using PyJWT."""
+    """Create an HS256 JWT token using PyJWT.
+
+    Raises ValueError if the secret is too short for safe HS256 signing.
+    """
+    if len(secret) < _MIN_JWT_SECRET_LENGTH:
+        raise ValueError(
+            f"JWT secret must be at least {_MIN_JWT_SECRET_LENGTH} characters"
+        )
     payload = {
         **data,
         "exp": datetime.now(UTC) + timedelta(hours=expires_hours),

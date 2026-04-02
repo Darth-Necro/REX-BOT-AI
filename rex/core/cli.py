@@ -77,11 +77,14 @@ def start(
 
     initial_pw = asyncio.run(auth_mgr.initialize())
     if initial_pw:
-        typer.echo("  " + "=" * 46)
-        typer.echo(f"  ADMIN PASSWORD: {initial_pw}")
-        typer.echo("  Write this down. It will not be shown again.")
-        typer.echo("  " + "=" * 46)
-        typer.echo("")
+        # Display password on stderr only, so it is never captured in
+        # stdout pipes or redirected logs.
+        import sys
+        print("  " + "=" * 46, file=sys.stderr)
+        print(f"  ADMIN PASSWORD: {initial_pw}", file=sys.stderr)
+        print("  Write this down. It will not be shown again.", file=sys.stderr)
+        print("  " + "=" * 46, file=sys.stderr)
+        print("", file=sys.stderr)
 
     from rex.core.orchestrator import ServiceOrchestrator
 

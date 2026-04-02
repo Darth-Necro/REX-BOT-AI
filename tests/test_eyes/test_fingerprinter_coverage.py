@@ -215,7 +215,7 @@ class TestDownloadOuiCsv:
         fp = _fp()
         big_csv = "x" * 2000
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(big_csv.encode(), b""))
 
@@ -233,7 +233,7 @@ class TestDownloadOuiCsv:
         fp = _fp()
         short = "tiny"
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(short.encode(), b""))
 
@@ -249,7 +249,7 @@ class TestDownloadOuiCsv:
     async def test_non_zero_exit_returns_none(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
@@ -413,7 +413,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
@@ -436,7 +436,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
@@ -450,7 +450,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
@@ -484,7 +484,7 @@ class TestNmapOsDetect:
         fp = _fp()
         fp._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"<not valid xml><<>", b""))
 
@@ -505,7 +505,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
@@ -526,7 +526,7 @@ class TestNmapOsDetect:
   </host>
 </nmaprun>"""
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
@@ -605,7 +605,7 @@ class TestTtlOsGuess:
     async def test_ping_failure(self) -> None:
         fp = _fp()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
