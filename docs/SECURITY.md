@@ -290,16 +290,16 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 ### Password Security
 
-- Passwords are hashed with **bcrypt** (adaptive cost, random salt)
-- Minimum password length: **12 characters** (enforced on change)
-- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via the operator's terminal (never logged)
-- Password changes require the current password
+- Passwords are pre-hashed with SHA-256 (to handle bcrypt's 72-byte limit safely) then hashed with bcrypt using a unique random salt per hash
+- Minimum password length: 12 characters (enforced on password change)
+- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via CLI stderr only (never logged)
+- Password changes require the current password and invalidate all existing JWT tokens
 
 ### Rate Limiting and Lockout
 
 - **Login attempts**: 5 failures within 30 minutes triggers lockout
 - **Lockout duration**: 30 minutes
-- **Lockout scope**: Global (single admin user model)
+- **Lockout scope**: Per-IP (prevents distributed lockout against the admin user)
 - **Failed attempt tracking**: In-memory with 30-minute sliding window
 
 ### Authorization Model

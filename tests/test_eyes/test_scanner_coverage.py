@@ -218,6 +218,7 @@ class TestNmapPingSweep:
         scanner._nmap_available = True
 
         mock_proc = MagicMock()
+        mock_proc.communicate = AsyncMock(side_effect=TimeoutError)
         mock_proc.returncode = None
         mock_proc.kill = MagicMock()
 

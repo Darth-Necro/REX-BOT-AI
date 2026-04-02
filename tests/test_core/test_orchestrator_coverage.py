@@ -41,7 +41,7 @@ def _mock_service(
     degraded: bool = False,
 ) -> MagicMock:
     """Create a mock BaseService with configurable behaviour."""
-    svc = AsyncMock()
+    svc = MagicMock()
     svc.service_name = name
 
     if fail_start:
@@ -317,12 +317,12 @@ class TestStopAllOrder:
 
         svc.stop = _slow_stop
 
-        # Patch wait_for to close the coroutine and raise TimeoutError
-        def _wait_for_timeout(coro, **kwargs):
+        async def _timeout_wait_for(coro, **kwargs):
+            """Close the coroutine to prevent 'never awaited' warning, then raise."""
             coro.close()
             raise TimeoutError
 
-        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_wait_for_timeout):
+        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_timeout_wait_for):
             await orch.stop_all()
 
         assert orch._status[ServiceName.EYES] == "force_stopped"
@@ -446,7 +446,7 @@ class TestRestartService:
 # ------------------------------------------------------------------
 
 class TestAutoRestart:
-    """Test auto-restart with exponential back-off."""
+    """Test auto-restart with sliding-window anti-flapping."""
 
     @pytest.mark.asyncio
     async def test_auto_restart_increments_count(self) -> None:
@@ -455,29 +455,39 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 1
 
     @pytest.mark.asyncio
     async def test_auto_restart_second_attempt(self) -> None:
         """Second auto-restart should set count to 2."""
+        import time as _time
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
         orch._restart_counts[ServiceName.STORE] = 1
+        # Simulate one prior restart in the sliding window
+        orch._restart_timestamps[ServiceName.STORE] = [_time.monotonic() - 10]
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 2
 
     @pytest.mark.asyncio
     async def test_auto_restart_disables_at_max(self) -> None:
-        """After MAX_RESTART_ATTEMPTS, service should be disabled."""
+        """After MAX_RESTART_ATTEMPTS in the sliding window, service is disabled."""
+        import time as _time
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
-        orch._restart_counts[ServiceName.STORE] = _MAX_RESTART_ATTEMPTS
+        # Fill the sliding window to max
+        now = _time.monotonic()
+        orch._restart_timestamps[ServiceName.STORE] = [
+            now - 10, now - 5, now - 1,
+        ]
 
         await orch._auto_restart(ServiceName.STORE)
 
@@ -491,7 +501,8 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.SCHEDULER, fail_start=True)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.SCHEDULER)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.SCHEDULER)
 
         assert orch._restart_counts[ServiceName.SCHEDULER] == 1
         assert orch._status[ServiceName.SCHEDULER] == "failed"
@@ -525,14 +536,14 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_event.set = MagicMock()
 
-        def _close_coro_and_return_mock(coro):
-            """Close the coroutine to avoid 'was never awaited' warning."""
+        def _fake_create_task(coro):
+            """Close the coroutine to prevent 'never awaited' warning."""
             coro.close()
             return MagicMock()
 
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock) as mock_create_task,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_fake_create_task),
             patch.object(orch, "stop_all", new_callable=AsyncMock) as mock_stop,
         ):
             await orch.run()
@@ -568,7 +579,7 @@ class TestRunMethod:
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=lambda c: (c.close(), MagicMock())[-1]),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -602,7 +613,7 @@ class TestRunMethod:
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=lambda c: (c.close(), MagicMock())[-1]),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -622,14 +633,16 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
 
-        def _close_coro_and_return_mock(coro):
-            """Close the coroutine to avoid 'was never awaited' warning."""
-            coro.close()
+        # Capture the coroutine passed to create_task so we can close it
+        # (prevents "coroutine was never awaited" warning).
+        captured_coros: list = []
+        def _capture_create_task(coro):
+            captured_coros.append(coro)
             return mock_task
 
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_close_coro_and_return_mock) as mock_ct,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_capture_create_task) as mock_ct,
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -637,6 +650,10 @@ class TestRunMethod:
         # create_task should have been called (for health monitor)
         mock_ct.assert_called_once()
         assert orch._health_task is mock_task
+
+        # Clean up the unawaited coroutine to suppress warning
+        for coro in captured_coros:
+            coro.close()
 
 
 # ------------------------------------------------------------------

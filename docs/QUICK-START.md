@@ -19,10 +19,10 @@ docker compose version  # Must be Docker Compose v2
 |----------|---------|-------------|
 | RAM | 2 GB | 8 GB (for LLM features) |
 | Disk | 10 GB free | 20 GB free |
-| OS | Linux, macOS, WSL2 | Ubuntu 22.04+, Debian 12+ |
+| OS | Linux | Ubuntu 22.04+, Debian 12+ |
 | CPU | x86_64 or aarch64 | -- |
 
-> **Note:** Native Windows is not supported. Use WSL2 instead.
+> **Platform support:** Only Linux is supported in the alpha release. The Platform Abstraction Layer (PAL) has stubs for macOS, Windows, and BSD but they raise `NotImplementedError`. WSL2 may work but is not tested. Native Windows and macOS are **not supported**.
 
 ---
 
@@ -176,30 +176,28 @@ https://localhost:8443
 
 ### Find Your Admin Password
 
-The initial admin password is displayed in the startup logs:
+The initial admin password is displayed in the CLI output on first boot (it is
+**not** written to log files to prevent accidental secret leakage):
 
 ```bash
-# Docker Compose
-docker compose logs rex | grep "Admin Password"
-
 # Direct install
-rex start   # Password shown in startup output
+rex start   # Password shown in terminal output only
 ```
 
 You'll see:
 
 ```
-============================================
-REX-BOT-AI Initial Admin Password:
-Abc123-Xyz789-Qrs456-Def012
-============================================
+  ==============================================
+  ADMIN PASSWORD: Abc123-Xyz789-Qrs456-Def012
+  Write this down. It will not be shown again.
+  ==============================================
 ```
 
 **Save this password immediately.** It is shown once on first boot. Change it after your first login from Settings.
 
 Log in with:
 - **Username:** `admin`
-- **Password:** The password from the logs
+- **Password:** The password from the CLI output
 
 ---
 

@@ -7,13 +7,17 @@ Session timeout: 4 hours by default.
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import hashlib
 import json
 import logging
 import secrets
 import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+
+import hashlib
 
 import bcrypt
 import jwt  # PyJWT
@@ -29,6 +33,9 @@ _MAX_LOGIN_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 1800  # 30 minutes
 
 
+_MIN_JWT_SECRET_LENGTH = 32
+
+
 def _reject_null_bytes(password: str) -> None:
     """Raise ValueError if password contains NUL bytes.
 
@@ -40,8 +47,29 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prehash_password(password: str) -> bytes:
+    """Pre-hash a password with SHA-256 to work around bcrypt's 72-byte limit.
+
+    bcrypt silently truncates (or in newer versions, rejects) passwords
+    longer than 72 bytes.  By pre-hashing with SHA-256 and base64-encoding
+    the result we get a fixed 44-byte input that preserves entropy from
+    the full password.  This is the standard approach used by Dropbox and
+    others.
+    """
+    import base64
+    import hashlib
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
+
+
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
+
+    Passwords are pre-hashed with SHA-256 to handle bcrypt's 72-byte limit
+    safely.  This ensures long passwords retain their full entropy.
+
+    Passwords longer than 72 bytes are pre-hashed with SHA-256 to avoid
+    bcrypt's silent truncation.
 
     bcrypt has a 72-byte input limit.  Passwords longer than 72 bytes are
     pre-hashed with SHA-256 to produce a fixed-length digest before being
@@ -56,30 +84,27 @@ def hash_password(password: str) -> str:
     import hashlib
 
     _reject_null_bytes(password)
-    pw_bytes = password.encode()
-    # Pre-hash long passwords to avoid bcrypt's 72-byte truncation
-    if len(pw_bytes) > 72:
-        pw_bytes = hashlib.sha256(pw_bytes).hexdigest().encode()
-    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode()
-
-
-def _pre_hash_if_long(password: str) -> bytes:
-    """Return password bytes, pre-hashed if longer than 72 bytes."""
-    import hashlib
-    pw_bytes = password.encode()
-    if len(pw_bytes) > 72:
-        return hashlib.sha256(pw_bytes).hexdigest().encode()
-    return pw_bytes
+    return bcrypt.hashpw(_prehash_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing).
+
+    Also supports legacy hashes created without pre-hashing, for migration.
+    """
     _reject_null_bytes(password)
-    return bcrypt.checkpw(_pre_hash_if_long(password), hashed.encode())
+    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
-    """Create an HS256 JWT token using PyJWT."""
+    """Create an HS256 JWT token using PyJWT.
+
+    Raises ValueError if the secret is too short for safe HS256 signing.
+    """
+    if len(secret) < _MIN_JWT_SECRET_LENGTH:
+        raise ValueError(
+            f"JWT secret must be at least {_MIN_JWT_SECRET_LENGTH} characters"
+        )
     payload = {
         **data,
         "exp": datetime.now(UTC) + timedelta(hours=expires_hours),
@@ -143,18 +168,14 @@ class AuthManager:
             try:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
-                # JWT secret may not be in plaintext file (new policy: only
-                # hash is persisted in plaintext).  Generate a fresh secret
-                # if missing — this invalidates prior sessions but is safe.
-                self._jwt_secret = data.get("jwt_secret") or secrets.token_hex(32)
-                # Migrate to SecretsManager if available
-                migrated = self._store_to_secrets_manager()
-                if migrated and "jwt_secret" in data:
-                    # Remove plaintext JWT secret from legacy file after
-                    # successful migration to encrypted storage.
-                    data.pop("jwt_secret", None)
-                    self._creds_file.write_text(json.dumps(data))
-                    logger.info("Migrated JWT secret from plaintext to SecretsManager")
+                self._jwt_secret = data["jwt_secret"]
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
+                    except OSError:
+                        logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
                 return None
             except Exception:
@@ -245,6 +266,12 @@ class AuthManager:
             remaining = _MAX_LOGIN_ATTEMPTS - len(ip_attempts)
             raise ValueError(f"Invalid credentials. {remaining} attempts remaining.")
 
+        # Auto-upgrade legacy password hashes (pre-SHA-256-prehash era)
+        if _is_legacy_hash(password, pw_hash):
+            self._password_hash = hash_password(password)
+            self._store_to_secrets_manager()
+            logger.info("Upgraded legacy password hash to SHA-256 pre-hashed format")
+
         # Success - clear failed attempts for this IP
         self._failed_attempts.pop(client_ip, None)
         self._lockout_until.pop(client_ip, None)
@@ -279,9 +306,11 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
-            # Same policy as initialize(): only persist the hash, not the
-            # JWT secret, when encrypted storage is unavailable.
+        if stored_encrypted:
+            # Remove plaintext file if encrypted storage succeeded
+            with contextlib.suppress(OSError):
+                self._creds_file.unlink()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
             }))

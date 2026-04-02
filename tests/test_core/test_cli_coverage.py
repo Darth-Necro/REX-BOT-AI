@@ -229,8 +229,56 @@ class TestDiagCommand:
 # start command -- imports get_config, AuthManager, ServiceOrchestrator lazily
 # ------------------------------------------------------------------
 
+def _mock_asyncio_run(return_values):
+    """Create a side_effect for asyncio.run that closes the coroutine argument.
+
+    asyncio.run receives a coroutine object; when mocked, the coroutine is
+    never executed, triggering 'coroutine was never awaited' warnings.
+    Closing it explicitly avoids that.
+    """
+    values = list(return_values)
+    idx = [0]
+
+    def _side_effect(coro):
+        coro.close()  # prevent 'coroutine was never awaited' warning
+        val = values[idx[0]]
+        idx[0] += 1
+        if isinstance(val, type) and issubclass(val, BaseException):
+            raise val()
+        if isinstance(val, BaseException):
+            raise val
+        return val
+
+    return _side_effect
+
+
 class TestStartCommand:
     """Test the 'start' command flow with mocked orchestrator."""
+
+    @staticmethod
+    def _close_coro_side_effect(values):
+        """Create an asyncio.run side_effect that closes unawaited coroutines.
+
+        ``values`` is a list of return-value-or-exception for successive calls.
+        Each time the mock is called, the first positional arg (the coroutine)
+        is closed to prevent "coroutine was never awaited" warnings.
+        """
+        idx = 0
+
+        def _side_effect(coro, *args, **kwargs):
+            nonlocal idx
+            # Close the coroutine to avoid ResourceWarning
+            if hasattr(coro, "close"):
+                coro.close()
+            val = values[idx]
+            idx += 1
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            if isinstance(val, BaseException):
+                raise val
+            return val
+
+        return _side_effect
 
     def test_start_keyboard_interrupt(self) -> None:
         """start should handle KeyboardInterrupt gracefully."""
@@ -245,7 +293,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_asyncio_run_close_coro([None, KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -253,12 +301,7 @@ class TestStartCommand:
         assert "sleep" in result.output.lower() or "Goodbye" in result.output
 
     def test_start_with_initial_password(self) -> None:
-        """start should display admin password on first boot.
-
-        Password is now written to stderr (tty) or to a file (non-tty),
-        never through the logger.
-        """
-        from pathlib import Path
+        """start should display admin password on first boot (shown on stderr)."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
         mock_config.data_dir = Path("/tmp/rex-test")
@@ -270,16 +313,14 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_asyncio_run_close_coro(["super-secret-pw", KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect(["super-secret-pw", KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 
         assert result.exit_code == 0
-        # Password display was moved to stderr or file — output may or may
-        # not contain password depending on tty detection.  The key
-        # assertion is that the command completes without error.
-        combined = result.output + (result.stderr if hasattr(result, "stderr") else "")
-        assert "super-secret-pw" in combined or "initial_password" in combined or result.exit_code == 0
+        # Password is now displayed on stderr; typer runner captures both
+        assert "ADMIN PASSWORD" in result.output
+        assert "super-secret-pw" in result.output
 
     def test_start_no_initial_password(self) -> None:
         """start without initial password should skip password display."""
@@ -294,7 +335,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=_asyncio_run_close_coro([None, KeyboardInterrupt])),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
         ):
             result = runner.invoke(app, ["start"])
 

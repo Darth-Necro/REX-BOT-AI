@@ -221,7 +221,6 @@ class TestDownloadOuiCsv:
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
             patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(big_csv.encode(), b"")),
         ):
             result = await fp._download_oui_csv()
 
@@ -239,7 +238,6 @@ class TestDownloadOuiCsv:
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
             patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(short.encode(), b"")),
         ):
             result = await fp._download_oui_csv()
 
@@ -255,7 +253,6 @@ class TestDownloadOuiCsv:
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
             patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(b"", b"error")),
         ):
             result = await fp._download_oui_csv()
 
@@ -416,10 +413,7 @@ class TestNmapOsDetect:
         mock_proc = MagicMock()
         mock_proc.returncode = 0
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(xml_output.encode(), b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result == "Linux 5.15 (98% confidence)"
@@ -440,11 +434,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(xml_output.encode(), b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result == "Linux 5.15"
@@ -456,11 +448,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(b"", b"error")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -492,11 +482,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"<not valid xml><<>", b""))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(b"<not valid xml><<>", b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -515,11 +503,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(xml_output.encode(), b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -538,11 +524,9 @@ class TestNmapOsDetect:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(xml_output.encode(), b""))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(xml_output.encode(), b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._nmap_os_detect("192.168.1.10")
 
         assert result is None
@@ -557,15 +541,13 @@ class TestTtlOsGuess:
     async def test_linux_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-
         output = "PING 192.168.1.10: 64 data bytes\n64 bytes from 192.168.1.10: ttl=64 time=1.2 ms\n"
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(output.encode(), b"")),
-        ):
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
+
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result == "Linux/Unix"
@@ -574,15 +556,13 @@ class TestTtlOsGuess:
     async def test_windows_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-
         output = "Reply from 192.168.1.10: bytes=32 TTL=128 time=1ms\n"
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(output.encode(), b"")),
-        ):
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
+
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result == "Windows"
@@ -591,15 +571,13 @@ class TestTtlOsGuess:
     async def test_network_equipment_ttl(self) -> None:
         fp = _fp()
 
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-
         output = "64 bytes from 192.168.1.1: ttl=255 time=0.5 ms\n"
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(output.encode(), b"")),
-        ):
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
+
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.1")
 
         assert result == "Network Equipment"
@@ -608,15 +586,13 @@ class TestTtlOsGuess:
     async def test_no_ttl_match(self) -> None:
         fp = _fp()
 
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-
         output = "PING 192.168.1.10: no reply\n"
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(output.encode(), b"")),
-        ):
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(output.encode(), b""))
+
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None
@@ -627,11 +603,9 @@ class TestTtlOsGuess:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
-        with (
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc),
-            patch("rex.eyes.fingerprinter.asyncio.wait_for", new_callable=AsyncMock, return_value=(b"", b"")),
-        ):
+        with patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await fp._ttl_os_guess("192.168.1.10")
 
         assert result is None

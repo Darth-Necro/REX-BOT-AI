@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 from typing import Any
 from urllib.request import Request, urlopen
 
@@ -66,7 +67,10 @@ class MatrixChannel(BaseChannel):
             return False
 
     def _send_sync(self, url: str, payload: dict[str, Any]) -> bool:
-        """Synchronous send - runs in thread pool."""
+        """Synchronous send - runs in thread pool.
+
+        Uses the default system SSL context for certificate verification.
+        """
         req = Request(
             url,
             data=json.dumps(payload).encode(),
@@ -76,7 +80,9 @@ class MatrixChannel(BaseChannel):
             },
             method="PUT",
         )
-        with urlopen(req, timeout=10) as resp:
+        # Use default SSL context so TLS certificates are verified
+        ctx = ssl.create_default_context()
+        with urlopen(req, timeout=10, context=ctx) as resp:
             return resp.status == 200
 
     async def test(self) -> bool:

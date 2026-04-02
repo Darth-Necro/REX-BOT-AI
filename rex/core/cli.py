@@ -36,8 +36,10 @@ app = typer.Typer(
 
 
 def _setup_logging(level: str = "info") -> None:
-    """Configure structured JSON logging."""
-    numeric = getattr(logging, level.upper(), logging.INFO)
+    """Configure structured logging."""
+    numeric = getattr(logging, level.upper(), None)
+    if numeric is None:
+        numeric = logging.INFO
     logging.basicConfig(
         level=numeric,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -75,34 +77,14 @@ def start(
 
     initial_pw = asyncio.run(auth_mgr.initialize())
     if initial_pw:
-        # Display password only to the operator's terminal (stderr via
-        # typer.echo), never through the logging framework.  Writing to
-        # stderr avoids capture by stdout-based log pipelines.
+        # Display password on stderr only, so it is never captured in
+        # stdout pipes or redirected logs.
         import sys
-        if sys.stderr.isatty():
-            typer.echo("  " + "=" * 46, err=True)
-            typer.echo(f"  ADMIN PASSWORD: {initial_pw}", err=True)
-            typer.echo("  Write this down. It will not be shown again.", err=True)
-            typer.echo("  " + "=" * 46, err=True)
-            typer.echo("", err=True)
-        else:
-            # Non-interactive: write password to a restricted file instead
-            # of any log stream to prevent credential leakage.
-            from pathlib import Path
-            pw_file = Path(config.data_dir) / ".initial_password"
-            try:
-                pw_file.parent.mkdir(parents=True, exist_ok=True)
-                pw_file.write_text(initial_pw)
-                with contextlib.suppress(OSError):
-                    pw_file.chmod(0o600)
-                typer.echo(
-                    f"  Initial admin password saved to {pw_file} (mode 0600).",
-                    err=True,
-                )
-            except OSError:
-                # Fallback: print to stderr even in non-tty mode
-                typer.echo(f"  ADMIN PASSWORD: {initial_pw}", err=True)
-                typer.echo("  Write this down. It will not be shown again.", err=True)
+        print("  " + "=" * 46, file=sys.stderr)
+        print(f"  ADMIN PASSWORD: {initial_pw}", file=sys.stderr)
+        print("  Write this down. It will not be shown again.", file=sys.stderr)
+        print("  " + "=" * 46, file=sys.stderr)
+        print("", file=sys.stderr)
 
     from rex.core.orchestrator import ServiceOrchestrator
 
@@ -280,11 +262,26 @@ def privacy() -> None:
 
 
 def _get_token() -> str:
-    """Read cached auth token."""
+    """Read cached auth token from ~/.rex-token.
+
+    Warns if the token file has insecure permissions (readable by others).
+    """
     import os
+    import stat
     from pathlib import Path
     token_file = Path(os.path.expanduser("~/.rex-token"))
     if token_file.exists():
+        # Check file permissions — warn if group/other-readable
+        try:
+            mode = token_file.stat().st_mode & 0o777
+            if mode & 0o077:
+                typer.echo(
+                    f"  WARNING: {token_file} has insecure permissions ({oct(mode)}). "
+                    f"Run: chmod 600 {token_file}",
+                    err=True,
+                )
+        except OSError:
+            pass
         return token_file.read_text().strip()
     return ""
 
