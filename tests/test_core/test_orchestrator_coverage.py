@@ -615,9 +615,16 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
 
+        # Capture the coroutine passed to create_task so we can close it
+        # (prevents "coroutine was never awaited" warning).
+        captured_coros: list = []
+        def _capture_create_task(coro):
+            captured_coros.append(coro)
+            return mock_task
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=mock_task) as mock_ct,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_capture_create_task) as mock_ct,
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -625,6 +632,10 @@ class TestRunMethod:
         # create_task should have been called (for health monitor)
         mock_ct.assert_called_once()
         assert orch._health_task is mock_task
+
+        # Clean up the unawaited coroutine to suppress warning
+        for coro in captured_coros:
+            coro.close()
 
 
 # ------------------------------------------------------------------
