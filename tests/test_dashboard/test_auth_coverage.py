@@ -293,3 +293,59 @@ async def test_store_to_secrets_manager_handles_error(tmp_path: Path) -> None:
     manager._password_hash = "test"
     # Should not raise
     manager._store_to_secrets_manager()
+
+
+# ------------------------------------------------------------------
+# Plaintext cleanup after SecretsManager migration
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_initialize_deletes_plaintext_after_migration(tmp_path: Path) -> None:
+    """After migrating credentials from plaintext to SecretsManager,
+    the plaintext .credentials file must be deleted."""
+    import json
+
+    creds_file = tmp_path / ".credentials"
+    creds_file.write_text(json.dumps({
+        "password_hash": hash_password("old-pw"),
+        "jwt_secret": "old-jwt-secret-hex",
+    }))
+    assert creds_file.exists()
+
+    manager = AuthManager(data_dir=tmp_path)
+    mock_sm = MagicMock()
+    # SecretsManager retrieval fails (so we fall back to file)
+    mock_sm.retrieve_secret.side_effect = RuntimeError("no secrets yet")
+    # But storage succeeds (migration happens)
+    mock_sm.store_secret.return_value = None
+    manager._secrets_manager = mock_sm
+
+    result = await manager.initialize()
+    assert result is None  # loaded existing creds
+    assert manager._initialized is True
+    # Plaintext file should have been deleted after successful migration
+    assert not creds_file.exists()
+
+
+@pytest.mark.asyncio
+async def test_change_password_deletes_plaintext_when_encrypted(tmp_path: Path) -> None:
+    """change_password removes plaintext file when encrypted storage works."""
+    # Set up with plaintext first
+    manager = AuthManager(data_dir=tmp_path)
+    manager._secrets_manager = None
+    initial_pw = await manager.initialize()
+    assert initial_pw is not None
+
+    creds_file = tmp_path / ".credentials"
+    assert creds_file.exists()
+
+    # Now give it a working SecretsManager
+    mock_sm = MagicMock()
+    mock_sm.store_secret.return_value = None
+    manager._secrets_manager = mock_sm
+
+    await manager.change_password("admin", initial_pw, "new-password-12chars")
+
+    # Plaintext file should have been removed
+    assert not creds_file.exists()

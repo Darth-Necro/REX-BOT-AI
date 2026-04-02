@@ -213,7 +213,7 @@ class TestDeepScanWithNmap:
         scanner = PortScanner()
         scanner._nmap_available = False
 
-        mock_writer = AsyncMock()
+        mock_writer = MagicMock()
         mock_writer.close = lambda: None
         mock_writer.wait_closed = AsyncMock()
 

@@ -350,14 +350,24 @@ class TestStopAllOrder:
 
     @pytest.mark.asyncio
     async def test_stop_all_cancels_health_task(self) -> None:
-        """stop_all should cancel the health monitor task if running."""
+        """stop_all should cancel and await the health monitor task."""
         orch = _make_orchestrator_with_bus()
-        mock_task = MagicMock()
-        orch._health_task = mock_task
+        # Use a real asyncio.Task wrapping a simple coroutine
+        cancelled = False
+
+        async def _dummy_health():
+            nonlocal cancelled
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                cancelled = True
+
+        task = asyncio.create_task(_dummy_health())
+        orch._health_task = task
 
         await orch.stop_all()
 
-        mock_task.cancel.assert_called_once()
+        assert task.cancelled() or cancelled
 
     @pytest.mark.asyncio
     async def test_stop_all_sets_running_false(self) -> None:

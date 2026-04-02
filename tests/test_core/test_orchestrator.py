@@ -172,3 +172,61 @@ async def test_auto_restart_max_attempts():
     await orch._auto_restart(ServiceName.EYES)
 
     assert orch._status[ServiceName.EYES] == "disabled"
+
+
+# ------------------------------------------------------------------
+# test_auto_restart_decay
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_auto_restart_decay_resets_counter():
+    """Restart counter resets after the decay window elapses."""
+    import time
+    from unittest.mock import patch
+
+    from rex.core.orchestrator import _RESTART_DECAY_SECONDS
+
+    orch = ServiceOrchestrator()
+    orch._bus = AsyncMock()
+    orch._bus.connect = AsyncMock()
+    orch._bus.disconnect = AsyncMock()
+
+    svc = _mock_service(ServiceName.EYES)
+    orch.register(svc)
+    orch._status[ServiceName.EYES] = "failed"
+
+    # Simulate a previous restart that happened long ago
+    orch._restart_counts[ServiceName.EYES] = 2
+    orch._last_restart_time[ServiceName.EYES] = time.monotonic() - _RESTART_DECAY_SECONDS - 1
+
+    await orch._auto_restart(ServiceName.EYES)
+
+    # Counter should have been reset to 0 then incremented to 1
+    assert orch._restart_counts[ServiceName.EYES] == 1
+    assert orch._status[ServiceName.EYES] == "running"
+
+
+@pytest.mark.asyncio
+async def test_auto_restart_no_decay_within_window():
+    """Restart counter does NOT reset if decay window hasn't elapsed."""
+    import time
+
+    from rex.core.orchestrator import _RESTART_DECAY_SECONDS
+
+    orch = ServiceOrchestrator()
+    orch._bus = AsyncMock()
+    orch._bus.connect = AsyncMock()
+    orch._bus.disconnect = AsyncMock()
+
+    svc = _mock_service(ServiceName.EYES)
+    orch.register(svc)
+    orch._status[ServiceName.EYES] = "failed"
+
+    # Simulate a recent restart (within decay window)
+    orch._restart_counts[ServiceName.EYES] = 2
+    orch._last_restart_time[ServiceName.EYES] = time.monotonic() - 10  # 10 seconds ago
+
+    await orch._auto_restart(ServiceName.EYES)
+
+    # Counter should NOT have been reset — incremented from 2 to 3
+    assert orch._restart_counts[ServiceName.EYES] == 3

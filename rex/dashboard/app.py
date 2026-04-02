@@ -290,12 +290,17 @@ def create_app() -> FastAPI:
     # Privacy audit endpoint (no auth, limited info)
     @app.get("/api/privacy/status")
     async def privacy_status() -> dict:
-        """Public privacy status endpoint."""
+        """Public privacy status -- safe to expose without auth.
+
+        Reports design-level privacy properties of REX.  For a full
+        runtime audit (outbound connections, encryption verification),
+        use ``GET /api/privacy/audit`` which requires authentication.
+        """
         return {
-            "data_local_only": True,
-            "external_connections": 0,
-            "encryption_at_rest": True,
+            "design_local_only": True,
             "telemetry_enabled": False,
+            "llm_localhost_enforced": True,
+            "note": "For a full runtime privacy audit, authenticate and use /api/privacy/audit",
         }
 
     return app

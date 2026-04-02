@@ -209,7 +209,7 @@ class TestFetchThreatFeed:
         monitor = _make_monitor(dns_config)
 
         with patch("rex.eyes.dns_monitor.shutil.which", return_value="/usr/bin/curl"), \
-             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError):
+             patch("rex.eyes.dns_monitor.asyncio.create_subprocess_exec", side_effect=TimeoutError):
             count = await monitor._fetch_threat_feed("http://example.com/feed")
 
         assert count == 0

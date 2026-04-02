@@ -290,10 +290,23 @@ class TestStartCommand:
 
         mock_auth = MagicMock()
 
+        _returns = iter([None, KeyboardInterrupt])
+
+        def _mock_asyncio_run(coro, **kw):
+            coro.close()
+            val = next(_returns)
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            return val
+
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
+<<<<<<< HEAD
             patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
+=======
+            patch("asyncio.run", side_effect=_mock_asyncio_run),
+>>>>>>> origin/claude/release-readiness-review-nG9lF
         ):
             result = runner.invoke(app, ["start"])
 
@@ -310,10 +323,24 @@ class TestStartCommand:
 
         mock_auth = MagicMock()
 
+        _returns = iter(["super-secret-pw", KeyboardInterrupt])
+
+        def _mock_asyncio_run(coro, **kw):
+            """Consume the coroutine to avoid 'never awaited' warnings."""
+            coro.close()
+            val = next(_returns)
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            return val
+
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
+<<<<<<< HEAD
             patch("asyncio.run", side_effect=self._close_coro_side_effect(["super-secret-pw", KeyboardInterrupt])),
+=======
+            patch("asyncio.run", side_effect=_mock_asyncio_run),
+>>>>>>> origin/claude/release-readiness-review-nG9lF
         ):
             result = runner.invoke(app, ["start"])
 
@@ -332,10 +359,23 @@ class TestStartCommand:
 
         mock_auth = MagicMock()
 
+        _returns = iter([None, KeyboardInterrupt])
+
+        def _mock_asyncio_run(coro, **kw):
+            coro.close()
+            val = next(_returns)
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            return val
+
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
+<<<<<<< HEAD
             patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
+=======
+            patch("asyncio.run", side_effect=_mock_asyncio_run),
+>>>>>>> origin/claude/release-readiness-review-nG9lF
         ):
             result = runner.invoke(app, ["start"])
 

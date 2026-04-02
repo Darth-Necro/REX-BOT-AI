@@ -264,7 +264,7 @@ class TestDownloadOuiCsv:
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=TimeoutError),
+            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", side_effect=TimeoutError),
         ):
             result = await fp._download_oui_csv()
 
@@ -276,7 +276,7 @@ class TestDownloadOuiCsv:
 
         with (
             patch("rex.eyes.fingerprinter.shutil.which", return_value="/usr/bin/curl"),
-            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=OSError("exec failed")),
+            patch("rex.eyes.fingerprinter.asyncio.create_subprocess_exec", side_effect=OSError("exec failed")),
         ):
             result = await fp._download_oui_csv()
 

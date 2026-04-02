@@ -60,7 +60,12 @@ class WebSocketManager:
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket) -> None:
-        """Accept a new WebSocket connection.
+        """Accept a new WebSocket connection (unauthenticated).
+
+        Used for unit-testing individual operations (subscribe, broadcast,
+        etc.) without the full first-message auth handshake.  The production
+        WebSocket endpoint uses :meth:`handle_client` which performs JWT
+        authentication before registering the connection.
 
         Rejects the connection if the server has reached ``MAX_CONNECTIONS``.
         """

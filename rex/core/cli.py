@@ -170,8 +170,10 @@ def status() -> None:
             mark = "OK" if healthy else "FAIL"
             degraded = " (degraded)" if info.get("degraded") else ""
             typer.echo(f"  rex-{name:12s} [{mark}]{degraded}")
-    except Exception:
+    except Exception as exc:
         typer.echo("  Cannot reach REX dashboard. Is REX running?")
+        if "CERTIFICATE_VERIFY_FAILED" in str(exc) or "SSL" in str(exc):
+            typer.echo("  TLS verification failed. For self-signed certs, set REX_DEV_INSECURE=1")
         typer.echo("  Start with: rex start")
 
 
