@@ -200,7 +200,7 @@ class TestNmapPingSweep:
         scanner = _make_scanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(return_value=(
             b"<?xml version='1.0'?><nmaprun></nmaprun>",
             b"some warning",
@@ -217,8 +217,7 @@ class TestNmapPingSweep:
         scanner = _make_scanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
-        mock_proc.communicate = AsyncMock(side_effect=TimeoutError)
+        mock_proc = MagicMock()
         mock_proc.returncode = None
         mock_proc.kill = MagicMock()
 

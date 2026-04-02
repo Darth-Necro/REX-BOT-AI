@@ -74,6 +74,10 @@ class TestOnStartCreatesDeviceStore:
             # Registered in data registry
             mock_set_store.assert_called_once_with(mock_store_inst)
 
+            # Clean up background tasks to avoid unawaited coroutine warnings
+            for task in svc._bg_tasks:
+                task.cancel()
+
     @pytest.mark.asyncio
     async def test_on_start_interface_is_set(self, config, mock_bus) -> None:
         """_on_start sets _interface from auto_detect_interface."""
@@ -106,6 +110,10 @@ class TestOnStartCreatesDeviceStore:
 
             await svc._on_start()
             assert svc._interface == "eth0"
+
+            # Clean up background tasks to avoid unawaited coroutine warnings
+            for task in svc._bg_tasks:
+                task.cancel()
 
     @pytest.mark.asyncio
     async def test_on_start_spawns_background_tasks(self, config, mock_bus) -> None:

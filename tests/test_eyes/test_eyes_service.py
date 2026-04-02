@@ -92,6 +92,10 @@ class TestEyesServiceOnStart:
             assert svc._device_store is not None
             assert svc._interface == "eth0"
 
+            # Clean up background tasks to avoid unawaited coroutine warnings
+            for task in svc._bg_tasks:
+                task.cancel()
+
     @pytest.mark.asyncio
     async def test_on_start_handles_interface_detection_failure(self, config, mock_bus) -> None:
         """_on_start handles interface detection failure gracefully."""
@@ -133,6 +137,10 @@ class TestEyesServiceOnStart:
             assert svc._interface is None
             # Components should still be created
             assert svc._scanner is not None
+
+            # Clean up background tasks to avoid unawaited coroutine warnings
+            for task in svc._bg_tasks:
+                task.cancel()
 
 
 # ------------------------------------------------------------------
