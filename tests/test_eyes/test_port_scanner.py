@@ -119,7 +119,7 @@ class TestQuickScanWithNmap:
         scanner = PortScanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_PORTS_XML.encode(), b"")
         )
@@ -192,7 +192,7 @@ class TestDeepScanWithNmap:
         scanner = PortScanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_PORTS_XML.encode(), b"")
         )
@@ -446,7 +446,7 @@ class TestNmapScan:
     async def test_successful_scan(self) -> None:
         scanner = PortScanner()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_PORTS_XML.encode(), b"")
         )
@@ -494,7 +494,7 @@ class TestNmapScan:
     async def test_returns_none_on_bad_exit_code(self) -> None:
         scanner = PortScanner()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
         mock_proc.returncode = 2  # not 0 or 1
 
@@ -509,7 +509,7 @@ class TestNmapScan:
         """nmap returns 1 when host is down -- should still parse output."""
         scanner = PortScanner()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_EMPTY_XML.encode(), b"")
         )
@@ -527,7 +527,7 @@ class TestNmapScan:
         """Port lists > 1000 should use 1-65535 format."""
         scanner = PortScanner()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_EMPTY_XML.encode(), b"")
         )
@@ -546,7 +546,7 @@ class TestNmapScan:
         """Port lists <= 1000 should use comma-separated format."""
         scanner = PortScanner()
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(
             return_value=(NMAP_EMPTY_XML.encode(), b"")
         )
