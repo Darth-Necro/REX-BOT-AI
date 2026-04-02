@@ -10,12 +10,20 @@
     |     \_
     || (___\
 
-    / \__
-   (    @\___     ____  _______  __     ____   ____ _______
-   /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
-  /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
- /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
-                 |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+     /^\
+    /   \___
+   /      @\____   ____  _______  __     ____   ____ _______
+  /              O |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+ /    (_________/  | |_) |  _|  \  / ____|  _ \| |  | | | |
+/______/     U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                   |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+
+            /^\                                  /^\
+       ___/   \                             /   \___
+  ____/@        \                          /      @\____
+ O               \                        /              O
+  \____________)   \                     /    (_________/
+           U    \___\                   /______/     U
 ```
 
 **v0.2.0-beta** -- Local-first autonomous network security agent. Linux-primary with cross-platform PAL (macOS/Windows/BSD). Multi-layer AI decision pipeline, prompt injection defense, per-service event bus isolation, and **Junkyard Dog mode** for maximum threat protection.

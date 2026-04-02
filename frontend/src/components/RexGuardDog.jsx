@@ -26,37 +26,65 @@ const stateAnimations = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Great Dane ASCII art - side profile (original design)              */
+/* Great Dane ASCII art - side profiles (left and right facing)       */
 /* ------------------------------------------------------------------ */
+
+/* Facing right (looking out at the network) */
+const rightFacing = {
+  normal: `     /^\\
+    /   \\___
+   /      @\\____
+  /              O
+ /    (_________/
+/______/     U`,
+
+  alert: `     /^\\
+    /   \\___
+   /    ! @\\____
+  /              O
+ /    (____|____/
+/______/ |  U
+         |~~`,
+
+  sleep: `     /^\\
+    /   \\___
+   /    - @\\____  zzz
+  /              O
+ /    (_________/
+/______/     U`,
+};
+
+/* Facing left (mirrored, watching the other direction) */
+const leftFacing = {
+  normal: `         /^\\
+    ___/   \\
+ ____/@      \\
+O              \\
+ \\___________)  \\
+          U  \\______\\`,
+
+  alert: `         /^\\
+    ___/   \\
+ ____/@ !   \\
+O              \\
+ \\____|____)    \\
+     U  | \\______\\
+        ~~|`,
+
+  sleep: `            /^\\
+       ___/   \\
+ ____/@  -     \\  zzz
+O              \\
+ \\___________)  \\
+          U  \\______\\`,
+};
+
 const sideArt = {
-  awake: `    / \\__
-   (    @\\___
-   /         O
-  /   (_____/
- /_____/   U`,
-
-  alert_sleep: `      __/ \\
- ___/@  - )
-O         \\
- \\_____) _ \\
-    U  \\____\\`,
-
-  deep_sleep: `      __/ \\
- ___/@  - )  zzz
-O    ___  \\
- \\__/   \\__\\
-    U    U`,
-
-  off: `      __/ \\
- ___/@  x )
-O    ___  \\
- \\__/   \\__\\
-    U    U`,
-
-  unknown: `    / \\__
-   (  ? @\\___
-   /         O
-  /_____/   U`,
+  awake: rightFacing.normal,
+  alert_sleep: leftFacing.sleep,
+  deep_sleep: rightFacing.sleep,
+  off: leftFacing.normal,
+  unknown: rightFacing.normal,
 };
 
 /* ------------------------------------------------------------------ */
@@ -151,21 +179,20 @@ const frontFrames = {
   ],
 };
 
-/* Threat-active Great Dane: alert posture, hackles up */
-const threatArt = `    / \\__
-   (!O @\\___     *GRRRRR!*
-   /         O
-  /   (\\____/
- /_____/ | U
-          |~~`;
+/* Threat-active Great Dane: alternates facing to "look around" */
+const threatArtFrames = [
+  rightFacing.alert,
+  leftFacing.alert,
+];
 
 /* Junkyard Dog mode art */
-const junkyardArt = `    / \\__
-   (!O @\\___     *WOOF WOOF GRRRRR!*
-   /    _____O   JUNKYARD DOG MODE!
-  / ___/ ||||
- /___/  |||||U
-   CHAIN~~~~`;
+const junkyardArt = `     /^\\
+    /   \\___
+   /    ! @\\____    *GRRRRR!*
+  /    _________O   JUNKYARD DOG!
+ / ___/ ||||||||
+/___/  ||||||| U
+   CHAIN~~~~~~~`;
 
 export default function RexGuardDog() {
   const { powerState, activeThreats } = useSystemStore();
@@ -176,20 +203,24 @@ export default function RexGuardDog() {
     ? `*GRRRRR WOOF WOOF!* ${activeThreats} active threat${activeThreats > 1 ? 's' : ''} detected!`
     : stateMessages[powerState] || '*ruff* REX is ready';
 
-  /* Tamagotchi animation: cycle through front-facing frames */
+  /* Tamagotchi animation: cycle through 3 views
+     View 0: side profile (right-facing or left-facing)
+     View 1: front-facing
+     View 2: side profile (opposite direction)
+  */
   const [frameIndex, setFrameIndex] = useState(0);
-  const [showFront, setShowFront] = useState(false);
+  const [viewIndex, setViewIndex] = useState(0);
 
   useEffect(() => {
-    /* Toggle between side and front view every 8 seconds */
+    /* Rotate through views: right side -> front -> left side -> front */
     const viewToggle = setInterval(() => {
-      setShowFront((prev) => !prev);
-    }, 8000);
+      setViewIndex((prev) => (prev + 1) % 4);
+    }, 6000);
     return () => clearInterval(viewToggle);
   }, []);
 
   useEffect(() => {
-    /* Animate front-facing frames like a Tamagotchi */
+    /* Animate frames within each view */
     const frameSet = hasThreat
       ? frontFrames.alert
       : (powerState === 'deep_sleep' || powerState === 'alert_sleep')
@@ -198,21 +229,32 @@ export default function RexGuardDog() {
 
     const interval = setInterval(() => {
       setFrameIndex((prev) => (prev + 1) % frameSet.length);
-    }, hasThreat ? 600 : 2500);
+    }, hasThreat ? 500 : 2500);
     return () => clearInterval(interval);
   }, [hasThreat, powerState]);
 
-  /* Pick the right art */
+  /* Pick the right art based on current view */
   let art;
-  if (showFront) {
-    const frameSet = hasThreat
-      ? frontFrames.alert
-      : (powerState === 'deep_sleep' || powerState === 'alert_sleep')
-        ? frontFrames.sleep
-        : frontFrames.idle;
-    art = frameSet[frameIndex % frameSet.length];
+  const isSleeping = powerState === 'deep_sleep' || powerState === 'alert_sleep';
+
+  if (hasThreat) {
+    /* Threat mode: alternate between right-alert, front-alert, left-alert */
+    if (viewIndex % 2 === 0) {
+      art = threatArtFrames[viewIndex === 0 ? 0 : 1];
+    } else {
+      const frames = frontFrames.alert;
+      art = frames[frameIndex % frames.length];
+    }
+  } else if (viewIndex === 0) {
+    /* Right-facing side profile */
+    art = isSleeping ? rightFacing.sleep : rightFacing.normal;
+  } else if (viewIndex === 2) {
+    /* Left-facing side profile */
+    art = isSleeping ? leftFacing.sleep : leftFacing.normal;
   } else {
-    art = hasThreat ? threatArt : (sideArt[powerState] || sideArt.awake);
+    /* Front-facing (views 1 and 3) */
+    const frameSet = isSleeping ? frontFrames.sleep : frontFrames.idle;
+    art = frameSet[frameIndex % frameSet.length];
   }
 
   return (

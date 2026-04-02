@@ -79,14 +79,15 @@ def start(
     _setup_logging(log_level)
 
     typer.echo(r"""
-    / \__
-   (    @\___     ____  _______  __     ____   ____ _______
-   /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
-  /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
- /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
-                 |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
-""" + f"                                                    v{VERSION}" + r"""
-                 *woof woof* ... Starting up!
+     /^\
+    /   \___
+   /      @\____   ____  _______  __     ____   ____ _______
+  /              O |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+ /    (_________/  | |_) |  _|  \  / ____|  _ \| |  | | | |
+/______/     U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                   |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+""" + f"                                                      v{VERSION}" + r"""
+                   *woof woof* ... Starting up!
 """)
 
     from rex.shared.config import get_config
@@ -123,11 +124,12 @@ def start(
         asyncio.run(_run())
     except KeyboardInterrupt:
         typer.echo(r"""
-          __/ \
-     ___/@    )   *yaaawn* ... REX is going to sleep.
-    O         \   Goodbye!
-     \_____) _ \
-        U  \____\
+            /^\
+       ___/   \
+  ____/@ -      \   *yaaawn* ... REX is going to sleep.
+ O               \  Goodbye!
+  \____________)  \
+           U   \___\
 """)
 
 
@@ -278,11 +280,12 @@ def sleep() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-          __/ \
-     ___/@  - )   *woof* ... zzz ... REX is sleeping
-    O         \   with one ear open.
-     \_____) _ \  Lightweight monitoring active.
-        U  \____\
+            /^\
+       ___/   \
+  ____/@ -      \   *woof* ... zzz ... REX is sleeping
+ O               \  with one ear open.
+  \____________)  \  Lightweight monitoring active.
+           U   \___\
 """)
         else:
             typer.echo(f"  Detail: {data.get('detail', 'No response')}")
@@ -306,11 +309,12 @@ def wake() -> None:
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
             typer.echo(r"""
-        / \__
-       (  O @\___   *WOOF WOOF!* REX is awake!
-       /         O  Full monitoring and protection active.
-      /   (_____/
-     /_____/   U
+         /^\
+        /   \___
+       /    O @\____   *WOOF WOOF!* REX is awake!
+      /              O  Full monitoring and protection active.
+     /    (_________/
+    /______/     U
 """)
         else:
             typer.echo(f"  Detail: {data.get('detail', 'No response')}")
@@ -322,12 +326,13 @@ def wake() -> None:
 def junkyard() -> None:
     """Activate JUNKYARD DOG mode -- maximum aggression, auto-block ALL threats."""
     typer.echo(r"""
-    / \__
-   (!O @\___     *WOOF WOOF GRRRRR!*
-   /    _____O   JUNKYARD DOG MODE ACTIVATED!
-  / ___/ ||||
- /___/  |||||U
-   CHAIN~~~~
+     /^\
+    /   \___
+   /    ! @\____     *WOOF WOOF GRRRRR!*
+  /    _________O    JUNKYARD DOG MODE ACTIVATED!
+ / ___/ ||||||||
+/___/  ||||||| U
+   CHAIN~~~~~~~
 
   REX is now a JUNKYARD DOG!
   All threats will be auto-blocked and quarantined.
@@ -358,11 +363,12 @@ def diag() -> None:
     from rex.pal.docker_helper import get_docker_version, is_docker_installed, is_docker_running
 
     typer.echo(r"""
-    / \__
-   (    @\___   REX-BOT-AI v""" + VERSION + r"""
-   /         O  *ruff ruff* Diagnostic sniff...
-  /   (_____/
- /_____/   U""")
+     /^\
+    /   \___
+   /      @\____   REX-BOT-AI v""" + VERSION + r"""
+  /              O  *ruff ruff* Diagnostic sniff...
+ /    (_________/
+/______/     U""")
     typer.echo("=" * 40)
 
     os_info = detect_os()
