@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: '20'
       - run: cd frontend && npm ci
-      - run: cd frontend && npx eslint src/ || true
+      - run: cd frontend && npx eslint src/
 
   security-check:
     runs-on: ubuntu-latest
