@@ -32,6 +32,12 @@ from rex.shared.models import ServiceHealth
 # Helpers
 # ------------------------------------------------------------------
 
+def _closing_create_task(coro):
+    """Mock for asyncio.create_task that closes the coroutine to avoid warnings."""
+    coro.close()
+    return MagicMock()
+
+
 def _mock_service(
     name: ServiceName,
     *,
@@ -312,13 +318,12 @@ class TestStopAllOrder:
         orch.register(svc)
         orch._status[ServiceName.EYES] = "running"
 
-        async def _slow_stop() -> None:
-            await asyncio.sleep(999)
+        async def _fake_wait_for(coro, *, timeout):
+            """Close the coroutine to prevent 'never awaited' warnings, then timeout."""
+            coro.close()
+            raise TimeoutError
 
-        svc.stop = _slow_stop
-
-        # Patch wait_for timeout to be very short
-        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=TimeoutError):
+        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_fake_wait_for):
             await orch.stop_all()
 
         assert orch._status[ServiceName.EYES] == "force_stopped"
@@ -529,10 +534,9 @@ class TestRunMethod:
 
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task") as mock_create_task,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_closing_create_task),
             patch.object(orch, "stop_all", new_callable=AsyncMock) as mock_stop,
         ):
-            mock_create_task.return_value = MagicMock()
             await orch.run()
 
         # Should have called start_all, created health task, waited, then stopped
@@ -561,7 +565,7 @@ class TestRunMethod:
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_closing_create_task),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -590,7 +594,7 @@ class TestRunMethod:
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
             patch("rex.core.orchestrator.asyncio.get_running_loop", return_value=mock_loop),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=MagicMock()),
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_closing_create_task),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
@@ -609,16 +613,23 @@ class TestRunMethod:
         mock_event = MagicMock()
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
+        call_count = 0
+
+        def _tracking_create_task(coro):
+            nonlocal call_count
+            coro.close()
+            call_count += 1
+            return mock_task
 
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=mock_task) as mock_ct,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_tracking_create_task),
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
 
         # create_task should have been called (for health monitor)
-        mock_ct.assert_called_once()
+        assert call_count == 1
         assert orch._health_task is mock_task
 
 

@@ -206,6 +206,23 @@ class TestDiagCommand:
 class TestStartCommand:
     """Test the 'start' command flow with mocked orchestrator."""
 
+    @staticmethod
+    def _mock_asyncio_run(*side_effects):
+        """Return an asyncio.run replacement that closes unawaited coroutines."""
+        it = iter(side_effects)
+
+        def _fake_run(coro):
+            # Close the coroutine to prevent "was never awaited" warnings
+            coro.close()
+            val = next(it)
+            if isinstance(val, type) and issubclass(val, BaseException):
+                raise val()
+            if isinstance(val, BaseException):
+                raise val
+            return val
+
+        return _fake_run
+
     def test_start_keyboard_interrupt(self) -> None:
         """start should handle KeyboardInterrupt gracefully."""
         mock_config = MagicMock()
@@ -219,7 +236,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=[None, KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=self._mock_asyncio_run(None, KeyboardInterrupt)),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -239,7 +256,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=["super-secret-pw", KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=self._mock_asyncio_run("super-secret-pw", KeyboardInterrupt)),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -260,7 +277,7 @@ class TestStartCommand:
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
             patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=[None, KeyboardInterrupt]),
+            patch("asyncio.run", side_effect=self._mock_asyncio_run(None, KeyboardInterrupt)),
         ):
             result = runner.invoke(app, ["start"])
 
@@ -435,6 +452,7 @@ class TestGetTokenExtended:
         """_get_token reads and strips token from file."""
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("my-token-value\n")
+        token_file.chmod(0o600)
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()
         assert result == "my-token-value"
@@ -443,9 +461,19 @@ class TestGetTokenExtended:
         """_get_token strips all leading/trailing whitespace."""
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("  \n  tok-123  \n  ")
+        token_file.chmod(0o600)
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()
         assert result == "tok-123"
+
+    def test_rejects_world_readable_token_file(self, tmp_path: object) -> None:
+        """_get_token ignores token files with too-open permissions."""
+        token_file = tmp_path / ".rex-token"  # type: ignore[operator]
+        token_file.write_text("secret-token\n")
+        token_file.chmod(0o644)  # group/other readable
+        with patch("os.path.expanduser", return_value=str(token_file)):
+            result = _get_token()
+        assert result == ""
 
 
 # ------------------------------------------------------------------

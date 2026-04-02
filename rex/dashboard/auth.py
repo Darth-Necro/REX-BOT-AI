@@ -263,7 +263,12 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            # Remove plaintext fallback if it exists -- secrets are in SecretsManager
+            if self._creds_file.exists():
+                with contextlib.suppress(OSError):
+                    self._creds_file.unlink()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,

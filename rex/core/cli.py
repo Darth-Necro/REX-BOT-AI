@@ -274,13 +274,31 @@ def privacy() -> None:
 
 
 def _get_token() -> str:
-    """Read cached auth token."""
+    """Read cached auth token.
+
+    Validates file permissions: the token file must not be readable by
+    group or others (mode must be 0o600 or stricter).  If permissions
+    are too open the file is ignored and a warning is printed.
+    """
     import os
+    import stat
     from pathlib import Path
+
     token_file = Path(os.path.expanduser("~/.rex-token"))
-    if token_file.exists():
-        return token_file.read_text().strip()
-    return ""
+    if not token_file.exists():
+        return ""
+    try:
+        mode = token_file.stat().st_mode
+        if mode & (stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH):
+            logging.getLogger(__name__).warning(
+                "Ignoring %s: file permissions too open (mode %o). "
+                "Run: chmod 600 %s",
+                token_file, stat.S_IMODE(mode), token_file,
+            )
+            return ""
+    except OSError:
+        return ""
+    return token_file.read_text().strip()
 
 
 def main() -> None:
