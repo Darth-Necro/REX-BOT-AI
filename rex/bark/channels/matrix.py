@@ -49,13 +49,14 @@ class MatrixChannel(BaseChannel):
             f"{self._room_id}/send/m.room.message"
         )
         sev_upper = severity.upper()
+        from html import escape as _html_escape
         payload = {
             "msgtype": "m.text",
             "body": formatted,
             "format": "org.matrix.custom.html",
             "formatted_body": (
-                f"<b>{title}</b> ({sev_upper})"
-                f"<br><br>{message}"
+                f"<b>{_html_escape(title)}</b> ({_html_escape(sev_upper)})"
+                f"<br><br>{_html_escape(message)}"
             ),
         }
         import asyncio

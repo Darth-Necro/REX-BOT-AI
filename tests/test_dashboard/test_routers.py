@@ -83,7 +83,8 @@ class TestHealthRouter:
         In test environments without Redis, 'degraded' is expected.
         """
         response = client.get("/api/health")
-        assert response.status_code == 200
+        # Without a live Redis, the health endpoint correctly reports degraded
+        assert response.status_code == 503
         data = response.json()
         assert data["status"] in ("ok", "degraded")
 

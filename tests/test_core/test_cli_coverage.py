@@ -510,6 +510,7 @@ class TestGetTokenExtended:
         """_get_token reads and strips token from file."""
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("my-token-value\n")
+        token_file.chmod(0o600)
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()
         assert result == "my-token-value"
@@ -518,9 +519,19 @@ class TestGetTokenExtended:
         """_get_token strips all leading/trailing whitespace."""
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("  \n  tok-123  \n  ")
+        token_file.chmod(0o600)
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()
         assert result == "tok-123"
+
+    def test_rejects_world_readable_token_file(self, tmp_path: object) -> None:
+        """_get_token ignores token files with too-open permissions."""
+        token_file = tmp_path / ".rex-token"  # type: ignore[operator]
+        token_file.write_text("secret-token\n")
+        token_file.chmod(0o644)  # group/other readable
+        with patch("os.path.expanduser", return_value=str(token_file)):
+            result = _get_token()
+        assert result == ""
 
 
 # ------------------------------------------------------------------

@@ -194,8 +194,9 @@ async def health_check() -> dict[str, str]:
     """Health check endpoint for load balancers and monitoring.
 
     Returns 200 with ``{"status": "ok"}`` if the dashboard is running
-    and can reach Redis.  Returns 200 with ``{"status": "degraded"}``
-    if Redis is unavailable (WAL fallback is active).
+    and can reach Redis.  Returns 503 with ``{"status": "degraded"}``
+    if Redis is unavailable, so load balancers don't route traffic to
+    an inoperable instance.
 
     This is intentionally simple and fast -- detailed status is available
     at ``/api/status`` with authentication.
@@ -213,7 +214,12 @@ async def health_check() -> dict[str, str]:
             r.close()
         return {"status": "ok"}
     except Exception:
-        return {"status": "degraded"}
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(  # type: ignore[return-value]
+            {"status": "degraded", "reason": "event bus unreachable"},
+            status_code=503,
+        )
 
 
 @router.get("/privacy/audit")

@@ -91,7 +91,7 @@ async def submit_answer(
 
 @router.post("/chat")
 async def chat(
-    message: str = Body(..., embed=True),
+    message: str = Body(..., embed=True, max_length=5000),
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """REX chat interface. Requires Ollama LLM connection for real responses."""

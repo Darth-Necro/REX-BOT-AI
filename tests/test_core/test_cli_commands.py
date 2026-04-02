@@ -57,6 +57,7 @@ class TestGetToken:
 
         token_file = tmp_path / ".rex-token"
         token_file.write_text("my-secret-token\n")
+        token_file.chmod(0o600)
 
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()
@@ -69,6 +70,7 @@ class TestGetToken:
 
         token_file = tmp_path / ".rex-token"
         token_file.write_text("  token-with-spaces  \n\n")
+        token_file.chmod(0o600)
 
         with patch("os.path.expanduser", return_value=str(token_file)):
             result = _get_token()

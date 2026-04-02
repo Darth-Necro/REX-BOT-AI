@@ -32,6 +32,23 @@ if _DEV_INSECURE:
 
 from rex.shared.constants import VERSION
 
+
+def _redact_url(url: str) -> str:
+    """Redact password from a URL for safe display (e.g. redis://:***@host)."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.password:
+            # Replace password with '***', preserve username if present
+            netloc = f"{parsed.username or ''}:***@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(parsed._replace(netloc=netloc))
+    except Exception:
+        pass
+    return url
+
 app = typer.Typer(
     name="rex",
     help="REX-BOT-AI -- Open-source autonomous AI security agent.",
@@ -73,7 +90,7 @@ def start(
     config = get_config()
     typer.echo(f"  Mode:   {config.mode.value}")
     typer.echo(f"  Data:   {config.data_dir}")
-    typer.echo(f"  Redis:  {config.redis_url}")
+    typer.echo(f"  Redis:  {_redact_url(config.redis_url)}")
     typer.echo(f"  Ollama: {config.ollama_url}")
     typer.echo("")
 
@@ -344,26 +361,29 @@ def privacy(
 def _get_token() -> str:
     """Read cached auth token from ~/.rex-token.
 
-    Warns if the token file has insecure permissions (readable by others).
+    Validates file permissions: the token file must not be readable by
+    group or others (mode must be 0o600 or stricter).  If permissions
+    are too open the file is ignored and a warning is printed.
     """
     import os
     import stat
     from pathlib import Path
+
     token_file = Path(os.path.expanduser("~/.rex-token"))
-    if token_file.exists():
-        # Check file permissions -- warn if group/other-readable
-        try:
-            mode = token_file.stat().st_mode & 0o777
-            if mode & 0o077:
-                typer.echo(
-                    f"  WARNING: {token_file} has insecure permissions ({oct(mode)}). "
-                    f"Run: chmod 600 {token_file}",
-                    err=True,
-                )
-        except OSError:
-            pass
-        return token_file.read_text().strip()
-    return ""
+    if not token_file.exists():
+        return ""
+    try:
+        mode = token_file.stat().st_mode
+        if mode & (stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH):
+            logging.getLogger(__name__).warning(
+                "Ignoring %s: file permissions too open (mode %o). "
+                "Run: chmod 600 %s",
+                token_file, stat.S_IMODE(mode), token_file,
+            )
+            return ""
+    except OSError:
+        return ""
+    return token_file.read_text().strip()
 
 
 def main() -> None:

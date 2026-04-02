@@ -151,6 +151,12 @@ class WebSocketManager:
             return
 
         # --- Authentication gate: first-message auth only ---
+        # Check connection limit BEFORE accepting to avoid resource waste
+        if self.active_count >= MAX_CONNECTIONS:
+            await websocket.close(code=4029, reason="Connection limit reached")
+            logger.warning("WebSocket connection rejected: limit of %d reached", MAX_CONNECTIONS)
+            return
+
         await websocket.accept()
         token: str | None = None
         try:

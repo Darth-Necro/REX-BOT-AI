@@ -309,8 +309,9 @@ class AuthManager:
         stored_encrypted = self._store_to_secrets_manager()
         if stored_encrypted:
             # Remove plaintext file if encrypted storage succeeded
-            with contextlib.suppress(OSError):
-                self._creds_file.unlink()
+            if self._creds_file.exists():
+                with contextlib.suppress(OSError):
+                    self._creds_file.unlink()
         else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,

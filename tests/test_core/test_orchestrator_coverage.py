@@ -32,6 +32,12 @@ from rex.shared.models import ServiceHealth
 # Helpers
 # ------------------------------------------------------------------
 
+def _closing_create_task(coro):
+    """Mock for asyncio.create_task that closes the coroutine to avoid warnings."""
+    coro.close()
+    return MagicMock()
+
+
 def _mock_service(
     name: ServiceName,
     *,
@@ -312,17 +318,12 @@ class TestStopAllOrder:
         orch.register(svc)
         orch._status[ServiceName.EYES] = "running"
 
-        async def _slow_stop() -> None:
-            await asyncio.sleep(999)
-
-        svc.stop = _slow_stop
-
-        async def _timeout_wait_for(coro, **kwargs):
-            """Close the coroutine to prevent 'never awaited' warning, then raise."""
+        async def _fake_wait_for(coro, *, timeout):
+            """Close the coroutine to prevent 'never awaited' warnings, then timeout."""
             coro.close()
             raise TimeoutError
 
-        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_timeout_wait_for):
+        with patch("rex.core.orchestrator.asyncio.wait_for", side_effect=_fake_wait_for):
             await orch.stop_all()
 
         assert orch._status[ServiceName.EYES] == "force_stopped"
@@ -664,6 +665,13 @@ class TestRunMethod:
         mock_event = MagicMock()
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
+        call_count = 0
+
+        def _tracking_create_task(coro):
+            nonlocal call_count
+            coro.close()
+            call_count += 1
+            return mock_task
 
         # Capture the coroutine passed to create_task so we can close it
         # (prevents "coroutine was never awaited" warning).

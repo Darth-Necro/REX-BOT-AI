@@ -159,6 +159,7 @@ async def test_auto_restart_on_failure():
 async def test_auto_restart_max_attempts():
     """After MAX restarts in the sliding window, service should be disabled."""
     import time
+
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
 

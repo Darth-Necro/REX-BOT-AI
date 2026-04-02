@@ -687,14 +687,17 @@ class PrivacyAuditor:
         import ipaddress as _ipaddress
         from urllib.parse import urlparse
 
-        local_hostnames = {"localhost"}
+        local_hostnames = {
+            "localhost",
+            "localhost.",  # FQDN form
+        }
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname or ""
         except Exception:
             hostname = ""
 
-        # urlparse strips brackets from IPv6, so [::1] → "::1"
+        # urlparse strips brackets from IPv6, so [::1] -> "::1"
         if hostname.lower() in local_hostnames:
             return True
 
@@ -711,6 +714,7 @@ class PrivacyAuditor:
             # Also handle 0.0.0.0 which is used as a bind address
             if hostname == "0.0.0.0":
                 return True
+
 
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "redis://::1:6379" — urlparse returns hostname=None).

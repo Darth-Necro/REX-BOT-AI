@@ -84,6 +84,8 @@ These are enforced in code, not just policy:
 - **Password hashing**: bcrypt with SHA-256 pre-hashing to prevent 72-byte truncation attacks.
 - **Restart anti-flapping**: sliding-window restart budget with exponential backoff prevents restart storms.
 - **Credential storage**: plaintext fallback only when encrypted storage is unavailable; plaintext removed on migration.
+- **Health fail-closed**: the `/api/health` endpoint returns 503 when the event bus is unreachable.
+- **Plugin permissions**: registered plugins are restricted to declared permissions; unregistered tokens are rejected once any plugin is registered.
 
 ## Development Setup
 
