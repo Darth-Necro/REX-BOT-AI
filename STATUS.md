@@ -1,8 +1,8 @@
 # REX-BOT-AI: Project Status
 
 **Last updated**: 2026-04-01
-**Version**: 0.2.0-beta
-**Stage**: Beta candidate — critical bus/event/security fixes applied, per-service EventBus isolation, cross-platform PAL complete
+**Version**: 0.1.0-alpha
+**Stage**: Alpha — critical bus/event/security fixes applied, per-service EventBus isolation, Linux PAL complete (other platforms experimental)
 
 ## What Changed Since Pre-Alpha
 
@@ -28,7 +28,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Plugin sandbox uses Docker**: real `docker create/start/stop/rm` calls with security hardening
 - **CLI improved**: login command, scan parameters, proper error handling
 - **Credentials encryption Docker-aware**: stable key derivation in Docker containers
-- **Cross-platform PAL adapters implemented**: Windows, macOS, BSD adapters functional
+- **Cross-platform PAL stubs implemented**: Windows, macOS, BSD adapters exist (experimental — many methods raise NotImplementedError)
 - **PID file written**: orchestrator writes PID for CLI stop command
 
 ## Architecture Fixes (2026-04-01)
@@ -41,7 +41,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Windows PAL key parsing**: get_active_rules now correctly parses "Rule Name:" as key "rulename" (matching real netsh output format).
 - **Frontend wsConnection fix**: useRealtimeSync now sets wsConnection (matching store field) instead of non-existent wsState.
 - **WebSocket status_change channel**: Added to allowed channels whitelist so frontend subscription works.
-- **Version strings unified**: 0.1.0-alpha across pyproject.toml, requirements.txt, install.sh, README.
+- **Version strings unified**: 0.1.0-alpha across pyproject.toml, requirements.txt, install.sh, README, STATUS.md, BETA_GAP.md.
 - **Installer clones full repo**: Docker build context now includes all required files (Dockerfile, rex/, requirements.txt, pyproject.toml, frontend/).
 - **xfail count reduced**: 10 → 3 (fixed VULN-006/007/008/009, removed 4 disguised-request xfails that were already passing).
 
@@ -55,8 +55,8 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Power management suspends services**: PowerManager transition callback pauses/resumes non-essential services (Federation, Store)
 - **Docker entrypoint fixed**: `CMD ["start"]` so `python -m rex.core start` runs correctly
 - **Docker networking clarified**: REX uses `network_mode: host`, reaches Redis/Ollama/ChromaDB via published localhost ports
-- **Live Redis integration test added**: 3 tests exercise EventBus publish/consume/WAL-drain against real Redis
-- **CI integration job added**: GitHub Actions job runs integration tests with Redis service container
+- **Live Redis integration test added**: 3 tests exercise EventBus publish/consume/WAL-drain against real Redis (local only, not in CI)
+- **CI integration job**: NOT YET IMPLEMENTED (no Redis service container in GitHub Actions workflow)
 - **Docker smoke test script**: `scripts/docker-smoke-test.sh` verifies end-to-end Docker deployment
 - **bcrypt compatibility fixed**: Explicit 72-byte truncation and null-byte rejection for bcrypt 5.x
 
@@ -85,9 +85,9 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Redis event bus with WAL fallback and consumer group management
 - **EventBus WAL respects configured data_dir** (not hard-coded default)
 - Linux PAL (2300 lines): raw sockets, nftables, systemd, package management
-- Windows PAL: netsh advfirewall, ipconfig, arp, Task Scheduler
-- macOS PAL: pfctl anchors, ifconfig, networksetup, launchd
-- BSD PAL: pfctl, ifconfig, pkg, rc.d
+- Windows PAL: netsh advfirewall, ipconfig, arp, Task Scheduler (experimental — many methods raise NotImplementedError)
+- macOS PAL: pfctl anchors, ifconfig, networksetup, launchd (experimental — many methods raise NotImplementedError)
+- BSD PAL: pfctl, ifconfig, pkg, rc.d (experimental — many methods raise NotImplementedError)
 - Threat classifier: 12 categories with MITRE ATT&CK alignment
 - Multi-AI provider system: K9-Engine (built-in offline), Ollama, OpenAI, Anthropic, Google, OpenAI-compat
 - LLM Router: Brain 1 (security, always local) / Brain 2 (assistant, configurable) with data sanitization
@@ -130,7 +130,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 | Coverage | 84% |
 | New integration tests | 23 |
 | Security pentest tests | 306 |
-| Integration tests (Redis) | 3 |
+| Integration tests (Redis) | 3 (local only, not in CI) |
 | Lines of code (rex/) | 35,953 |
 
 ## Alpha Release Checklist
@@ -144,16 +144,16 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - [x] Docs match code: ARCHITECTURE.md, README.md, STATUS.md verified
 - [x] Command contract standardized and tested
 - [x] EventBus WAL path respects configured data_dir
-- [x] `docker compose up -d` verified end-to-end (smoke test script)
+- [ ] `docker compose up -d` verified end-to-end (smoke test script exists but not validated on clean machine)
 - [x] First-boot password displayed to user
 - [x] Mode switch calls backend ModeManager
 - [x] Install script path alignment with Docker volumes
 - [x] Power manager suspends/resumes services
-- [x] Cross-platform PAL adapters implemented (Windows, macOS, BSD)
+- [x] Cross-platform PAL stubs implemented (Windows, macOS, BSD — experimental, many NotImplementedError)
 - [x] Plugin sandbox uses real Docker
 - [x] Credentials encryption Docker-aware
 - [x] FastAPI app creation smoke test passes
-- [x] At least one real integration test with live Redis (in CI)
+- [ ] At least one real integration test with live Redis in CI (tests exist locally but CI has no Redis service container)
 - [ ] K9-Engine tested end-to-end with GGUF model loading and inference
 - [ ] Multi-provider failover verified (K9 -> Ollama -> degraded)
 - [ ] External provider data sanitization verified in production

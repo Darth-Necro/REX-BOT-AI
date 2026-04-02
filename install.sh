@@ -222,6 +222,10 @@ install_rex() {
     fi
 
     # Write .env -- used by both install.sh and docker-compose.yml
+    # Generate Redis password ONCE, before the heredoc, so both
+    # REDIS_PASSWORD and REX_REDIS_URL reference the same secret.
+    _REDIS_PW=$(openssl rand -hex 16)
+
     cat > "${REX_INSTALL_DIR}/.env" << ENVEOF
 REX_MODE=basic
 REX_LOG_LEVEL=info
@@ -230,8 +234,7 @@ REX_DASHBOARD_PORT=${REX_PORT}
 REX_DASHBOARD_HOST=0.0.0.0
 REX_NETWORK_INTERFACE=auto
 REX_SCAN_INTERVAL=300
-REDIS_PASSWORD=$(openssl rand -hex 16)
-REDIS_URL=redis://:$(openssl rand -hex 16)@redis:6379
+REDIS_PASSWORD=${_REDIS_PW}
 REX_FEDERATION_ENABLED=false
 REX_DOCKER=true
 ENVEOF

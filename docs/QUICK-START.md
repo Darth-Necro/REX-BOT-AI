@@ -66,7 +66,7 @@ All settings in `.env` have sensible defaults. Adjust if needed:
 | `REX_MODE` | `basic` | `basic` (simplified UI) or `advanced` (full control) |
 | `REX_DASHBOARD_PORT` | `8443` | HTTPS port for the dashboard |
 | `REX_SCAN_INTERVAL` | `300` | Seconds between network scans (5 min) |
-| `OLLAMA_MODEL` | `auto` | LLM model, or `auto` to detect based on hardware |
+| `REX_OLLAMA_MODEL` | `auto` | LLM model, or `auto` to detect based on hardware |
 | `REX_NETWORK_INTERFACE` | `auto` | Network interface to monitor, or `auto` to detect |
 
 ### Notification Channels (Optional)
@@ -158,7 +158,7 @@ docker compose exec ollama ollama pull phi3:mini
 docker compose exec ollama ollama pull gemma:2b
 ```
 
-> **Tip:** If `OLLAMA_MODEL=auto` (the default), REX auto-selects the best model for your hardware. You can skip this step and REX will recommend a model on first boot.
+> **Tip:** If `REX_OLLAMA_MODEL=auto` (the default), REX auto-selects the best model for your hardware. You can skip this step and REX will recommend a model on first boot.
 
 > **No GPU?** REX works fine on CPU-only machines. LLM responses will be slower but functional. With `< 4 GB RAM`, REX falls back to rules-only mode (no LLM) and still provides threat detection.
 
@@ -377,7 +377,7 @@ docker compose logs redis  # Check Redis logs
 
 **High CPU usage:**
 - Reduce scan frequency in Settings or `.env` (`REX_SCAN_INTERVAL=600`)
-- Use a smaller LLM model (`OLLAMA_MODEL=phi3:mini`)
+- Use a smaller LLM model (`REX_OLLAMA_MODEL=phi3:mini`)
 - Enable sleep mode: `rex sleep`
 
 **Forgot admin password:**
