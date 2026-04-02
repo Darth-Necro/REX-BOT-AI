@@ -161,6 +161,9 @@ async def test_auto_restart_max_attempts():
     svc = _mock_service(ServiceName.EYES, fail_start=True)
     orch.register(svc)
     orch._restart_counts[ServiceName.EYES] = 3  # Already at max
+    import time
+    now = time.monotonic()
+    orch._restart_timestamps[ServiceName.EYES] = [now - 10, now - 5, now - 1]
 
     await orch._auto_restart(ServiceName.EYES)
 

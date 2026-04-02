@@ -255,7 +255,7 @@ Plugin crashes are auto-restarted up to 3 times. After the third crash, the plug
 ### In Transit
 
 - Dashboard serves over HTTPS (port 8443).
-- WebSocket connections use WSS when HTTPS is enabled.
+- WebSocket connections use WSS when HTTPS is enabled. Authentication is performed via first-message auth (JWT sent as the first WebSocket message after connection) to prevent token leakage in server/proxy access logs.
 - Redis communication is over the Docker-internal bridge network (`internal: true`), which is not routable from outside the Docker host.
 - Ollama communication is localhost-only (127.0.0.1).
 - ChromaDB communication is over the internal Docker network.

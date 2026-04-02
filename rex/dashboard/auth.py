@@ -8,6 +8,7 @@ Session timeout: 4 hours by default.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import secrets
@@ -40,8 +41,27 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prehash(password: str) -> bytes:
+    """Pre-hash a password with SHA-256 to avoid bcrypt's 72-byte truncation.
+
+    bcrypt silently truncates input at 72 bytes.  Without pre-hashing,
+    two passwords that share the same first 72 bytes would be treated as
+    identical -- a real security vulnerability for long passphrases.
+
+    The SHA-256 digest (32 bytes, base64-encoded → 44 bytes) is always
+    shorter than 72 bytes, so bcrypt sees the full entropy.
+
+    This is a well-established pattern (Dropbox, Django, etc.).
+    """
+    import base64
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
+
+
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
+
+    Pre-hashes with SHA-256 to avoid bcrypt's 72-byte silent truncation.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -49,13 +69,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing)."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prehash(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -124,8 +144,9 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                # Migrate to SecretsManager if available and remove plaintext
+                if self._store_to_secrets_manager():
+                    self._remove_plaintext_creds()
                 self._initialized = True
                 return None
             except Exception:
@@ -165,6 +186,15 @@ class AuthManager:
         except Exception:
             logger.warning("Failed to store credentials in SecretsManager")
             return False
+
+    def _remove_plaintext_creds(self) -> None:
+        """Remove the plaintext credentials file after successful migration."""
+        try:
+            if self._creds_file.exists():
+                self._creds_file.unlink()
+                logger.info("Plaintext credentials file removed after migration to encrypted storage")
+        except OSError:
+            logger.warning("Failed to remove plaintext credentials file: %s", self._creds_file)
 
     async def login(self, username: str, password: str, client_ip: str = "unknown") -> dict[str, Any]:
         """Authenticate and return a JWT token.
@@ -243,7 +273,9 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            self._remove_plaintext_creds()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,

@@ -469,11 +469,17 @@ class TestAutoRestart:
 
     @pytest.mark.asyncio
     async def test_auto_restart_disables_at_max(self) -> None:
-        """After MAX_RESTART_ATTEMPTS, service should be disabled."""
+        """After MAX_RESTART_ATTEMPTS in the decay window, service should be disabled."""
+        import time as _time
+
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
         orch._restart_counts[ServiceName.STORE] = _MAX_RESTART_ATTEMPTS
+        now = _time.monotonic()
+        orch._restart_timestamps[ServiceName.STORE] = [
+            now - 10, now - 5, now - 1,
+        ]
 
         await orch._auto_restart(ServiceName.STORE)
 
