@@ -15,6 +15,8 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+import hashlib
+
 import bcrypt
 import jwt  # PyJWT
 
@@ -40,8 +42,22 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prehash_password(password: str) -> bytes:
+    """Pre-hash passwords with SHA-256 to handle bcrypt's 72-byte limit.
+
+    bcrypt silently truncates input at 72 bytes, meaning passwords longer
+    than 72 bytes are effectively truncated — two passwords sharing the
+    same first 72 bytes would compare equal.  Pre-hashing with SHA-256
+    maps any-length input to a fixed 64-byte hex string, preserving full
+    password entropy within bcrypt's input limit.
+
+    This is the standard mitigation (used by Dropbox, Django, etc.).
+    """
+    return hashlib.sha256(password.encode()).hexdigest().encode()
+
+
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -49,13 +65,13 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash_password(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against a bcrypt hash."""
+    """Verify a password against a bcrypt hash (with SHA-256 pre-hashing)."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prehash_password(password), hashed.encode())
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
@@ -124,8 +140,13 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Migrated credentials to SecretsManager; plaintext file removed")
+                    except OSError:
+                        logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
                 return None
             except Exception:

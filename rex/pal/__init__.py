@@ -87,12 +87,12 @@ def get_adapter() -> PlatformAdapter:
         from rex.pal.bsd import BSDAdapter
         return BSDAdapter()
     else:
-        _log.warning(
-            "Unsupported platform '%s' — falling back to Linux adapter. "
-            "Alpha target is Linux only.", system,
+        raise PlatformError(
+            f"Unsupported platform '{system}'. "
+            f"REX alpha supports Linux (primary), with experimental support for "
+            f"macOS, Windows, and FreeBSD. "
+            f"If you believe this platform should work, please file an issue."
         )
-        from rex.pal.linux import LinuxAdapter
-        return LinuxAdapter()
 
 
 __all__ = [

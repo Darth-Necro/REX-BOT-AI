@@ -9,7 +9,7 @@
                  |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**v0.1.0-alpha** -- Local-first autonomous network security agent with Linux PAL, multi-layer AI decision pipeline, prompt injection defense, and per-service event bus isolation.
+**v0.1.0-alpha** -- Local-first autonomous network security agent. Linux-primary, with experimental macOS/Windows/BSD support. Multi-layer AI decision pipeline, prompt injection defense, and per-service event bus isolation.
 
 > This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
@@ -50,8 +50,8 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Orchestrator | Working -- per-service bus ownership, health monitor, auto-restart |
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
-| Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test suite | 2,979 tests, 5 xfail (known edge cases), 0 failures |
+| Windows/macOS/BSD PAL | **Experimental** -- core methods implemented, many features raise NotImplementedError |
+| Test suite | 4,062 tests, 0 failures, 22 warnings |
 
 ## Architecture
 
@@ -80,6 +80,10 @@ These are enforced in code, not just policy:
 - **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 - **Scope enforcement**: out-of-scope request patterns override security keyword matches to prevent disguised-request bypass.
 - **CORS safety**: wildcard origins are stripped when `allow_credentials=True`.
+- **WebSocket auth**: first-message auth only — JWTs are never sent in URLs/query strings.
+- **Password hashing**: bcrypt with SHA-256 pre-hashing to prevent 72-byte truncation attacks.
+- **Restart anti-flapping**: sliding-window restart budget with exponential backoff prevents restart storms.
+- **Credential storage**: plaintext fallback only when encrypted storage is unavailable; plaintext removed on migration.
 
 ## Development Setup
 

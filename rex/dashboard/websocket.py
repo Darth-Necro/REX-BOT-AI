@@ -176,4 +176,9 @@ class WebSocketManager:
                         websocket, {"type": "error", "message": "Invalid JSON"}
                     )
         except WebSocketDisconnect:
+            pass
+        except Exception:
+            logger.debug("WebSocket error in handle_client", exc_info=True)
+        finally:
+            # Deterministic cleanup: always remove from connection registry
             await self.disconnect(websocket)

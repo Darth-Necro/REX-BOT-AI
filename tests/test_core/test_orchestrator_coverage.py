@@ -442,7 +442,7 @@ class TestRestartService:
 # ------------------------------------------------------------------
 
 class TestAutoRestart:
-    """Test auto-restart with exponential back-off."""
+    """Test auto-restart with sliding-window anti-flapping."""
 
     @pytest.mark.asyncio
     async def test_auto_restart_increments_count(self) -> None:
@@ -451,29 +451,39 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 1
 
     @pytest.mark.asyncio
     async def test_auto_restart_second_attempt(self) -> None:
         """Second auto-restart should set count to 2."""
+        import time as _time
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
         orch._restart_counts[ServiceName.STORE] = 1
+        # Simulate one prior restart in the sliding window
+        orch._restart_timestamps[ServiceName.STORE] = [_time.monotonic() - 10]
 
-        await orch._auto_restart(ServiceName.STORE)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.STORE)
 
         assert orch._restart_counts[ServiceName.STORE] == 2
 
     @pytest.mark.asyncio
     async def test_auto_restart_disables_at_max(self) -> None:
-        """After MAX_RESTART_ATTEMPTS, service should be disabled."""
+        """After MAX_RESTART_ATTEMPTS in the sliding window, service is disabled."""
+        import time as _time
         orch = _make_orchestrator_with_bus()
         svc = _mock_service(ServiceName.STORE)
         orch.register(svc)
-        orch._restart_counts[ServiceName.STORE] = _MAX_RESTART_ATTEMPTS
+        # Fill the sliding window to max
+        now = _time.monotonic()
+        orch._restart_timestamps[ServiceName.STORE] = [
+            now - 10, now - 5, now - 1,
+        ]
 
         await orch._auto_restart(ServiceName.STORE)
 
@@ -487,7 +497,8 @@ class TestAutoRestart:
         svc = _mock_service(ServiceName.SCHEDULER, fail_start=True)
         orch.register(svc)
 
-        await orch._auto_restart(ServiceName.SCHEDULER)
+        with patch("rex.core.orchestrator.asyncio.sleep", new_callable=AsyncMock):
+            await orch._auto_restart(ServiceName.SCHEDULER)
 
         assert orch._restart_counts[ServiceName.SCHEDULER] == 1
         assert orch._status[ServiceName.SCHEDULER] == "failed"

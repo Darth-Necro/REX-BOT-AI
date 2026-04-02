@@ -694,21 +694,35 @@ class PrivacyAuditor:
         except Exception:
             hostname = ""
 
+        # urlparse strips brackets from [::1], yielding "::1"
         if hostname in local_hosts:
             return True
+
+        # Check if hostname is a 127.x.x.x loopback variant
+        if hostname:
+            import ipaddress as _ipaddress
+            try:
+                addr = _ipaddress.ip_address(hostname)
+                if addr.is_loopback:
+                    return True
+            except ValueError:
+                pass
 
         # Handle unbracketed IPv6 that urlparse fails to parse
         # (e.g. "http://::1:6379" — urlparse returns hostname=None)
         if not hostname:
             import re
-            # Extract host portion between :// and the next /
             m = re.match(r"[a-zA-Z]+://(.+?)(?:/|$)", url)
             if m:
                 host_port = m.group(1)
-                # Strip trailing port if present (last :N segment)
-                # For ::1:6379, the host is ::1
+                # Bracketed IPv6: [::1]:port
+                bracket_match = re.match(r"^\[([^\]]+)\]", host_port)
+                if bracket_match:
+                    inner = bracket_match.group(1)
+                    if inner in local_hosts:
+                        return True
+                # Unbracketed shorthand like ::1:port or just ::1
                 if host_port.startswith("::"):
-                    # IPv6 shorthand like ::1:port or just ::1
                     for local in ("::1",):
                         if host_port == local or host_port.startswith(local + ":"):
                             return True
