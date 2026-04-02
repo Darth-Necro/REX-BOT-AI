@@ -37,12 +37,12 @@ const useSystemStore = create((set, get) => ({
   // --- Derived convenience (kept for backward compat) ---
   connected: false,
 
-  // --- Auth ---
-  token: localStorage.getItem('rex_token') || null,
+  // --- Auth (in-memory only — never persist tokens to localStorage) ---
+  token: null,
   setToken: (token) => {
-    if (token) localStorage.setItem('rex_token', token);
-    else localStorage.removeItem('rex_token');
-    set({ token });
+    // Clear any legacy localStorage token on next call
+    localStorage.removeItem('rex_token');
+    set({ token: token || null });
   },
   logout: () => {
     localStorage.removeItem('rex_token');
