@@ -14,7 +14,7 @@ const REX_AVATAR = (
 
 const WELCOME_MESSAGE = {
   role: 'rex',
-  text: "Woof! I'm REX, your network guard dog. I watch over your devices 24/7 and keep the bad guys out. Ask me anything about your network, devices, threats, or tell me to run a scan. I'm always on alert!",
+  text: "*WOOF WOOF!* I'm REX, your Great Dane guard dog! *ruff ruff* I watch over your devices 24/7 and keep the bad guys out. *woof* Ask me anything about your network, devices, threats, or tell me to run a scan. *GRRRRR* ... I'm always on alert!",
   timestamp: new Date().toISOString(),
 };
 
@@ -90,10 +90,10 @@ export default function RexChat({ compact = false }) {
       // Chat/LLM endpoint may not be available yet — give honest feedback
       const errorMsg =
         err.response?.status === 404
-          ? "Woof! My chat brain isn't connected yet. The LLM chat feature will be available once Ollama is running and the chat endpoint is configured."
+          ? "*whimper* Ruff! My chat brain isn't connected yet. *woof woof* The LLM chat feature will be available once Ollama is running and the chat endpoint is configured."
           : err.response?.status === 503
-          ? "My brain is still warming up... give me a moment and try again!"
-          : "Woof! Something went wrong. My connection might be down. I'll keep trying!";
+          ? "*ruff ruff* ... My brain is still warming up... *woof* give me a moment and try again!"
+          : "*WOOF!* Something went wrong. *whimper* My connection might be down. *ruff* I'll keep trying!";
       setMessages((prev) => [
         ...prev,
         { role: 'rex', text: errorMsg, timestamp: new Date().toISOString() },

@@ -181,6 +181,13 @@ export default function AppShell({
         {(!collapsed || isMobile) && (
           <span className="text-xs font-medium text-slate-500 tracking-wider">BOT-AI</span>
         )}
+        {(!collapsed || isMobile) && (
+          <pre className="text-[8px] font-mono leading-none ml-1" style={{ color: colors.accent.cyan }}>
+{`/^\\_
+( @\\__
+/    O`}
+          </pre>
+        )}
         {isMobile ? (
           <button
             onClick={() => setMobileOpen(false)}

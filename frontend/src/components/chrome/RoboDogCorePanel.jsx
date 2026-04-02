@@ -8,6 +8,7 @@ import { radius, colors } from '../../theme/tokens';
 const POSTURE_CONFIG = {
   nominal: {
     label: 'ALL CLEAR',
+    bark: '*woof* All clear!',
     glowColor: 'rgba(34,211,238,0.12)',
     borderColor: 'border-cyan-500/20',
     accentColor: 'text-cyan-400',
@@ -17,6 +18,7 @@ const POSTURE_CONFIG = {
   },
   elevated: {
     label: 'ELEVATED',
+    bark: '*GRRRRR* Something suspicious...',
     glowColor: 'rgba(251,191,36,0.14)',
     borderColor: 'border-amber-400/30',
     accentColor: 'text-amber-300',
@@ -26,6 +28,7 @@ const POSTURE_CONFIG = {
   },
   critical: {
     label: 'CRITICAL',
+    bark: '*WOOF WOOF WOOF!* THREAT DETECTED!',
     glowColor: 'rgba(239,68,68,0.18)',
     borderColor: 'border-red-500/40',
     accentColor: 'text-red-400',
@@ -35,6 +38,7 @@ const POSTURE_CONFIG = {
   },
   unknown: {
     label: 'UNKNOWN',
+    bark: '*ruff?* Sniffing around...',
     glowColor: 'rgba(100,116,139,0.10)',
     borderColor: 'border-slate-700',
     accentColor: 'text-slate-400',
@@ -61,31 +65,49 @@ const LLM_LABELS = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  ASCII Dog Art (posture-dependent)                                 */
+/*  Great Dane ASCII Art (posture-dependent, different angles)        */
 /* ------------------------------------------------------------------ */
 
 function DogArt({ posture, eyeColor }) {
-  const isAlert = posture === 'critical' || posture === 'elevated';
-  const isSleep = posture === 'unknown';
+  /* Each posture shows REX from a different angle */
+  const art = {
+    /* Front-facing alert: ears up, growling */
+    critical: `    /^\\_
+   (!O @\\___
+   /         O
+  /   (\\____/
+ /_____/ | U
+          |~~`,
 
-  // Eyes change with posture
-  const eyes = isSleep ? '-  -' : isAlert ? 'O  O' : 'o  o';
-  const mouth = isAlert ? '^^^' : isSleep ? '...' : ' ^ ';
-  const ears = isAlert ? '/!\\  /!\\'  : ' /\\  /\\ ';
-  const tail = isAlert ? '~' : posture === 'nominal' ? ')' : '.';
+    /* 3/4 view: ears perked, watching */
+    elevated: `    /^\\_
+   ( O @\\___
+   /         O
+  /   (_____/
+ /_____/   U~`,
+
+    /* Side profile: relaxed, happy */
+    nominal: `    /^\\_
+   (   @\\___
+   /         O
+  /   (_____/
+ /_____/   U`,
+
+    /* Lying down: sleepy */
+    unknown: `      _/^\\
+ ___/@  ? )
+O         \\
+ \\_____) _ \\
+    U  \\____\\`,
+  };
 
   return (
     <pre
-      className="font-mono text-sm sm:text-base md:text-lg leading-snug select-none whitespace-pre"
+      className="font-mono text-xs sm:text-sm md:text-base leading-snug select-none whitespace-pre"
       style={{ color: eyeColor }}
       aria-hidden="true"
     >
-{`    ${ears}
-    ( ${eyes} )
-     ( ${mouth} )
-    /|     |\\
-   / |     | \\
-  (_)|     |(_)${tail}`}
+      {art[posture] || art.nominal}
     </pre>
   );
 }
@@ -97,9 +119,9 @@ function DogArt({ posture, eyeColor }) {
 /**
  * RoboDogCorePanel
  *
- * The signature REX component -- a robotic guard-dog whose visuals
- * shift based on threat posture, power state, LLM status, and
- * connection health.
+ * The signature REX Great Dane component -- a guard-dog whose visuals
+ * and bark shift based on threat posture, power state, LLM status, and
+ * connection health.  REX communicates in dog noises only.
  *
  * @param {{
  *   threatPosture: 'nominal'|'elevated'|'critical'|'unknown',
@@ -155,10 +177,15 @@ export default function RoboDogCorePanel({
         </span>
       </div>
 
-      {/* Dog visualisation */}
+      {/* Great Dane visualisation */}
       <div className={cfg.breathe ? 'animate-breathe' : cfg.alert ? 'animate-pulse' : ''}>
         <DogArt posture={threatPosture} eyeColor={cfg.eyeColor} />
       </div>
+
+      {/* REX bark - dog speaks in dog noises */}
+      <p className={`text-xs italic ${cfg.accentColor} text-center`}>
+        {cfg.bark}
+      </p>
 
       {/* Status strip */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-medium tracking-wide uppercase">

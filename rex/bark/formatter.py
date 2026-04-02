@@ -11,11 +11,11 @@ from rex.shared.utils import iso_timestamp
 logger = logging.getLogger(__name__)
 
 _PERSONA_PREFIXES = {
-    ThreatSeverity.CRITICAL: "ALERT! REX detected a serious threat!",
-    ThreatSeverity.HIGH: "REX is growling at something suspicious.",
-    ThreatSeverity.MEDIUM: "REX noticed something unusual.",
-    ThreatSeverity.LOW: "Just a heads up from REX:",
-    ThreatSeverity.INFO: "REX has a quick note for you:",
+    ThreatSeverity.CRITICAL: "*GRRRRR WOOF WOOF!* REX detected a serious threat!",
+    ThreatSeverity.HIGH: "*GRRRRR* REX is growling at something suspicious.",
+    ThreatSeverity.MEDIUM: "*ruff ruff* REX noticed something unusual.",
+    ThreatSeverity.LOW: "*woof* Just a heads up from REX:",
+    ThreatSeverity.INFO: "*ruff* REX has a quick note for you:",
 }
 
 
@@ -94,7 +94,7 @@ class MessageFormatter:
             f"Threats blocked: {blocked}\n"
             f"Network health: "
             f"{'Good' if total < 10 else 'Fair' if total < 50 else 'Needs attention'}\n\n"
-            f"REX is keeping watch. Stay safe."
+            f"*woof* REX is keeping watch. Stay safe."
         )
 
     def format_weekly_report(self, events: list[dict], stats: dict[str, Any]) -> str:
@@ -112,5 +112,5 @@ class MessageFormatter:
         for sev in ["critical", "high", "medium", "low", "info"]:
             if sev in by_severity:
                 lines.append(f"  {sev.upper()}: {by_severity[sev]}")
-        lines.extend(["", "REX continues to guard your network."])
+        lines.extend(["", "*ruff* REX continues to guard your network."])
         return "\n".join(lines)

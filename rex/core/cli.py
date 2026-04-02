@@ -79,11 +79,14 @@ def start(
     _setup_logging(log_level)
 
     typer.echo(r"""
-  /\_/\
- ( o.o )  REX-BOT-AI v""" + VERSION + r"""
-  > ^ <   Starting up...
- /|   |\
-(_|   |_)
+    /^\_
+   (   @\___     ____  _______  __     ____   ____ _______
+   /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+  /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
+ /_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                 |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
+""" + f"                                                    v{VERSION}" + r"""
+                 *woof woof* ... Starting up!
 """)
 
     from rex.shared.config import get_config
@@ -119,7 +122,13 @@ def start(
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        typer.echo("\nREX is going to sleep. Goodbye.")
+        typer.echo(r"""
+          _/^\
+     ___/@    )   *yaaawn* ... REX is going to sleep.
+    O         \   Goodbye!
+     \_____) _ \
+        U  \____\
+""")
 
 
 @app.command()
@@ -132,16 +141,19 @@ def stop() -> None:
         with open(pidfile) as f:
             pid = int(f.read().strip())
         os.kill(pid, signal.SIGTERM)
-        typer.echo(f"Sent stop signal to REX (PID {pid})")
+        typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
     else:
-        typer.echo("REX does not appear to be running (no PID file found).")
+        typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
 
 
 @app.command()
 def status() -> None:
     """Show health status of all REX services."""
     import httpx
-    typer.echo(f"REX-BOT-AI v{VERSION}")
+    typer.echo(r"""       /^\_
+      (   @\___   REX-BOT-AI v""" + VERSION + r"""
+      /         O  *ruff* Status report!
+     /_____/   U""")
     typer.echo("")
     try:
         resp = httpx.get(f"{_DEFAULT_API_URL}/api/status", timeout=5, verify=not _DEV_INSECURE)
@@ -247,7 +259,13 @@ def sleep() -> None:
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
-            typer.echo("  REX is sleeping with one ear open. Lightweight monitoring active.")
+            typer.echo(r"""
+          _/^\
+     ___/@  - )   *woof* ... zzz ... REX is sleeping
+    O         \   with one ear open.
+     \_____) _ \  Lightweight monitoring active.
+        U  \____\
+""")
         else:
             typer.echo(f"  Detail: {data.get('detail', 'No response')}")
     except Exception as e:
@@ -269,7 +287,13 @@ def wake() -> None:
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
-            typer.echo("  REX is awake. Full monitoring and protection active.")
+            typer.echo(r"""
+        /^\_
+       ( O @\___   *WOOF WOOF!* REX is awake!
+       /         O  Full monitoring and protection active.
+      /   (_____/
+     /_____/   U
+""")
         else:
             typer.echo(f"  Detail: {data.get('detail', 'No response')}")
     except Exception as e:
@@ -282,7 +306,12 @@ def diag() -> None:
     from rex.pal.detector import detect_hardware, detect_os, recommend_llm_model
     from rex.pal.docker_helper import get_docker_version, is_docker_installed, is_docker_running
 
-    typer.echo(f"REX-BOT-AI v{VERSION}")
+    typer.echo(r"""
+    /^\_
+   (   @\___   REX-BOT-AI v""" + VERSION + r"""
+   /         O  *ruff ruff* Diagnostic sniff...
+  /   (_____/
+ /_____/   U""")
     typer.echo("=" * 40)
 
     os_info = detect_os()
