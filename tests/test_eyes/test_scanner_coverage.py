@@ -200,14 +200,14 @@ class TestNmapPingSweep:
         scanner = _make_scanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
+        mock_proc = MagicMock()
         mock_proc.communicate = AsyncMock(return_value=(
             b"<?xml version='1.0'?><nmaprun></nmaprun>",
             b"some warning",
         ))
         mock_proc.returncode = 1
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             result = await scanner._nmap_ping_sweep("192.168.1.0/24")
         # Should still parse the XML even with a non-zero return code
         assert isinstance(result, list)
@@ -217,12 +217,11 @@ class TestNmapPingSweep:
         scanner = _make_scanner()
         scanner._nmap_available = True
 
-        mock_proc = AsyncMock()
-        mock_proc.communicate = AsyncMock(side_effect=TimeoutError)
+        mock_proc = MagicMock()
         mock_proc.returncode = None
         mock_proc.kill = MagicMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_proc):
             with patch("asyncio.wait_for", side_effect=TimeoutError):
                 result = await scanner._nmap_ping_sweep("192.168.1.0/24")
 
