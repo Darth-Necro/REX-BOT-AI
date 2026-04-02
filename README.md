@@ -50,8 +50,8 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Orchestrator | Working -- per-service bus ownership, health monitor, auto-restart |
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
-| Windows/macOS/BSD PAL | **Stubs only** -- every method raises NotImplementedError |
-| Test suite | 2,979 tests, 5 xfail (known edge cases), 0 failures |
+| Windows/macOS/BSD PAL | **Implemented but untested** -- code exists (~900 lines each), not verified on target platforms |
+| Test suite | 4,065 tests, 0 xfail, 0 failures |
 
 ## Architecture
 
@@ -80,6 +80,12 @@ These are enforced in code, not just policy:
 - **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 - **Scope enforcement**: out-of-scope request patterns override security keyword matches to prevent disguised-request bypass.
 - **CORS safety**: wildcard origins are stripped when `allow_credentials=True`.
+- **JWT minimum secret strength**: secrets below 32 bytes are rejected (RFC 7518).
+- **Password pre-hashing**: SHA-256 pre-hash avoids bcrypt's 72-byte silent truncation.
+- **WebSocket first-message auth**: JWT tokens are never sent in WebSocket URLs.
+- **No plaintext secret persistence**: credentials are migrated to encrypted storage and plaintext copies are deleted.
+- **Plugin permission enforcement**: registered plugins are checked against declared permissions.
+- **TLS verification on by default**: `verify=False` requires explicit `REX_DEV_INSECURE=1`.
 
 ## Development Setup
 

@@ -284,22 +284,23 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 - **Algorithm**: HS256 (HMAC-SHA256)
 - **Expiry**: 4 hours (configurable)
-- **Secret**: 32-byte random hex generated on first boot
-- **Token format**: Standard JWT with `sub`, `iat`, `exp` claims
+- **Secret**: 32-byte random hex generated on first boot (minimum 32-byte enforcement per RFC 7518)
+- **Token format**: Standard JWT with required `sub`, `iat`, `exp` claims
 - **Rotation**: JWT secret is regenerated when the password is changed, invalidating all existing tokens
 
 ### Password Security
 
-- Passwords are hashed with SHA-256 + random 16-byte hex salt
-- Minimum password length: 8 characters
-- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot
+- Passwords are pre-hashed with SHA-256 to avoid bcrypt's 72-byte truncation, then hashed with bcrypt (random salt)
+- Minimum password length: 12 characters (enforced on change)
+- NUL bytes in passwords are rejected to prevent truncation attacks
+- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via CLI output (never logged)
 - Password changes require the current password
 
 ### Rate Limiting and Lockout
 
 - **Login attempts**: 5 failures within 30 minutes triggers lockout
 - **Lockout duration**: 30 minutes
-- **Lockout scope**: Global (single admin user model)
+- **Lockout scope**: Per-IP (single admin user model, lockout tracks source IP)
 - **Failed attempt tracking**: In-memory with 30-minute sliding window
 
 ### Authorization Model

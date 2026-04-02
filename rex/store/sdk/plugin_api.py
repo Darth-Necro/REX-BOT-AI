@@ -122,15 +122,17 @@ def set_plugin_registry(registry: PluginRegistry) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
-    """Verify plugin API token against the registry. Returns plugin_id.
+async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> dict[str, Any]:
+    """Verify plugin API token against the registry.
+
+    Returns a dict with ``plugin_id`` and ``permissions`` keys.
+    Plugin identity is always derived server-side (never self-chosen).
 
     Alpha contract:
     - Tokens must be at least 32 characters.
     - If a registry file exists, the token must be registered.
     - If no registry file exists (fresh install), tokens are accepted
       with a hash-derived plugin_id as a transitional measure.
-    - Plugin identity is always derived server-side (never self-chosen).
     """
     if not x_plugin_token or len(x_plugin_token) < _MIN_TOKEN_LENGTH:
         raise HTTPException(status_code=401, detail="Invalid or missing plugin token")
@@ -139,7 +141,10 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
     entry = registry.lookup(x_plugin_token)
 
     if entry is not None:
-        return entry["plugin_id"]
+        return {
+            "plugin_id": entry["plugin_id"],
+            "permissions": entry.get("permissions", []),
+        }
 
     # Transitional alpha behavior: if no registry entries exist at all,
     # accept the token with a hash-derived ID (unregistered plugin).
@@ -153,17 +158,44 @@ async def _verify_plugin_token(x_plugin_token: str = Header(...)) -> str:
 
     # No registry — derive a stable plugin_id from the token hash
     plugin_id = f"plugin-{PluginRegistry.hash_token(x_plugin_token)[:16]}"
-    return plugin_id
+    return {"plugin_id": plugin_id, "permissions": []}
+
+
+def _require_permission(permission: str):
+    """Dependency factory that checks plugin permissions.
+
+    Usage::
+
+        @router.get("/devices")
+        async def get_devices(
+            plugin: dict = Depends(_require_permission("devices:read")),
+        ):
+            ...
+    """
+    async def _check(plugin: dict[str, Any] = Depends(_verify_plugin_token)) -> str:
+        perms = plugin.get("permissions", [])
+        # Empty permissions list = transitional alpha (no registry) — allow all
+        if perms and permission not in perms:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Plugin lacks required permission: {permission}",
+            )
+        return plugin["plugin_id"]
+    return _check
 
 
 @router.get("/devices")
-async def get_devices(plugin_id: str = Depends(_verify_plugin_token)) -> dict[str, Any]:
+async def get_devices(
+    plugin_id: str = Depends(_require_permission("devices:read")),
+) -> dict[str, Any]:
     """Device inventory (filtered by plugin permissions)."""
     return {"devices": [], "total": 0}
 
 
 @router.get("/events")
-async def get_events(plugin_id: str = Depends(_verify_plugin_token)) -> dict[str, Any]:
+async def get_events(
+    plugin_id: str = Depends(_require_permission("events:read")),
+) -> dict[str, Any]:
     """Subscribe to event stream (filtered by plugin hooks)."""
     return {"events": []}
 
@@ -171,7 +203,7 @@ async def get_events(plugin_id: str = Depends(_verify_plugin_token)) -> dict[str
 @router.post("/alerts")
 async def submit_alert(
     severity: str, message: str,
-    plugin_id: str = Depends(_verify_plugin_token),
+    plugin_id: str = Depends(_require_permission("alerts:write")),
 ) -> dict[str, Any]:
     """Submit an alert through REX-BARK."""
     return {"status": "queued", "plugin": plugin_id}
@@ -180,7 +212,7 @@ async def submit_alert(
 @router.post("/actions")
 async def request_action(
     action_type: str, params: dict[str, Any] | None = None,
-    plugin_id: str = Depends(_verify_plugin_token),
+    plugin_id: str = Depends(_require_permission("actions:write")),
 ) -> dict[str, Any]:
     """Request a response action (goes through approval)."""
     return {"status": "pending_approval", "plugin": plugin_id}
@@ -188,7 +220,8 @@ async def request_action(
 
 @router.get("/knowledge-base/{section}")
 async def get_kb_section(
-    section: str, plugin_id: str = Depends(_verify_plugin_token),
+    section: str,
+    plugin_id: str = Depends(_require_permission("kb:read")),
 ) -> dict[str, Any]:
     """Read a knowledge base section."""
     return {"section": section, "data": None}
@@ -197,7 +230,7 @@ async def get_kb_section(
 @router.post("/log")
 async def submit_log(
     message: str, level: str = "info",
-    plugin_id: str = Depends(_verify_plugin_token),
+    plugin_id: str = Depends(_require_permission("log:write")),
 ) -> dict[str, str]:
     """Submit a structured log entry."""
     return {"status": "logged"}
@@ -206,7 +239,7 @@ async def submit_log(
 @router.put("/store/{key}")
 async def store_data(
     key: str, value: Any = None,
-    plugin_id: str = Depends(_verify_plugin_token),
+    plugin_id: str = Depends(_require_permission("store:write")),
 ) -> dict[str, str]:
     """Store plugin-local data."""
     return {"status": "stored", "key": key}
@@ -214,7 +247,8 @@ async def store_data(
 
 @router.get("/store/{key}")
 async def retrieve_data(
-    key: str, plugin_id: str = Depends(_verify_plugin_token),
+    key: str,
+    plugin_id: str = Depends(_require_permission("store:read")),
 ) -> dict[str, Any]:
     """Retrieve plugin-local data."""
     return {"key": key, "value": None}

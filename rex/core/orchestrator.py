@@ -40,6 +40,7 @@ _START_ORDER = [
 ]
 
 _MAX_RESTART_ATTEMPTS = 3
+_RESTART_WINDOW_SECONDS = 300  # Reset restart budget after 5 minutes of stability
 _HEALTH_CHECK_INTERVAL = 30  # seconds
 
 
@@ -57,6 +58,7 @@ class ServiceOrchestrator:
         self._services: dict[ServiceName, BaseService] = {}
         self._status: dict[ServiceName, str] = {}
         self._restart_counts: dict[ServiceName, int] = {}
+        self._last_restart_time: dict[ServiceName, float] = {}
         self._start_time: float = 0
         self._running = False
         self._config: RexConfig | None = None
@@ -271,17 +273,36 @@ class ServiceOrchestrator:
                     await self._auto_restart(name)
 
     async def _auto_restart(self, name: ServiceName) -> None:
-        """Attempt to auto-restart a failed service."""
+        """Attempt to auto-restart a failed service with anti-flapping.
+
+        Restart budget decays: if a service stays healthy for
+        ``_RESTART_WINDOW_SECONDS`` after its last restart, the counter
+        resets.  This prevents permanently disabling services that had
+        a transient failure while still bounding infinite restart loops.
+        """
+        now = time.monotonic()
         count = self._restart_counts.get(name, 0)
+        last_restart = self._last_restart_time.get(name, 0.0)
+
+        # Decay: reset counter if the service was stable long enough
+        if count > 0 and last_restart > 0 and (now - last_restart) > _RESTART_WINDOW_SECONDS:
+            logger.info(
+                "Service %s stable for >%ds — resetting restart budget",
+                name.value, _RESTART_WINDOW_SECONDS,
+            )
+            count = 0
+            self._restart_counts[name] = 0
+
         if count >= _MAX_RESTART_ATTEMPTS:
             self._status[name] = "disabled"
             logger.error(
-                "Service %s exceeded max restarts (%d) — disabled",
-                name.value, _MAX_RESTART_ATTEMPTS,
+                "Service %s exceeded max restarts (%d) within %ds window — disabled",
+                name.value, _MAX_RESTART_ATTEMPTS, _RESTART_WINDOW_SECONDS,
             )
             return
 
         self._restart_counts[name] = count + 1
+        self._last_restart_time[name] = now
         logger.info(
             "Auto-restarting %s (attempt %d/%d)",
             name.value, count + 1, _MAX_RESTART_ATTEMPTS,

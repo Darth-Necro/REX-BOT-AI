@@ -8,6 +8,7 @@ Session timeout: 4 hours by default.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import secrets
@@ -40,8 +41,22 @@ def _reject_null_bytes(password: str) -> None:
         raise ValueError("Password must not contain NUL bytes")
 
 
+def _prehash(password: str) -> bytes:
+    """Pre-hash a password with SHA-256 to avoid bcrypt's 72-byte truncation.
+
+    bcrypt silently truncates input at 72 bytes, which means passwords
+    longer than 72 bytes would match any other password sharing the same
+    first 72 bytes.  Pre-hashing with SHA-256 (base64-encoded, 44 bytes)
+    ensures the full password contributes to the hash while staying
+    within bcrypt's limit.
+    """
+    import base64
+    digest = hashlib.sha256(password.encode()).digest()
+    return base64.b64encode(digest)
+
+
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt.
+    """Hash a password using bcrypt with SHA-256 pre-hashing.
 
     NOTE: Argon2id (via argon2-cffi) is the recommended upgrade path for
     password hashing.  bcrypt is acceptable for the alpha/beta phase, but
@@ -49,21 +64,34 @@ def hash_password(password: str) -> str:
     superior resistance to GPU/ASIC attacks and configurable memory cost.
     """
     _reject_null_bytes(password)
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against a bcrypt hash."""
     _reject_null_bytes(password)
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_prehash(password), hashed.encode())
+
+
+_MIN_JWT_SECRET_BYTES = 32
 
 
 def create_token(data: dict, secret: str, expires_hours: int = _JWT_EXPIRY_HOURS) -> str:
-    """Create an HS256 JWT token using PyJWT."""
+    """Create an HS256 JWT token using PyJWT.
+
+    Raises ValueError if the secret is shorter than 32 bytes (the minimum
+    recommended length for HMAC-SHA256 per RFC 7518 Section 3.2).
+    """
+    if len(secret.encode()) < _MIN_JWT_SECRET_BYTES:
+        raise ValueError(
+            f"JWT secret must be at least {_MIN_JWT_SECRET_BYTES} bytes "
+            f"(got {len(secret.encode())})"
+        )
+    now = datetime.now(UTC)
     payload = {
         **data,
-        "exp": datetime.now(UTC) + timedelta(hours=expires_hours),
-        "iat": datetime.now(UTC),
+        "exp": now + timedelta(hours=expires_hours),
+        "iat": now,
     }
     return jwt.encode(payload, secret, algorithm=_JWT_ALGORITHM)
 
@@ -124,8 +152,13 @@ class AuthManager:
                 data = json.loads(self._creds_file.read_text())
                 self._password_hash = data["password_hash"]
                 self._jwt_secret = data["jwt_secret"]
-                # Migrate to SecretsManager if available
-                self._store_to_secrets_manager()
+                # Migrate to SecretsManager if available, then remove plaintext
+                if self._store_to_secrets_manager():
+                    try:
+                        self._creds_file.unlink()
+                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
+                    except OSError:
+                        logger.warning("Could not remove plaintext credentials file after migration")
                 self._initialized = True
                 return None
             except Exception:
@@ -243,7 +276,12 @@ class AuthManager:
         self._jwt_secret = secrets.token_hex(32)  # Invalidate all existing tokens
 
         stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
+        if stored_encrypted:
+            # Remove stale plaintext copy if it exists
+            with contextlib.suppress(OSError):
+                if self._creds_file.exists():
+                    self._creds_file.unlink()
+        else:
             self._creds_file.write_text(json.dumps({
                 "password_hash": self._password_hash,
                 "jwt_secret": self._jwt_secret,

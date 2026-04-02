@@ -284,3 +284,44 @@ class TestGetStore:
     def test_retrieve_without_token(self, client: TestClient) -> None:
         resp = client.get("/plugin-api/store/secret")
         assert resp.status_code == 422
+
+
+# ------------------------------------------------------------------
+# Permission enforcement
+# ------------------------------------------------------------------
+
+
+class TestPermissionEnforcement:
+    """Test that registered plugins are checked for permissions."""
+
+    def test_registered_plugin_with_permission_allowed(self, client: TestClient) -> None:
+        """A registered plugin with the correct permission should succeed."""
+        token = "x" * 40
+        registry = PluginRegistry()
+        registry.register(token, "plugin-test", "test-plugin", permissions=["devices:read"])
+        set_plugin_registry(registry)
+
+        resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": token})
+        assert resp.status_code == 200
+
+    def test_registered_plugin_without_permission_rejected(self, client: TestClient) -> None:
+        """A registered plugin lacking the required permission gets 403."""
+        token = "y" * 40
+        registry = PluginRegistry()
+        registry.register(token, "plugin-test", "test-plugin", permissions=["events:read"])
+        set_plugin_registry(registry)
+
+        resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": token})
+        assert resp.status_code == 403
+        assert "devices:read" in resp.json()["detail"]
+
+    def test_unregistered_token_rejected_when_registry_populated(self, client: TestClient) -> None:
+        """Once any plugin is registered, unregistered tokens must be rejected."""
+        registered_token = "z" * 40
+        registry = PluginRegistry()
+        registry.register(registered_token, "plugin-known", "known", permissions=["devices:read"])
+        set_plugin_registry(registry)
+
+        unknown_token = "w" * 40
+        resp = client.get("/plugin-api/devices", headers={"X-Plugin-Token": unknown_token})
+        assert resp.status_code == 401

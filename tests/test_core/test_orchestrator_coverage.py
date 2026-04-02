@@ -604,9 +604,15 @@ class TestRunMethod:
         mock_event.wait = AsyncMock()
         mock_task = MagicMock()
 
+        def _create_task_close_coro(coro):
+            """Close the coroutine to suppress 'was never awaited' warnings."""
+            if hasattr(coro, "close"):
+                coro.close()
+            return mock_task
+
         with (
             patch("rex.core.orchestrator.asyncio.Event", return_value=mock_event),
-            patch("rex.core.orchestrator.asyncio.create_task", return_value=mock_task) as mock_ct,
+            patch("rex.core.orchestrator.asyncio.create_task", side_effect=_create_task_close_coro) as mock_ct,
             patch.object(orch, "stop_all", new_callable=AsyncMock),
         ):
             await orch.run()
