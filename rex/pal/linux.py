@@ -1478,12 +1478,14 @@ class LinuxAdapter:
             *True* if rules were successfully persisted.
         """
         try:
-            _REX_DATA_DIR.mkdir(parents=True, exist_ok=True)
+            data_dir = self._config.data_dir
+            fw_rules_conf = data_dir / "firewall-rules.conf"
+            data_dir.mkdir(parents=True, exist_ok=True)
             if self._fw_backend == "nftables":
                 result = _run(["nft", "list", "table", "inet", "rex"])
                 if result.returncode == 0:
-                    _REX_FW_RULES_CONF.write_text(result.stdout)
-                    logger.info("Firewall rules persisted to %s", _REX_FW_RULES_CONF)
+                    fw_rules_conf.write_text(result.stdout)
+                    logger.info("Firewall rules persisted to %s", fw_rules_conf)
                     return True
             else:
                 rules_text = ""
@@ -1493,8 +1495,8 @@ class LinuxAdapter:
                         rules_text = result.stdout
                         break
                 if rules_text:
-                    _REX_FW_RULES_CONF.write_text(rules_text)
-                    logger.info("Firewall rules persisted to %s", _REX_FW_RULES_CONF)
+                    fw_rules_conf.write_text(rules_text)
+                    logger.info("Firewall rules persisted to %s", fw_rules_conf)
                     return True
         except OSError as exc:
             logger.error("Cannot persist firewall rules: %s", exc)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import socket
 from typing import Any
@@ -96,9 +95,12 @@ class DashboardService(BaseService):
             self._server.should_exit = True
             # Give uvicorn a moment to shut down cleanly
             if hasattr(self, "_serve_task") and not self._serve_task.done():
-                with asyncio.timeout(5), \
-                     contextlib.suppress(asyncio.CancelledError, OSError):
-                    await self._serve_task
+                try:
+                    async with asyncio.timeout(5):
+                        await self._serve_task
+                except (TimeoutError, asyncio.CancelledError, OSError):
+                    # Timeout or cancellation during shutdown is acceptable
+                    pass
         logger.info("Dashboard stopped")
 
     async def _consume_loop(self) -> None:
