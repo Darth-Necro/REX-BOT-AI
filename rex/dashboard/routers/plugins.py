@@ -7,16 +7,16 @@ persistent ``plugin_state.json`` file under ``config.data_dir``.
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from rex.shared.fileutil import atomic_write_json, safe_read_json
-
 from rex.dashboard.deps import get_current_user
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,10 @@ async def install_plugin(
 ) -> dict[str, Any]:
     """Enable a bundled plugin (set its state to *enabled*)."""
     if plugin_id not in _BUNDLED_IDS:
-        raise HTTPException(status_code=404, detail="Only bundled plugins are supported in this version.")
+        raise HTTPException(
+            status_code=404,
+            detail="Only bundled plugins are supported in this version.",
+        )
 
     state = _load_state()
     state.setdefault("enabled", {})[plugin_id] = True
@@ -137,7 +140,10 @@ async def remove_plugin(
 ) -> dict[str, Any]:
     """Disable a bundled plugin (set its state to *disabled*)."""
     if plugin_id not in _BUNDLED_IDS:
-        raise HTTPException(status_code=404, detail="Only bundled plugins are supported in this version.")
+        raise HTTPException(
+            status_code=404,
+            detail="Only bundled plugins are supported in this version.",
+        )
 
     state = _load_state()
     state.setdefault("enabled", {})[plugin_id] = False

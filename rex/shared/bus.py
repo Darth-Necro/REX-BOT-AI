@@ -250,8 +250,9 @@ class EventBus:
                     try:
                         # Deserialize fields into RexEvent so consumers
                         # get a typed object, not raw Redis fields.
-                        from rex.shared.events import RexEvent
                         import json as _json
+
+                        from rex.shared.events import RexEvent
 
                         event_data = {}
                         for k, v in fields.items():

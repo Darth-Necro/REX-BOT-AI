@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
 from rex.shared.errors import RexBusUnavailableError
-from rex.shared.events import HealthHeartbeatEvent
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class ConcreteService:
@@ -23,7 +17,6 @@ class ConcreteService:
     _on_stop_called = False
 
     def __init__(self, config, bus):
-        from rex.shared.service import BaseService
         # Dynamically create the subclass
         pass
 

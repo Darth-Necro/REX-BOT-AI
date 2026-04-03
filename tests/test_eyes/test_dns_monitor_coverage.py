@@ -9,17 +9,18 @@ and _process_dns_packet.
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 
-from rex.eyes.dns_monitor import DNSMonitor, _BUILTIN_MALICIOUS_DOMAINS
-from rex.shared.subprocess_util import safe_env as _safe_env
+from rex.eyes.dns_monitor import _BUILTIN_MALICIOUS_DOMAINS, DNSMonitor
 from rex.shared.config import RexConfig
 from rex.shared.enums import ThreatCategory, ThreatSeverity
-
+from rex.shared.subprocess_util import safe_env as _safe_env
 
 # ===================================================================
 # Helpers

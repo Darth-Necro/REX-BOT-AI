@@ -6,16 +6,16 @@ Settings are persisted to ``notification_settings.json`` under
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from rex.shared.fileutil import atomic_write_json, safe_read_json
-
 from rex.dashboard.deps import get_current_user
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def update_settings(
         return settings
     except OSError as e:
         logger.exception("Failed to save notification settings: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to save notification settings")
+        raise HTTPException(status_code=500, detail="Failed to save notification settings") from e
 
 
 @router.post("/test/{channel}")
@@ -83,4 +83,4 @@ async def test_notification(
         return {"status": "sent", "channel": channel, "delivered_to_bus": True}
     except Exception as e:
         logger.exception("Failed to send test notification to %s: %s", channel, e)
-        raise HTTPException(status_code=503, detail="Event bus unavailable")
+        raise HTTPException(status_code=503, detail="Event bus unavailable") from e

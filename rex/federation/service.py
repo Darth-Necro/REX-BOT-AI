@@ -120,6 +120,12 @@ class FederationService(BaseService):
         """Return federation status summary."""
         return {
             "enabled": self._sharing._enabled,
-            "peer_count": len(self._gossip.get_known_peers()) if hasattr(self._gossip, "get_known_peers") else 0,
-            "shared_ioc_count": self._sharing.get_shared_count() if hasattr(self._sharing, "get_shared_count") else 0,
+            "peer_count": (
+                len(self._gossip.get_known_peers())
+                if hasattr(self._gossip, "get_known_peers") else 0
+            ),
+            "shared_ioc_count": (
+                self._sharing.get_shared_count()
+                if hasattr(self._sharing, "get_shared_count") else 0
+            ),
         }

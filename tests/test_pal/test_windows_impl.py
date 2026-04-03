@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -75,9 +74,9 @@ class TestGetDefaultInterface:
         """Should raise on ipconfig failure."""
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
-        with patch("rex.pal.windows._run", return_value=_completed(returncode=1, stderr="error")):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.windows._run", return_value=_completed(returncode=1, stderr="error")), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
     def test_raises_when_no_gateway(self):
         """Should raise when no adapter has a gateway entry."""
@@ -92,9 +91,9 @@ class TestGetDefaultInterface:
             "   Default Gateway . . . . . . . . . :\n"
         )
         adapter = _make_adapter()
-        with patch("rex.pal.windows._run", return_value=_completed(stdout=ipconfig_out)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.windows._run", return_value=_completed(stdout=ipconfig_out)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
 
 # ======================================================================
@@ -248,7 +247,7 @@ class TestBlockIp:
             return _completed()
 
         with patch("rex.pal.windows._run", side_effect=mock_run):
-            rule = adapter.block_ip("10.0.0.5", "inbound", "inbound block")
+            adapter.block_ip("10.0.0.5", "inbound", "inbound block")
 
         assert len(calls) == 1
         assert any("dir=in" in c for c in calls[0])
@@ -257,9 +256,9 @@ class TestBlockIp:
         """Should raise FirewallError when netsh fails."""
         from rex.pal.base import FirewallError
         adapter = _make_adapter()
-        with patch("rex.pal.windows._run", return_value=_completed(returncode=1, stderr="access denied")):
-            with pytest.raises(FirewallError):
-                adapter.block_ip("192.168.1.100", "inbound", "test")
+        with patch("rex.pal.windows._run", return_value=_completed(returncode=1, stderr="access denied")), \
+             pytest.raises(FirewallError):
+            adapter.block_ip("192.168.1.100", "inbound", "test")
 
 
 # ======================================================================

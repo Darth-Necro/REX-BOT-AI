@@ -15,20 +15,19 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.core.agent.confirmation_manager import (
-    ConfirmationManager,
-    PendingConfirmation,
     _STATE_AUTO_EXECUTED,
     _STATE_CONFIRMED,
     _STATE_DENIED,
     _STATE_EXPIRED,
     _STATE_PENDING,
+    ConfirmationManager,
+    PendingConfirmation,
 )
 from rex.shared.enums import ThreatSeverity
 from rex.shared.utils import utc_now

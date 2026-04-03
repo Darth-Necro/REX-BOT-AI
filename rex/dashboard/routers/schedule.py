@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from rex.shared.fileutil import atomic_write_json, safe_read_json
-
 from rex.dashboard.deps import get_current_user
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 log = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ async def update_schedule(
         _write_schedule(schedule)
     except OSError as exc:
         log.error("Failed to write schedule config: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to persist schedule config")
+        raise HTTPException(status_code=500, detail="Failed to persist schedule config") from exc
     log.info("Schedule config saved to %s", _schedule_path())
     return {**schedule, "status": "updated", "persisted": True}
 
@@ -125,7 +125,7 @@ async def schedule_patrol(
         _write_schedule(saved)
     except OSError as exc:
         log.error("Failed to persist patrol schedule: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to persist patrol schedule")
+        raise HTTPException(status_code=500, detail="Failed to persist patrol schedule") from exc
     return {
         "status": "scheduled",
         "scheduled": True,
@@ -152,7 +152,7 @@ async def trigger_sleep(user: dict = Depends(get_current_user)) -> dict[str, Any
         return {"status": "sleep_requested", "delivered": True, "mode": "alert_sleep"}
     except Exception as e:
         log.exception("Failed to trigger sleep: %s", e)
-        raise HTTPException(status_code=503, detail="Event bus unavailable")
+        raise HTTPException(status_code=503, detail="Event bus unavailable") from e
 
 
 @router.post("/wake")
@@ -173,4 +173,4 @@ async def trigger_wake(user: dict = Depends(get_current_user)) -> dict[str, Any]
         return {"status": "wake_requested", "delivered": True, "mode": "awake"}
     except Exception as e:
         log.exception("Failed to trigger wake: %s", e)
-        raise HTTPException(status_code=503, detail="Event bus unavailable")
+        raise HTTPException(status_code=503, detail="Event bus unavailable") from e

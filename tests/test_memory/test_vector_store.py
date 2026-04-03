@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import math
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.memory.vector_store import VectorStore
 from rex.shared.models import BehavioralProfile
-
 
 # ---- helpers ---------------------------------------------------------------
 
@@ -438,11 +436,20 @@ class TestCosineDistance:
 
     def test_result_range(self) -> None:
         """Result is always in [0, 2]."""
-        import random
-        random.seed(42)
-        for _ in range(20):
-            a = [random.uniform(-10, 10) for _ in range(8)]
-            b = [random.uniform(-10, 10) for _ in range(8)]
+        # Fixed test vectors instead of random generation (avoids S311)
+        test_vectors = [
+            ([1.0, -3.5, 7.2, -0.1, 4.4, -9.8, 2.3, 6.1],
+             [-2.7, 8.0, -5.5, 3.3, -1.1, 0.9, -7.6, 4.8]),
+            ([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+             [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5]),
+            ([9.9, -8.8, 7.7, -6.6, 5.5, -4.4, 3.3, -2.2],
+             [1.1, -2.2, 3.3, -4.4, 5.5, -6.6, 7.7, -8.8]),
+            ([0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0],
+             [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0]),
+            ([-5.0, 3.2, -1.8, 9.4, -7.6, 2.0, -4.3, 8.1],
+             [6.7, -0.3, 5.5, -3.9, 1.2, -8.8, 7.4, -2.6]),
+        ]
+        for a, b in test_vectors:
             d = VectorStore._cosine_distance(a, b)
             assert 0.0 <= d <= 2.0
 

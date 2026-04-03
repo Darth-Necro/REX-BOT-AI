@@ -50,9 +50,7 @@ class DiscordChannel(BaseChannel):
             return False
         if parsed.hostname not in _ALLOWED_WEBHOOK_HOSTS:
             return False
-        if not parsed.path.startswith("/api/webhooks/"):
-            return False
-        return True
+        return parsed.path.startswith("/api/webhooks/")
 
     async def send(
         self, message: str, metadata: dict[str, Any] | None = None

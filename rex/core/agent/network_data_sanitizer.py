@@ -94,27 +94,27 @@ _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 # Homoglyph mapping: visually similar characters -> ASCII equivalents
 _HOMOGLYPH_MAP: dict[str, str] = {
     # Cyrillic -> Latin
-    "\u0430": "a",  # а
-    "\u0435": "e",  # е
-    "\u043e": "o",  # о
-    "\u0440": "p",  # р
-    "\u0441": "c",  # с
-    "\u0443": "y",  # у
-    "\u0445": "x",  # х
-    "\u0456": "i",  # і
-    "\u0458": "j",  # ј
-    "\u04bb": "h",  # һ
-    "\u0410": "A",  # А
-    "\u0412": "B",  # В
-    "\u0415": "E",  # Е
-    "\u041a": "K",  # К
-    "\u041c": "M",  # М
-    "\u041d": "H",  # Н
-    "\u041e": "O",  # О
-    "\u0420": "P",  # Р
-    "\u0421": "C",  # С
-    "\u0422": "T",  # Т
-    "\u0425": "X",  # Х
+    "\u0430": "a",  # Cyrillic a
+    "\u0435": "e",  # Cyrillic ie
+    "\u043e": "o",  # Cyrillic o
+    "\u0440": "p",  # Cyrillic er
+    "\u0441": "c",  # Cyrillic es
+    "\u0443": "y",  # Cyrillic u
+    "\u0445": "x",  # Cyrillic ha
+    "\u0456": "i",  # Cyrillic i
+    "\u0458": "j",  # Cyrillic je
+    "\u04bb": "h",  # Cyrillic shha
+    "\u0410": "A",  # Cyrillic A
+    "\u0412": "B",  # Cyrillic Ve
+    "\u0415": "E",  # Cyrillic Ie
+    "\u041a": "K",  # Cyrillic Ka
+    "\u041c": "M",  # Cyrillic Em
+    "\u041d": "H",  # Cyrillic En
+    "\u041e": "O",  # Cyrillic O
+    "\u0420": "P",  # Cyrillic Er
+    "\u0421": "C",  # Cyrillic Es
+    "\u0422": "T",  # Cyrillic Te
+    "\u0425": "X",  # Cyrillic Ha
 }
 
 # Leetspeak mapping: number/symbol -> letter
@@ -244,13 +244,13 @@ def _normalize_for_matching(text: str) -> str:
     # 6. Collapse whitespace and strip common filler words to defeat
     #    noise-word evasion like "please kindly ignore safely all ..."
     norm = re.sub(r'\s+', ' ', norm).strip()
-    _FILLER = frozenset({
+    filler = frozenset({
         'please', 'kindly', 'safely', 'now', 'quickly', 'immediately',
         'the', 'of', 'set', 'a', 'an', 'this', 'that', 'my', 'your',
         'all', 'any', 'every', 'each',
     })
     words = norm.split()
-    norm = ' '.join(w for w in words if w.lower() not in _FILLER)
+    norm = ' '.join(w for w in words if w.lower() not in filler)
 
     return norm
 

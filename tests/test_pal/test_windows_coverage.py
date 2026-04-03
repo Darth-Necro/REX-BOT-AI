@@ -9,7 +9,6 @@ import pytest
 
 from rex.shared.errors import RexPlatformNotSupportedError
 
-
 # =====================================================================
 # Module-level _run helper
 # =====================================================================
@@ -324,13 +323,13 @@ class TestWindowsBlockIp:
             ["netsh"], 0, stdout="Ok.", stderr="",
         )
         adapter = WindowsAdapter()
-        rule = adapter.block_ip("1.2.3.4", direction="inbound")
+        adapter.block_ip("1.2.3.4", direction="inbound")
         assert mock_run.call_count == 1
 
     @patch("rex.pal.windows._run")
     def test_block_failure(self, mock_run):
-        from rex.pal.windows import WindowsAdapter
         from rex.pal.base import FirewallError
+        from rex.pal.windows import WindowsAdapter
         mock_run.return_value = subprocess.CompletedProcess(
             ["netsh"], 1, stdout="", stderr="access denied",
         )

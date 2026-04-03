@@ -6,9 +6,7 @@ anonymize list items with PII strings, and _get_install_id generation path.
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from rex.federation.privacy import PrivacyEngine
 

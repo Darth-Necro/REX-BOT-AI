@@ -156,7 +156,7 @@ class PluginSandbox:
             "--security-opt", "no-new-privileges",
             "--pids-limit", "256",
             "--user", "65534:65534",
-            "--tmpfs", "/tmp:rw,noexec,nosuid,size=10m",
+            "--tmpfs", "/tmp:rw,noexec,nosuid,size=10m",  # noqa: S108
             "--label", "rex-bot-ai=plugin",
             "--label", f"rex-plugin-id={plugin_id}",
             "--restart", "no",
@@ -189,7 +189,9 @@ class PluginSandbox:
         name = self._container_name(plugin_id)
         result = _run_docker(["start", name], timeout=30)
         if result.returncode != 0:
-            logger.error("Failed to start plugin container %s: %s", plugin_id, result.stderr.strip())
+            logger.error(
+                "Failed to start plugin container %s: %s", plugin_id, result.stderr.strip(),
+            )
             return False
 
         if plugin_id in self._containers:
@@ -202,7 +204,9 @@ class PluginSandbox:
         name = self._container_name(plugin_id)
         result = _run_docker(["stop", name], timeout=30)
         if result.returncode != 0:
-            logger.warning("Failed to stop plugin container %s: %s", plugin_id, result.stderr.strip())
+            logger.warning(
+                "Failed to stop plugin container %s: %s", plugin_id, result.stderr.strip(),
+            )
             return False
 
         if plugin_id in self._containers:

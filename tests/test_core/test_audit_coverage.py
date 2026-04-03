@@ -10,15 +10,11 @@ Targets the remaining uncovered lines:
 
 from __future__ import annotations
 
-import time
-from io import StringIO
-from typing import Any
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
 from rex.core.privacy.audit import PrivacyAuditor
-
 
 # ------------------------------------------------------------------
 # Fixtures

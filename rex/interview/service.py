@@ -368,7 +368,7 @@ class InterviewService(BaseService):
                 payload={
                     "question_id": question_id,
                     "answer": (
-                        answer if isinstance(answer, (str, int, float, bool))
+                        answer if isinstance(answer, str | int | float | bool)
                         else json.loads(json.dumps(answer, default=str))
                     ),
                 },

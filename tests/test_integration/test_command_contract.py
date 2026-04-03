@@ -9,16 +9,13 @@ These tests verify that:
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from rex.shared.config import RexConfig
 from rex.shared.enums import PowerState, ServiceName
 from rex.shared.events import ModeChangeEvent, RexEvent
-
 
 # ---------------------------------------------------------------------------
 # Test 1: Dashboard scan trigger publishes correct command

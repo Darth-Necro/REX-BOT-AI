@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,10 +12,6 @@ from rex.shared.enums import (
     ServiceName,
     ThreatSeverity,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # TeethService construction
@@ -51,18 +46,18 @@ class TestTeethServiceOnStart:
     async def test_on_start_creates_components(self, config, mock_bus) -> None:
         """_on_start creates firewall, dns_blocker, isolator, catalog."""
         with patch("rex.teeth.service.get_adapter") as mock_get_adapter, \
-             patch("rex.teeth.service.FirewallManager") as MockFW, \
-             patch("rex.teeth.service.DNSBlocker") as MockDNS, \
-             patch("rex.teeth.service.DeviceIsolator") as MockIso, \
-             patch("rex.teeth.service.ResponseCatalog") as MockCat:
+             patch("rex.teeth.service.FirewallManager") as mock_fw_cls, \
+             patch("rex.teeth.service.DNSBlocker") as mock_dns_cls, \
+             patch("rex.teeth.service.DeviceIsolator"), \
+             patch("rex.teeth.service.ResponseCatalog"):
 
             mock_pal = MagicMock()
             mock_get_adapter.return_value = mock_pal
 
-            mock_fw_inst = MockFW.return_value
+            mock_fw_inst = mock_fw_cls.return_value
             mock_fw_inst.initialize = AsyncMock()
 
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_blocklists = AsyncMock(return_value=100)
             mock_dns_inst.start_update_loop = AsyncMock()
 
@@ -85,18 +80,18 @@ class TestTeethServiceOnStart:
     ) -> None:
         """If FirewallManager.initialize() fails, enforcement is disabled."""
         with patch("rex.teeth.service.get_adapter") as mock_get_adapter, \
-             patch("rex.teeth.service.FirewallManager") as MockFW, \
-             patch("rex.teeth.service.DNSBlocker") as MockDNS, \
+             patch("rex.teeth.service.FirewallManager") as mock_fw_cls, \
+             patch("rex.teeth.service.DNSBlocker") as mock_dns_cls, \
              patch("rex.teeth.service.DeviceIsolator"), \
              patch("rex.teeth.service.ResponseCatalog"):
 
             mock_pal = MagicMock()
             mock_get_adapter.return_value = mock_pal
 
-            mock_fw_inst = MockFW.return_value
+            mock_fw_inst = mock_fw_cls.return_value
             mock_fw_inst.initialize = AsyncMock(side_effect=RuntimeError("no nft"))
 
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_blocklists = AsyncMock(return_value=0)
             mock_dns_inst.start_update_loop = AsyncMock()
 

@@ -67,8 +67,8 @@ class PowerManager:
         effective_bus = bus or self._bus
         if effective_bus:
             try:
-                from rex.shared.events import ModeChangeEvent
                 from rex.shared.enums import ServiceName
+                from rex.shared.events import ModeChangeEvent
                 await effective_bus.publish("rex:core:commands", ModeChangeEvent(
                     source=ServiceName.SCHEDULER,
                     event_type="power_state_change",

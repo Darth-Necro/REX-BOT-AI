@@ -12,9 +12,9 @@ from __future__ import annotations
 import pytest
 
 from rex.store.sandbox import (
-    PluginSandbox,
     _BUNDLED_PLUGIN_IDS,
     _TRUSTED_REGISTRY,
+    PluginSandbox,
     validate_image_ref,
     validate_plugin_id,
 )

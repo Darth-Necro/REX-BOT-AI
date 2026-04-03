@@ -64,7 +64,7 @@ async def add_rule(
         except ValueError:
             raise HTTPException(
                 status_code=422, detail="Invalid IP address or CIDR notation"
-            )
+            ) from None
 
     direction = payload.get("direction", "both")
     if direction not in ("inbound", "outbound", "both"):
@@ -91,7 +91,7 @@ async def add_rule(
         }
     except Exception as e:
         logger.exception("Failed to add firewall rule for %s: %s", ip, e)
-        raise HTTPException(status_code=500, detail=f"Failed to add firewall rule for {ip}")
+        raise HTTPException(status_code=500, detail=f"Failed to add firewall rule for {ip}") from e
 
 
 @router.delete("/rules/{rule_id}")
@@ -109,7 +109,7 @@ async def remove_rule(
         # Validate that rule_id is a valid IP address before passing to PAL
         ipaddress.ip_address(rule_id)
     except ValueError:
-        raise HTTPException(status_code=422, detail=f"Invalid IP address: {rule_id}")
+        raise HTTPException(status_code=422, detail=f"Invalid IP address: {rule_id}") from None
 
     try:
         from rex.pal import get_adapter
@@ -122,7 +122,9 @@ async def remove_rule(
         }
     except Exception as e:
         logger.exception("Failed to remove firewall rule %s: %s", rule_id, e)
-        raise HTTPException(status_code=500, detail=f"Failed to remove firewall rule {rule_id}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to remove firewall rule {rule_id}",
+        ) from e
 
 
 @router.post("/panic")
@@ -139,7 +141,7 @@ async def panic_button(user: dict = Depends(get_current_user)) -> dict[str, Any]
         }
     except Exception as e:
         logger.exception("Panic button failed: %s", e)
-        raise HTTPException(status_code=500, detail="Panic restore failed")
+        raise HTTPException(status_code=500, detail="Panic restore failed") from e
 
 
 @router.post("/panic/restore")
@@ -156,4 +158,4 @@ async def panic_restore(user: dict = Depends(get_current_user)) -> dict[str, Any
         }
     except Exception as e:
         logger.exception("Panic restore failed: %s", e)
-        raise HTTPException(status_code=500, detail="Panic restore failed")
+        raise HTTPException(status_code=500, detail="Panic restore failed") from e

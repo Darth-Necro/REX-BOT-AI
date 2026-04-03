@@ -8,7 +8,6 @@ from rex.store.bundled.device_watch import DeviceWatchPlugin
 from rex.store.bundled.dns_guard import DnsGuardPlugin
 from rex.store.bundled.upnp_monitor import UpnpMonitorPlugin
 
-
 # ------------------------------------------------------------------
 # DNS Guard
 # ------------------------------------------------------------------

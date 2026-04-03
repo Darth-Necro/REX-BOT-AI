@@ -11,9 +11,6 @@ from rex.core.agent.message_authenticator import PairedUser
 from rex.core.agent.message_router import (
     IncomingMessage,
     MessageRouter,
-    RouteResult,
-    VALID_PLATFORMS,
-    _COMMAND_PREFIXES,
 )
 
 if TYPE_CHECKING:

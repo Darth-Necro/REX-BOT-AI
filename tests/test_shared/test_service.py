@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 from rex.shared.enums import ServiceName
 from rex.shared.service import BaseService
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from unittest.mock import AsyncMock
 
     from rex.shared.config import RexConfig
 

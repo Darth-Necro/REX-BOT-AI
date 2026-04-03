@@ -5,18 +5,14 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
 
 import pytest
 
 from rex.core.agent.confirmation_manager import (
+    _STATE_CONFIRMED,
+    _STATE_PENDING,
     ConfirmationManager,
     PendingConfirmation,
-    _STATE_AUTO_EXECUTED,
-    _STATE_CONFIRMED,
-    _STATE_DENIED,
-    _STATE_EXPIRED,
-    _STATE_PENDING,
 )
 from rex.shared.enums import ThreatSeverity
 

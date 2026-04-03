@@ -8,15 +8,14 @@ branches in _check_prerequisites, and _on_start DNS blocker failure.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.constants import (
     STREAM_BRAIN_DECISIONS,
-    STREAM_TEETH_ACTIONS_EXECUTED,
     STREAM_TEETH_ACTION_FAILURES,
+    STREAM_TEETH_ACTIONS_EXECUTED,
 )
 from rex.shared.enums import (
     DecisionAction,
@@ -26,9 +25,6 @@ from rex.shared.enums import (
 )
 from rex.shared.errors import RexFirewallError
 from rex.shared.events import RexEvent
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -433,7 +429,6 @@ class TestCheckPrerequisites:
     @pytest.mark.asyncio
     async def test_no_geteuid_attribute(self, config, mock_bus) -> None:
         """On systems without geteuid, _can_enforce stays False."""
-        import os as _os
 
         with patch("rex.teeth.service.get_adapter"):
             from rex.teeth.service import TeethService
@@ -471,16 +466,16 @@ class TestOnStartEdgeCases:
     async def test_dns_blocker_load_failure(self, config, mock_bus) -> None:
         """If DNS blocker load_blocklists fails, service still starts."""
         with patch("rex.teeth.service.get_adapter") as mock_ga, \
-             patch("rex.teeth.service.FirewallManager") as MockFW, \
-             patch("rex.teeth.service.DNSBlocker") as MockDNS, \
+             patch("rex.teeth.service.FirewallManager") as mock_fw_cls, \
+             patch("rex.teeth.service.DNSBlocker") as mock_dns_cls, \
              patch("rex.teeth.service.DeviceIsolator"), \
              patch("rex.teeth.service.ResponseCatalog"):
 
             mock_ga.return_value = MagicMock()
-            mock_fw = MockFW.return_value
+            mock_fw = mock_fw_cls.return_value
             mock_fw.initialize = AsyncMock()
 
-            mock_dns = MockDNS.return_value
+            mock_dns = mock_dns_cls.return_value
             mock_dns.load_blocklists = AsyncMock(
                 side_effect=RuntimeError("disk full"),
             )
@@ -499,18 +494,18 @@ class TestOnStartEdgeCases:
     async def test_on_start_with_enforcement_enabled(self, config, mock_bus) -> None:
         """_on_start with root privileges calls firewall.initialize()."""
         with patch("rex.teeth.service.get_adapter") as mock_ga, \
-             patch("rex.teeth.service.FirewallManager") as MockFW, \
-             patch("rex.teeth.service.DNSBlocker") as MockDNS, \
+             patch("rex.teeth.service.FirewallManager") as mock_fw_cls, \
+             patch("rex.teeth.service.DNSBlocker") as mock_dns_cls, \
              patch("rex.teeth.service.DeviceIsolator"), \
              patch("rex.teeth.service.ResponseCatalog"), \
              patch("os.geteuid", return_value=0), \
              patch("os.path.exists", return_value=False):
 
             mock_ga.return_value = MagicMock()
-            mock_fw = MockFW.return_value
+            mock_fw = mock_fw_cls.return_value
             mock_fw.initialize = AsyncMock()
 
-            mock_dns = MockDNS.return_value
+            mock_dns = mock_dns_cls.return_value
             mock_dns.load_blocklists = AsyncMock(return_value=50)
             mock_dns.start_update_loop = AsyncMock()
 

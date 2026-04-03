@@ -42,6 +42,7 @@ class TestBaseUrl:
         with patch.dict(os.environ, {"REX_API_URL": "http://custom:9999"}):
             # Re-import to pick up env var
             import importlib
+
             import rex.core.cli as cli_mod
             importlib.reload(cli_mod)
             assert cli_mod._DEFAULT_API_URL == "http://custom:9999"
@@ -59,6 +60,7 @@ class TestLoginContract:
 
     def test_login_sends_password_only(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -72,7 +74,7 @@ class TestLoginContract:
             patch("httpx.post", return_value=mock_resp) as mock_post,
             patch("os.path.expanduser", return_value=str(tmp_path / ".rex-token")),
         ):
-            result = runner.invoke(app, ["login", "--password", "secret123"])
+            runner.invoke(app, ["login", "--password", "secret123"])
 
         # Verify the request payload
         call_kwargs = mock_post.call_args
@@ -82,6 +84,7 @@ class TestLoginContract:
 
     def test_login_reads_access_token(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -96,15 +99,17 @@ class TestLoginContract:
             patch("httpx.post", return_value=mock_resp),
             patch("os.path.expanduser", return_value=token_path),
         ):
-            result = runner.invoke(app, ["login", "--password", "secret"])
+            runner.invoke(app, ["login", "--password", "secret"])
 
         # Token should be saved
         assert os.path.exists(token_path)
-        saved = open(token_path).read().strip()
+        with open(token_path) as f:
+            saved = f.read().strip()
         assert saved == "jwt-token-456"
 
     def test_login_uses_tls_verify(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -130,6 +135,7 @@ class TestStatusContract:
 
     def test_status_sends_auth_header_when_token_exists(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -152,7 +158,7 @@ class TestStatusContract:
             patch("httpx.get", return_value=mock_resp) as mock_get,
             patch("os.path.expanduser", return_value=str(token_file)),
         ):
-            result = runner.invoke(app, ["status"])
+            runner.invoke(app, ["status"])
 
         call_kwargs = mock_get.call_args
         headers = call_kwargs.kwargs.get("headers", {})
@@ -161,6 +167,7 @@ class TestStatusContract:
     def test_status_handles_unauthenticated_response(self) -> None:
         """Status must not crash or print fake values for restricted response."""
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -193,6 +200,7 @@ class TestScanContract:
 
     def test_scan_sends_scan_type_in_body(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -206,7 +214,7 @@ class TestScanContract:
             patch("httpx.post", return_value=mock_resp) as mock_post,
             patch("os.path.expanduser", return_value=str(token_file)),
         ):
-            result = runner.invoke(app, ["scan", "--no-quick"])
+            runner.invoke(app, ["scan", "--no-quick"])
 
         call_kwargs = mock_post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
@@ -214,6 +222,7 @@ class TestScanContract:
 
     def test_scan_sends_target_when_provided(self, tmp_path) -> None:
         from typer.testing import CliRunner
+
         from rex.core.cli import app
 
         runner = CliRunner()
@@ -227,7 +236,7 @@ class TestScanContract:
             patch("httpx.post", return_value=mock_resp) as mock_post,
             patch("os.path.expanduser", return_value=str(token_file)),
         ):
-            result = runner.invoke(app, ["scan", "--target", "192.168.1.50"])
+            runner.invoke(app, ["scan", "--target", "192.168.1.50"])
 
         call_kwargs = mock_post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")

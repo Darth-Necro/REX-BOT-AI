@@ -8,11 +8,9 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
-
 from rex.bark.channels.discord import DiscordChannel
 from rex.bark.channels.email import EmailChannel
-from rex.bark.channels.telegram import TelegramChannel, _escape_markdown
+from rex.bark.channels.telegram import _escape_markdown
 
 
 class TestDiscordWebhookValidation:
@@ -65,7 +63,7 @@ class TestEmailHtmlEscaping:
 
     def test_script_tag_escaped(self) -> None:
         """Script tags in message must be escaped in HTML output."""
-        ch = EmailChannel(smtp_host="mail.test", to_address="a@b.com")
+        EmailChannel(smtp_host="mail.test", to_address="a@b.com")
         # We can't easily test the full send, but we can test the escaping
         from html import escape as html_escape
         malicious = '<script>alert("xss")</script>'

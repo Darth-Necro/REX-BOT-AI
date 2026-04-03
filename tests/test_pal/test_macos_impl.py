@@ -7,11 +7,9 @@ logic without requiring a macOS system.
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,18 +67,18 @@ class TestGetDefaultInterface:
         """Should raise when route command fails."""
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
-        with patch("rex.pal.macos._run", return_value=_completed(returncode=1)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.macos._run", return_value=_completed(returncode=1)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
     def test_raises_when_no_interface_in_output(self):
         """Should raise when route output has no interface line."""
         from rex.shared.errors import RexPlatformNotSupportedError
         route_out = "   route to: default\n    gateway: 192.168.1.1\n"
         adapter = _make_adapter()
-        with patch("rex.pal.macos._run", return_value=_completed(stdout=route_out)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.macos._run", return_value=_completed(stdout=route_out)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
 
 # ======================================================================
@@ -210,7 +208,7 @@ class TestBlockIp:
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
              patch.object(adapter, "_write_and_reload_anchor", return_value=True) as mock_write:
-            rule = adapter.block_ip("10.0.0.5", "inbound", "in-block")
+            adapter.block_ip("10.0.0.5", "inbound", "in-block")
 
         written_rules = mock_write.call_args[0][0]
         assert len(written_rules) == 1
@@ -222,7 +220,7 @@ class TestBlockIp:
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
              patch.object(adapter, "_write_and_reload_anchor", return_value=True) as mock_write:
-            rule = adapter.block_ip("10.0.0.5", "outbound", "out-block")
+            adapter.block_ip("10.0.0.5", "outbound", "out-block")
 
         written_rules = mock_write.call_args[0][0]
         assert len(written_rules) == 1
@@ -234,9 +232,9 @@ class TestBlockIp:
         adapter = _make_adapter()
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
-             patch.object(adapter, "_write_and_reload_anchor", return_value=False):
-            with pytest.raises(FirewallError):
-                adapter.block_ip("192.168.1.100", "both", "fail test")
+             patch.object(adapter, "_write_and_reload_anchor", return_value=False), \
+             pytest.raises(FirewallError):
+            adapter.block_ip("192.168.1.100", "both", "fail test")
 
 
 # ======================================================================

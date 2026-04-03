@@ -8,13 +8,11 @@ and generate_privacy_report end-to-end.
 from __future__ import annotations
 
 from io import StringIO
-from typing import Any
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
 from rex.core.privacy.audit import PrivacyAuditor
-
 
 # ------------------------------------------------------------------
 # Fixtures
@@ -196,7 +194,7 @@ class TestAuditDataInventoryExtended:
         auditor._config.data_dir = tmp_path
 
         inventory = auditor.audit_data_inventory()
-        for store_name, info in inventory.items():
+        for _store_name, info in inventory.items():
             assert "privacy_tier" in info
             assert isinstance(info["privacy_tier"], str)
 
@@ -206,7 +204,7 @@ class TestAuditDataInventoryExtended:
         auditor._config.data_dir = tmp_path
 
         inventory = auditor.audit_data_inventory()
-        for store_name, info in inventory.items():
+        for _store_name, info in inventory.items():
             assert "total_human" in info
             assert isinstance(info["total_human"], str)
 
@@ -255,7 +253,7 @@ class TestAuditEncryptionStatusExtended:
         }
 
         result = auditor.audit_encryption_status()
-        for store_name, info in result["data_stores"].items():
+        for _store_name, info in result["data_stores"].items():
             assert info["has_disk_encryption"] is True
             assert info["compliant"] is True
 
@@ -413,8 +411,8 @@ class TestDecodeAddrIPv6:
 class TestInodePidMap:
     def test_build_inode_pid_map_handles_oserror(self) -> None:
         """_build_inode_pid_map returns empty dict on OSError."""
-        with patch("rex.core.privacy.audit.Path") as MockPath:
-            MockPath.return_value.iterdir.side_effect = OSError("no /proc")
+        with patch("rex.core.privacy.audit.Path") as mock_path_cls:
+            mock_path_cls.return_value.iterdir.side_effect = OSError("no /proc")
             result = PrivacyAuditor._build_inode_pid_map()
         assert result == {}
 

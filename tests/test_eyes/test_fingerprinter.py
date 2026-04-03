@@ -123,10 +123,10 @@ async def test_enrich_device_adds_vendor(tmp_path):
     )
 
     # Mock the OUI lookup to return a known vendor
-    with patch.object(fp, "fingerprint_mac", new_callable=AsyncMock) as mock_mac:
+    with patch.object(fp, "fingerprint_mac", new_callable=AsyncMock) as mock_mac, \
+         patch.object(fp, "fingerprint_os", new_callable=AsyncMock) as mock_os:
         mock_mac.return_value = "Test Vendor Inc."
-        with patch.object(fp, "fingerprint_os", new_callable=AsyncMock) as mock_os:
-            mock_os.return_value = None
-            result = await fp.enrich_device(device)
+        mock_os.return_value = None
+        result = await fp.enrich_device(device)
 
     assert result.vendor == "Test Vendor Inc."

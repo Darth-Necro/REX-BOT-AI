@@ -12,13 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-
 import shutil
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
+from rex.shared.subprocess_util import run_subprocess_async
 from rex.shared.utils import entropy, is_private_ip, utc_now
 
 if TYPE_CHECKING:
@@ -26,9 +26,6 @@ if TYPE_CHECKING:
     from rex.shared.config import RexConfig
 
 logger = logging.getLogger("rex.eyes.dns_monitor")
-
-from rex.shared.subprocess_util import run_subprocess_async
-
 
 # ---------------------------------------------------------------------------
 # Bundled malicious domain list (bootstrap -- updated at runtime)
@@ -203,13 +200,13 @@ class DNSMonitor:
         # StopIteration cannot be raised through asyncio Futures (Python 3.12+
         # raises TypeError), so we catch it in the executor thread and return
         # a sentinel value instead.
-        _EXHAUSTED = object()
+        exhausted = object()
 
-        def _next_packet(g):  # noqa: ANN001, ANN202
+        def _next_packet(g):
             try:
                 return next(g)
             except StopIteration:
-                return _EXHAUSTED
+                return exhausted
 
         try:
             gen = self.pal.capture_packets(
@@ -226,7 +223,7 @@ class DNSMonitor:
                 except TimeoutError:
                     continue
 
-                if packet is _EXHAUSTED:
+                if packet is exhausted:
                     self._logger.info("DNS capture generator exhausted")
                     break
 

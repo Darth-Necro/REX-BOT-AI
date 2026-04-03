@@ -26,7 +26,8 @@ class GossipProtocol:
     def __init__(self) -> None:
         self._peers: dict[str, dict[str, Any]] = {}  # peer_id -> metadata
         self._message_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
-        self._seen_messages: OrderedDict[str, None] = OrderedDict()  # Dedup message IDs (ordered for FIFO pruning)
+        # Dedup message IDs (ordered for FIFO pruning)
+        self._seen_messages: OrderedDict[str, None] = OrderedDict()
         self._running = False
 
     async def discover_peers(self) -> list[dict[str, Any]]:

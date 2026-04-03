@@ -135,8 +135,6 @@ def test_get_status_returns_all_services():
 @pytest.mark.asyncio
 async def test_auto_restart_on_failure():
     """A failed service should be auto-restarted up to MAX attempts."""
-    import time
-    from unittest.mock import patch as sync_patch
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()
     orch._bus.connect = AsyncMock()
@@ -182,7 +180,6 @@ async def test_auto_restart_max_attempts():
 async def test_auto_restart_decay_resets_counter():
     """Restart counter resets after the decay window elapses."""
     import time
-    from unittest.mock import patch
 
     from rex.core.orchestrator import _RESTART_DECAY_WINDOW
 
@@ -211,7 +208,6 @@ async def test_auto_restart_no_decay_within_window():
     """Restart counter does NOT reset if decay window hasn't elapsed."""
     import time
 
-    from rex.core.orchestrator import _RESTART_DECAY_WINDOW
 
     orch = ServiceOrchestrator()
     orch._bus = AsyncMock()

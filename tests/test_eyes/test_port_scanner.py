@@ -6,9 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.eyes.port_scanner import PortScanner, SERVICE_MAP
+from rex.eyes.port_scanner import SERVICE_MAP, PortScanner
 from rex.shared.enums import ThreatCategory, ThreatSeverity
-
 
 # ---- class-level constants -------------------------------------------------
 
@@ -136,7 +135,7 @@ class TestQuickScanWithNmap:
         # 443 is closed, should NOT appear
         assert 443 not in ports
         # Verify tuple structure
-        for port, state, service in results:
+        for _port, state, service in results:
             assert state == "open"
             assert isinstance(service, str)
 
@@ -172,11 +171,11 @@ class TestQuickScanWithNmap:
         scanner._nmap_available = True
 
         with patch("rex.shared.subprocess_util.asyncio.create_subprocess_exec",
-                   side_effect=TimeoutError("timeout")):
+                   side_effect=TimeoutError("timeout")), \
+             patch("rex.eyes.port_scanner.asyncio.open_connection",
+                   side_effect=ConnectionRefusedError()):
             # Fallback to socket scan -- all closed
-            with patch("rex.eyes.port_scanner.asyncio.open_connection",
-                       side_effect=ConnectionRefusedError()):
-                results = await scanner.quick_scan("192.168.1.100")
+            results = await scanner.quick_scan("192.168.1.100")
 
         assert results == []
 
@@ -349,7 +348,7 @@ class TestParseNmapPorts:
         # 443 is closed
         assert 443 not in ports
 
-        for port, state, service in results:
+        for _port, state, _service in results:
             assert state == "open"
 
     def test_parses_service_names(self) -> None:

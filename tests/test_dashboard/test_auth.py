@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
@@ -10,16 +9,14 @@ import jwt as pyjwt
 import pytest
 
 from rex.dashboard.auth import (
-    AuthManager,
     _JWT_ALGORITHM,
-    _LOCKOUT_SECONDS,
     _MAX_LOGIN_ATTEMPTS,
+    AuthManager,
     create_token,
     hash_password,
     verify_password,
     verify_token_str,
 )
-
 
 # ------------------------------------------------------------------
 # hash / verify password
@@ -177,7 +174,7 @@ async def test_lockout_after_5_failures(tmp_path):
         await manager.initialize()
 
     client_ip = "10.0.0.99"
-    for i in range(_MAX_LOGIN_ATTEMPTS - 1):
+    for _i in range(_MAX_LOGIN_ATTEMPTS - 1):
         with pytest.raises(ValueError, match="Invalid credentials"):
             await manager.login("admin", "bad-pw", client_ip=client_ip)
 

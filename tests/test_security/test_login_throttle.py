@@ -10,19 +10,21 @@ Verifies:
 from __future__ import annotations
 
 import time
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import TYPE_CHECKING
 
 import pytest
 
 from rex.dashboard.auth import (
-    AuthManager,
-    _FileThrottleBackend,
     _LOCKOUT_SECONDS,
     _MAX_LOGIN_ATTEMPTS,
     _MAX_TRACKED_IPS,
+    AuthManager,
+    _FileThrottleBackend,
     hash_password,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

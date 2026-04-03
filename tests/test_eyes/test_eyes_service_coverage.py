@@ -13,7 +13,6 @@ import pytest
 
 from rex.shared.enums import ServiceName
 
-
 # ------------------------------------------------------------------
 # service_name
 # ------------------------------------------------------------------
@@ -41,19 +40,19 @@ class TestOnStartCreatesDeviceStore:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
              patch("rex.eyes.service.DeviceFingerprinter"), \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
              patch("rex.eyes.service.TrafficMonitor"), \
              patch("rex.eyes.service.PortScanner"), \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store") as mock_set_store:
             from rex.eyes.service import EyesService
 
             svc = EyesService(config, mock_bus)
             svc._running = True
 
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(return_value="wlan0")
             mock_scanner_inst.discover_devices = AsyncMock(
                 return_value=MagicMock(
@@ -62,10 +61,10 @@ class TestOnStartCreatesDeviceStore:
                 )
             )
 
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_threat_feeds = AsyncMock()
 
-            mock_store_inst = MockStore.return_value
+            mock_store_inst = mock_store_cls.return_value
             mock_store_inst.update_from_scan = AsyncMock(return_value=([], [], []))
 
             await svc._on_start()
@@ -85,19 +84,19 @@ class TestOnStartCreatesDeviceStore:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
              patch("rex.eyes.service.DeviceFingerprinter"), \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
              patch("rex.eyes.service.TrafficMonitor"), \
              patch("rex.eyes.service.PortScanner"), \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store"):
             from rex.eyes.service import EyesService
 
             svc = EyesService(config, mock_bus)
             svc._running = True
 
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(return_value="eth0")
             mock_scanner_inst.discover_devices = AsyncMock(
                 return_value=MagicMock(
@@ -106,8 +105,8 @@ class TestOnStartCreatesDeviceStore:
                 )
             )
 
-            MockDNS.return_value.load_threat_feeds = AsyncMock()
-            MockStore.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
+            mock_dns_cls.return_value.load_threat_feeds = AsyncMock()
+            mock_store_cls.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
 
             await svc._on_start()
             assert svc._interface == "eth0"
@@ -122,19 +121,19 @@ class TestOnStartCreatesDeviceStore:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
              patch("rex.eyes.service.DeviceFingerprinter"), \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
              patch("rex.eyes.service.TrafficMonitor"), \
              patch("rex.eyes.service.PortScanner"), \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store"):
             from rex.eyes.service import EyesService
 
             svc = EyesService(config, mock_bus)
             svc._running = True
 
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(return_value="eth0")
             mock_scanner_inst.discover_devices = AsyncMock(
                 return_value=MagicMock(
@@ -143,8 +142,8 @@ class TestOnStartCreatesDeviceStore:
                 )
             )
 
-            MockDNS.return_value.load_threat_feeds = AsyncMock()
-            MockStore.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
+            mock_dns_cls.return_value.load_threat_feeds = AsyncMock()
+            mock_store_cls.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
 
             await svc._on_start()
 
@@ -172,19 +171,19 @@ class TestOnStartDNSFeedFailure:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
              patch("rex.eyes.service.DeviceFingerprinter"), \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
              patch("rex.eyes.service.TrafficMonitor"), \
              patch("rex.eyes.service.PortScanner"), \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store"):
             from rex.eyes.service import EyesService
 
             svc = EyesService(config, mock_bus)
             svc._running = True
 
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(return_value="eth0")
             mock_scanner_inst.discover_devices = AsyncMock(
                 return_value=MagicMock(
@@ -193,12 +192,12 @@ class TestOnStartDNSFeedFailure:
                 )
             )
 
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_threat_feeds = AsyncMock(
                 side_effect=RuntimeError("feed unavailable")
             )
 
-            MockStore.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
+            mock_store_cls.return_value.update_from_scan = AsyncMock(return_value=([], [], []))
 
             # Should not raise
             await svc._on_start()

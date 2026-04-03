@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+import tempfile
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,13 +12,13 @@ from rex.core.agent.command_executor import (
     COMMAND_WHITELIST,
     CommandExecutor,
     CommandResult,
-    WhitelistedCommand,
     validate_cidr,
-    validate_ip_address,
     validate_nft_rule,
     validate_safe_path,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # validate_cidr -- AddressValueError path (lines 113-114)
@@ -111,7 +111,7 @@ class TestValidateSafePathExtended:
     def test_resolve_oserror(self) -> None:
         """OSError during resolve should return False (line 341-342)."""
         with patch("rex.core.agent.command_executor.Path.resolve", side_effect=OSError("fail")):
-            assert validate_safe_path("/tmp/rex-test/file.txt") is False
+            assert validate_safe_path(tempfile.gettempdir() + "/rex-test/file.txt") is False
 
 
 # ------------------------------------------------------------------

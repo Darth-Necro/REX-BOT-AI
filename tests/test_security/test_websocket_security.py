@@ -11,8 +11,6 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
-
 from rex.dashboard.websocket import (
     MAX_CONNECTIONS,
     MAX_MESSAGE_SIZE,

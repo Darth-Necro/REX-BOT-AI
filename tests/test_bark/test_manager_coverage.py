@@ -14,7 +14,6 @@ Targets uncovered lines:
 from __future__ import annotations
 
 import time
-from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -253,15 +252,11 @@ class TestInQuietHours:
         """_in_quiet_hours returns True when hour is in range (no wrap)."""
         mgr = _mgr()
         mgr.set_quiet_hours(22, 23)
-        with patch("rex.bark.manager.datetime") as mock_dt:
-            mock_dt.now.return_value = MagicMock(hour=22)
-            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            # Need to patch the actual datetime import in manager
-            with patch("rex.bark.manager.datetime") as mock_dt2:
-                mock_now = MagicMock()
-                mock_now.hour = 22
-                mock_dt2.now.return_value = mock_now
-                assert mgr._in_quiet_hours() is True
+        with patch("rex.bark.manager.datetime") as mock_dt2:
+            mock_now = MagicMock()
+            mock_now.hour = 22
+            mock_dt2.now.return_value = mock_now
+            assert mgr._in_quiet_hours() is True
 
     def test_quiet_hours_same_day_out_of_range(self) -> None:
         """_in_quiet_hours returns False when hour is outside range (no wrap)."""

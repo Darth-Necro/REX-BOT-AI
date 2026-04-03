@@ -87,9 +87,9 @@ class TestGetAdapterUnknown:
         from rex.pal import PlatformError, get_adapter
         get_adapter.cache_clear()
 
-        with patch("rex.pal.platform.system", return_value="SunOS"):
-            with pytest.raises(PlatformError, match="Unsupported platform"):
-                get_adapter()
+        with patch("rex.pal.platform.system", return_value="SunOS"), \
+             pytest.raises(PlatformError, match="Unsupported platform"):
+            get_adapter()
 
         get_adapter.cache_clear()
 

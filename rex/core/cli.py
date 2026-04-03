@@ -7,13 +7,7 @@ The ``start`` command initializes the full orchestrator and runs until SIGINT/SI
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-import sys
-import warnings
-from datetime import UTC
-
-import typer
 
 # TLS verification is ENABLED by default.  For local development with
 # self-signed certs, set REX_DEV_INSECURE=1 in the environment.
@@ -21,6 +15,14 @@ import typer
 # verification for CLI -> local dashboard requests, NOT for any other
 # HTTP client in the codebase.  MUST NOT be used in production or alpha deployments.
 import os as _os
+import sys
+import warnings
+from datetime import UTC
+
+import typer
+
+from rex.shared.constants import VERSION
+
 _DEV_INSECURE = _os.environ.get("REX_DEV_INSECURE", "").strip() in ("1", "true", "yes")
 if _DEV_INSECURE:
     logging.getLogger(__name__).warning(
@@ -30,7 +32,6 @@ if _DEV_INSECURE:
     # Suppress only the specific httpx/urllib3 warning for unverified HTTPS
     warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
-from rex.shared.constants import VERSION
 
 
 def _redact_url(url: str) -> str:
@@ -140,6 +141,7 @@ def stop() -> None:
     """Stop all REX services gracefully (sends SIGTERM to running instance)."""
     import os
     import signal
+
     from rex.shared.config import get_config
     pidfile = str(get_config().data_dir / "rex-bot-ai.pid")
     if os.path.exists(pidfile):
@@ -238,8 +240,9 @@ def login(
     password: str = typer.Option(..., prompt=True, hide_input=True, help="Password"),
 ) -> None:
     """Authenticate with the REX API and save token for future CLI commands."""
-    import httpx
     import os
+
+    import httpx
 
     try:
         resp = httpx.post(
@@ -401,14 +404,19 @@ def junkyard() -> None:
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("mode") == "junkyard_dog":
-            typer.echo("  *WOOF WOOF GRRRRR!* Junkyard Dog mode is ACTIVE. REX will eliminate all threats!")
+            typer.echo(
+                "  *WOOF WOOF GRRRRR!* Junkyard Dog mode is ACTIVE."
+                " REX will eliminate all threats!"
+            )
     except Exception as e:
         typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
 
 @app.command()
 def patrol(
-    schedule: str = typer.Option("", help="Cron schedule (e.g. '0 2 * * *' for 2am daily, '0 */4 * * *' every 4h)"),
+    schedule: str = typer.Option(
+        "", help="Cron schedule (e.g. '0 2 * * *' for 2am daily, '0 */4 * * *' every 4h)"
+    ),
     now: bool = typer.Option(False, help="Run a patrol immediately"),
 ) -> None:
     """Schedule REX to patrol -- run security audits and inspect the network on a timer."""

@@ -20,11 +20,23 @@ _PERSONA_PREFIXES = {
 
 
 _JUNKYARD_PREFIXES = {
-    ThreatSeverity.CRITICAL: "*GRRRRR WOOF WOOF WOOF!* REX BITE! Threat ELIMINATED and REMOVED! Network SECURED!",
-    ThreatSeverity.HIGH: "*GRRRRR WOOF!* REX BITE! Intruder blocked, quarantined, and removed from network!",
+    ThreatSeverity.CRITICAL: (
+        "*GRRRRR WOOF WOOF WOOF!* REX BITE! "
+        "Threat ELIMINATED and REMOVED! Network SECURED!"
+    ),
+    ThreatSeverity.HIGH: (
+        "*GRRRRR WOOF!* REX BITE! "
+        "Intruder blocked, quarantined, and removed from network!"
+    ),
     ThreatSeverity.MEDIUM: "*GRRRRR!* REX BITE! Suspicious activity removed! Machines secured!",
-    ThreatSeverity.LOW: "*WOOF GRRR!* REX BITE! Blocked and removed -- no outside threats tolerated!",
-    ThreatSeverity.INFO: "*ruff GRRRRR* REX is patrolling. All machines and network secured from outside threats!",
+    ThreatSeverity.LOW: (
+        "*WOOF GRRR!* REX BITE! "
+        "Blocked and removed -- no outside threats tolerated!"
+    ),
+    ThreatSeverity.INFO: (
+        "*ruff GRRRRR* REX is patrolling. "
+        "All machines and network secured from outside threats!"
+    ),
 }
 
 

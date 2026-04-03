@@ -9,8 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -65,6 +64,8 @@ from rex.shared.models import (
 )
 from rex.shared.utils import utc_now
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ======================================================================
 # 1. bus.py -- publish serialization, subscribe loop, consumer groups,

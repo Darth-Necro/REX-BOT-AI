@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-
 import shutil
 
 import defusedxml.ElementTree as DefusedET
@@ -20,11 +19,10 @@ import defusedxml.ElementTree as DefusedET
 from rex.shared.constants import DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
+from rex.shared.subprocess_util import run_subprocess_async
 from rex.shared.utils import is_private_ip, is_valid_ipv4
 
 logger = logging.getLogger("rex.eyes.port_scanner")
-
-from rex.shared.subprocess_util import run_subprocess_async
 
 
 # ---------------------------------------------------------------------------

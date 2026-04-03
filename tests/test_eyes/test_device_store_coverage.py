@@ -9,15 +9,11 @@ and remove_device with invalid MAC.
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import patch
-
 import pytest
 
-from rex.eyes.device_store import DeviceStore, MAX_DEVICES
+from rex.eyes.device_store import MAX_DEVICES, DeviceStore
 from rex.shared.enums import DeviceStatus, DeviceType
 from rex.shared.models import Device, ScanResult
-
 
 # ------------------------------------------------------------------
 # Helpers

@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -174,7 +170,7 @@ class TestAuditOutboundConnections:
     def test_audit_outbound_connections_parses_proc(self, auditor) -> None:
         """audit_outbound_connections parses /proc/net/tcp."""
         # Mock /proc/net/tcp to return a known connection
-        mock_tcp_content = (
+        _mock_tcp_content = (
             "  sl  local_address rem_address   st tx_queue rx_queue "
             "tr tm->when retrnsmt   uid  timeout inode\n"
             "   0: 0100007F:0050 0100007F:C354 01 00000000:00000000 "
@@ -196,7 +192,7 @@ class TestDataRetentionStatus:
         result = auditor.get_data_retention_status()
         assert isinstance(result, dict)
         # Should have entries for various data types
-        for data_type, info in result.items():
+        for _data_type, info in result.items():
             assert "retention_days" in info
             assert "privacy_tier" in info
             assert "exportable" in info

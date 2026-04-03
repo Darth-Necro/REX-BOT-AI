@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
-from rex.memory.threat_log import ARCHIVE_RETENTION_DAYS, ThreatLog
+from rex.memory.threat_log import ThreatLog
 from rex.shared.config import RexConfig
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
@@ -427,7 +427,7 @@ class TestPruneOldArchives:
         old_file.write_text("[]")
 
         # Create a recent archive
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_key = now.strftime("%Y-%m")
         recent_file = archive_dir / f"{recent_key}.json"
         recent_file.write_text("[]")
@@ -463,7 +463,7 @@ class TestPruneOldArchives:
         archive_dir = tmp_path / "rex-data" / "threats-archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_key = now.strftime("%Y-%m")
         recent_file = archive_dir / f"{recent_key}.json"
         recent_file.write_text("[]")

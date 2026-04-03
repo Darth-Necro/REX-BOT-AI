@@ -16,10 +16,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
 
 from rex.core.privacy.encryption import SecretsManager
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -45,8 +44,8 @@ class TestGetMachineIdFallbacks:
 
     def test_dbus_fallback(self, tmp_path: Path) -> None:
         """When /etc/machine-id is unreadable, try /var/lib/dbus/machine-id."""
-        etc_read = MagicMock(side_effect=OSError("no /etc/machine-id"))
-        dbus_read = MagicMock(return_value="dbus-id-123\n")
+        MagicMock(side_effect=OSError("no /etc/machine-id"))
+        MagicMock(return_value="dbus-id-123\n")
 
         with (
             patch("rex.core.privacy.encryption.Path.read_text") as mock_rt,
@@ -456,9 +455,9 @@ class TestSaveSecretsFile:
         """An OSError from _save_secrets_file should propagate."""
         mgr = _make_manager(tmp_path)
 
-        with patch.object(Path, "write_text", side_effect=OSError("disk full")):
-            with pytest.raises(OSError, match="disk full"):
-                mgr._save_secrets_file({"key": "value"})
+        with patch.object(Path, "write_text", side_effect=OSError("disk full")), \
+             pytest.raises(OSError, match="disk full"):
+            mgr._save_secrets_file({"key": "value"})
 
 
 # ------------------------------------------------------------------

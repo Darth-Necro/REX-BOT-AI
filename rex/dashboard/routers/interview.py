@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -102,9 +101,11 @@ async def chat(
         if await client.is_available():
             result = await client.generate(
                 prompt=message,
-                system_prompt="You are REX, a friendly and knowledgeable cyber-security guard dog AI. "
-                "Answer questions about network security, devices, and threats. "
-                "Keep responses concise and helpful. Use a friendly dog persona.",
+                system_prompt=(
+                    "You are REX, a friendly and knowledgeable cyber-security guard dog AI. "
+                    "Answer questions about network security, devices, and threats. "
+                    "Keep responses concise and helpful. Use a friendly dog persona."
+                ),
             )
             reply = result.get("response", "") if isinstance(result, dict) else str(result)
             return {"reply": reply, "source": "llm"}
@@ -129,6 +130,6 @@ async def restart(user: dict = Depends(get_current_user)) -> dict[str, Any]:
             await svc.restart()
             return {"status": "restarted"}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     raise HTTPException(status_code=503, detail="Interview service not connected")

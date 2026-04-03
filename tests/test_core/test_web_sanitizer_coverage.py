@@ -10,12 +10,9 @@ Targets the remaining uncovered lines:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-from rex.core.agent.web_content_sanitizer import SanitizationResult, WebContentSanitizer
-
+from rex.core.agent.web_content_sanitizer import WebContentSanitizer
 
 # ------------------------------------------------------------------
 # __init__ with audit_log_dir (line 242)
@@ -29,7 +26,7 @@ class TestInitAuditLogDir:
         log_dir = tmp_path / "audit_logs"
         assert not log_dir.exists()
 
-        wcs = WebContentSanitizer(audit_log_dir=log_dir)
+        WebContentSanitizer(audit_log_dir=log_dir)
 
         assert log_dir.exists()
 
@@ -39,7 +36,7 @@ class TestInitAuditLogDir:
         log_dir.mkdir()
 
         # Should not raise
-        wcs = WebContentSanitizer(audit_log_dir=log_dir)
+        WebContentSanitizer(audit_log_dir=log_dir)
         assert log_dir.exists()
 
 

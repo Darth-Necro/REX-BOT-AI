@@ -53,12 +53,12 @@ class TestGitManagerInit:
         """When git binary is missing, versioning should be disabled."""
         gm = GitManager(repo_path=tmp_path / "test-repo")
 
-        class FakeGitCommandNotFound(Exception):
+        class FakeGitCommandNotFoundError(Exception):
             pass
 
         mock_git = MagicMock()
-        mock_git.GitCommandNotFound = FakeGitCommandNotFound
-        mock_git.Git.return_value.version.side_effect = FakeGitCommandNotFound("git")
+        mock_git.GitCommandNotFound = FakeGitCommandNotFoundError
+        mock_git.Git.return_value.version.side_effect = FakeGitCommandNotFoundError("git")
 
         with patch.dict("sys.modules", {"git": mock_git}):
             gm._init_sync()
@@ -310,7 +310,7 @@ class TestGitManagerCommit:
             assert result is not None
             # Verify Actor was called with expected email
             call_kwargs = mock_repo.index.commit.call_args
-            actor = call_kwargs.kwargs.get("author") or call_kwargs[1].get("author")
+            call_kwargs.kwargs.get("author") or call_kwargs[1].get("author")
             mock_git.Actor.assert_called_with("My Author", "my-author@rex.local")
 
 

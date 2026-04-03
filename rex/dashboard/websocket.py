@@ -216,19 +216,28 @@ class WebSocketManager:
         if origin is not None:
             allowed = _get_allowed_origins()
             if not _origin_matches(origin, allowed):
-                audit_event("ws_reject", client_ip=client_ip, detail="Origin not allowed", origin=origin)
+                audit_event(
+                    "ws_reject", client_ip=client_ip,
+                    detail="Origin not allowed", origin=origin,
+                )
                 await websocket.close(code=4003, reason="Origin not allowed")
                 return
 
         # --- Pre-auth abuse checks (before accept) ---
         async with self._ip_lock:
             if self._pending_count >= MAX_PENDING:
-                audit_event("ws_reject", client_ip=client_ip, detail="Pending connection limit reached")
+                audit_event(
+                    "ws_reject", client_ip=client_ip,
+                    detail="Pending connection limit reached",
+                )
                 await websocket.close(code=4029, reason="Too many pending connections")
                 return
 
             if self._ip_connections[client_ip] >= MAX_PER_IP:
-                audit_event("ws_reject", client_ip=client_ip, detail="Per-IP connection limit reached")
+                audit_event(
+                    "ws_reject", client_ip=client_ip,
+                    detail="Per-IP connection limit reached",
+                )
                 await websocket.close(code=4029, reason="Too many connections from this IP")
                 return
 
@@ -240,7 +249,10 @@ class WebSocketManager:
         try:
             # Check authenticated connection cap
             if self.active_count >= MAX_CONNECTIONS:
-                audit_event("ws_reject", client_ip=client_ip, detail="Authenticated connection limit reached")
+                audit_event(
+                    "ws_reject", client_ip=client_ip,
+                    detail="Authenticated connection limit reached",
+                )
                 await websocket.close(code=4029, reason="Connection limit reached")
                 return
 
@@ -251,7 +263,7 @@ class WebSocketManager:
                 msg = json.loads(raw)
                 if msg.get("type") == "auth" and isinstance(msg.get("token"), str):
                     token = msg["token"]
-            except (asyncio.TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
+            except (TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
                 pass
 
             if not token:
@@ -269,7 +281,10 @@ class WebSocketManager:
             async with self._lock:
                 self._connections[websocket] = set(_DEFAULT_CHANNELS)
                 self._message_timestamps[websocket] = []
-            logger.info("WebSocket client connected via first-message auth (total: %d)", len(self._connections))
+            logger.info(
+                "WebSocket client connected via first-message auth (total: %d)",
+                len(self._connections),
+            )
 
         finally:
             # Release the pending slot (auth phase complete, success or failure)
@@ -283,7 +298,10 @@ class WebSocketManager:
 
                 # Message size limit
                 if len(data) > MAX_MESSAGE_SIZE:
-                    audit_event("ws_message_limit", client_ip=client_ip, detail="Message too large", size=len(data))
+                    audit_event(
+                        "ws_message_limit", client_ip=client_ip,
+                        detail="Message too large", size=len(data),
+                    )
                     await websocket.close(code=4008, reason="Message too large")
                     return
 
@@ -293,7 +311,10 @@ class WebSocketManager:
                     ts_list = self._message_timestamps.get(websocket, [])
                     ts_list = [t for t in ts_list if now - t < 60]
                     if len(ts_list) >= MAX_MESSAGES_PER_MINUTE:
-                        audit_event("ws_message_limit", client_ip=client_ip, detail="Message rate limit exceeded")
+                        audit_event(
+                            "ws_message_limit", client_ip=client_ip,
+                            detail="Message rate limit exceeded",
+                        )
                         await websocket.close(code=4008, reason="Message rate limit exceeded")
                         return
                     ts_list.append(now)

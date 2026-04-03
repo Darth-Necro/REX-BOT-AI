@@ -13,7 +13,6 @@ failure events, but does not touch the firewall.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -256,8 +255,10 @@ class TeethService(BaseService):
 
         # JUNKYARD DOG MODE: *GRRRRR* BITE! Escalate ALL actions!
         # Everything becomes a BITE -- block + quarantine + DNS block + notify owner.
-        if self.config.protection_mode == ProtectionMode.JUNKYARD_DOG:
-            if decision_action != DecisionAction.BITE:
+        if (
+            self.config.protection_mode == ProtectionMode.JUNKYARD_DOG
+            and decision_action != DecisionAction.BITE
+        ):
                 self._log.info(
                     "*GRRRRR WOOF!* Junkyard Dog BITE! Escalating %s -> BITE "
                     "for decision %s", decision_action, decision_id,
@@ -325,7 +326,10 @@ class TeethService(BaseService):
                     details={
                         "params": params, "enforced": True,
                         "bite": True,
-                        "message": "*GRRRRR!* REX bit the intruder! Blocked, quarantined, and rate-limited!",
+                        "message": (
+                            "*GRRRRR!* REX bit the intruder!"
+                            " Blocked, quarantined, and rate-limited!"
+                        ),
                     },
                 )
                 return
@@ -359,7 +363,7 @@ class TeethService(BaseService):
                 error=str(exc),
             )
 
-        except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as exc:
+        except (TimeoutError, OSError, ValueError, RuntimeError) as exc:
             self._log.exception(
                 "Unexpected error executing %s for decision %s: %s: %s",
                 action_id, decision_id, type(exc).__name__, exc,

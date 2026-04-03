@@ -7,11 +7,9 @@ logic without requiring a BSD system.
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,18 +67,18 @@ class TestGetDefaultInterface:
         """Should raise when route command fails."""
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
-        with patch("rex.pal.bsd._run", return_value=_completed(returncode=1)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.bsd._run", return_value=_completed(returncode=1)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
     def test_raises_when_no_interface_line(self):
         """Should raise when route output lacks interface."""
         from rex.shared.errors import RexPlatformNotSupportedError
         route_out = "   route to: default\n    gateway: 192.168.1.1\n"
         adapter = _make_adapter()
-        with patch("rex.pal.bsd._run", return_value=_completed(stdout=route_out)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+        with patch("rex.pal.bsd._run", return_value=_completed(stdout=route_out)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
 
 # ======================================================================
@@ -203,7 +201,7 @@ class TestBlockIp:
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
              patch.object(adapter, "_write_and_reload_anchor", return_value=True) as mock_write:
-            rule = adapter.block_ip("10.0.0.5", "inbound", "test")
+            adapter.block_ip("10.0.0.5", "inbound", "test")
 
         written_rules = mock_write.call_args[0][0]
         assert len(written_rules) == 1
@@ -215,7 +213,7 @@ class TestBlockIp:
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
              patch.object(adapter, "_write_and_reload_anchor", return_value=True) as mock_write:
-            rule = adapter.block_ip("10.0.0.5", "outbound", "test")
+            adapter.block_ip("10.0.0.5", "outbound", "test")
 
         written_rules = mock_write.call_args[0][0]
         assert len(written_rules) == 1
@@ -227,9 +225,9 @@ class TestBlockIp:
         adapter = _make_adapter()
 
         with patch.object(adapter, "_read_anchor_rules", return_value=[]), \
-             patch.object(adapter, "_write_and_reload_anchor", return_value=False):
-            with pytest.raises(FirewallError):
-                adapter.block_ip("192.168.1.100", "both", "test")
+             patch.object(adapter, "_write_and_reload_anchor", return_value=False), \
+             pytest.raises(FirewallError):
+            adapter.block_ip("192.168.1.100", "both", "test")
 
     def test_appends_to_existing_rules(self):
         """Should add new rules without removing existing ones."""
@@ -386,7 +384,7 @@ class TestGetNetworkInfo:
         call_idx = [0]
 
         def mock_run(cmd, **kwargs):
-            idx = call_idx[0]
+            call_idx[0]
             call_idx[0] += 1
             if "route" in cmd:
                 return _completed(stdout=route_out)
@@ -416,11 +414,11 @@ class TestRegisterAutostart:
         adapter = _make_adapter()
 
         with patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_text") as mock_write, \
+             patch("pathlib.Path.write_text"), \
              patch("pathlib.Path.chmod"), \
              patch("pathlib.Path.exists", return_value=True), \
              patch("pathlib.Path.read_text", return_value=""), \
-             patch("builtins.open", mock_open()) as mock_file, \
+             patch("builtins.open", mock_open()), \
              patch("rex.pal.bsd.shutil.which", return_value="/usr/local/bin/rex-bot-ai"):
             result = adapter.register_autostart()
 

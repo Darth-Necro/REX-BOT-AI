@@ -58,7 +58,11 @@ class ScanScheduler:
                 await self._bus.publish("rex:core:commands", RexEvent(
                     source=ServiceName.SCHEDULER,
                     event_type="command",
-                    payload={"command": "scan_now", "scan_type": scan_type, "triggered_by": "manual"},
+                    payload={
+                        "command": "scan_now",
+                        "scan_type": scan_type,
+                        "triggered_by": "manual",
+                    },
                 ))
             except Exception:
                 logger.warning("Failed to publish scan_now event to bus")
@@ -103,7 +107,11 @@ class ScanScheduler:
                     await self._bus.publish("rex:core:commands", RexEvent(
                         source=ServiceName.SCHEDULER,
                         event_type="command",
-                        payload={"command": "scan_now", "scan_type": spec["scan_type"], "triggered_by": "scheduler"},
+                        payload={
+                            "command": "scan_now",
+                            "scan_type": spec["scan_type"],
+                            "triggered_by": "scheduler",
+                        },
                     ))
                     status = "triggered"
                 except Exception:

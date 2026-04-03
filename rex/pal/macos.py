@@ -17,15 +17,13 @@ All subprocess calls use ``subprocess.run`` with ``timeout=10``,
 
 from __future__ import annotations
 
-import ipaddress
+import contextlib
 import logging
 import os
 import platform
 import plistlib
 import re
 import shutil
-import socket
-import struct
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -259,7 +257,8 @@ class MacOSAdapter(PlatformAdapter):
                     continue
 
                 # Parse tcpdump -tt -nn -e output:
-                # 1712345678.123456 aa:bb:cc:dd:ee:ff > 11:22:33:44:55:66, ... IP 1.2.3.4.80 > 5.6.7.8.443: ...
+                # 1712345678.123456 aa:bb:cc:dd:ee:ff > 11:22:33:44:55:66,
+                # ... IP 1.2.3.4.80 > 5.6.7.8.443: ...
                 ts = datetime.now(UTC).isoformat()
                 src_mac = dst_mac = ""
                 src_ip = dst_ip = ""
@@ -285,7 +284,11 @@ class MacOSAdapter(PlatformAdapter):
 
                 # Detect protocol and extract IPs/ports
                 if " IP " in line or " IP6 " in line:
-                    protocol = "TCP" if "Flags" in line else "UDP" if ".domain" in line or "UDP" in line else "IP"
+                    protocol = (
+                        "TCP" if "Flags" in line
+                        else "UDP" if ".domain" in line or "UDP" in line
+                        else "IP"
+                    )
                     ip_match = re.search(
                         r"IP\s+([\d.]+)(?:\.(\d+))?\s+>\s+([\d.]+)(?:\.(\d+))?",
                         line,
@@ -778,8 +781,14 @@ class MacOSAdapter(PlatformAdapter):
             reason += f"/{mac}"
 
         # Allow DNS (port 53) from the device
-        rules_text.append(f"pass in quick proto udp from {ip} to any port 53  # REX:{reason}-allow-dns")
-        rules_text.append(f"pass in quick proto tcp from {ip} to any port 53  # REX:{reason}-allow-dns-tcp")
+        rules_text.append(
+            f"pass in quick proto udp from {ip} to any port 53"
+            f"  # REX:{reason}-allow-dns"
+        )
+        rules_text.append(
+            f"pass in quick proto tcp from {ip} to any port 53"
+            f"  # REX:{reason}-allow-dns-tcp"
+        )
         # Block everything else from/to the device
         rules_text.append(f"block in quick from {ip} to any  # REX:{reason}")
         rules_text.append(f"block out quick from any to {ip}  # REX:{reason}")
@@ -854,7 +863,10 @@ class MacOSAdapter(PlatformAdapter):
         pipe_num = abs(hash(ip)) % 65000 + 1
         dn_result = _run(["dnctl", "pipe", str(pipe_num), "config", "bw", f"{kbps}Kbit/s"])
         if dn_result.returncode != 0:
-            logger.warning("dnctl pipe creation failed: %s (rate limiting via pf only)", dn_result.stderr)
+            logger.warning(
+                "dnctl pipe creation failed: %s (rate limiting via pf only)",
+                dn_result.stderr,
+            )
 
         # Add pf rule to route traffic through the pipe
         rule_reason = reason or f"rate-limit:{ip}:{kbps}kbps"
@@ -1334,10 +1346,8 @@ class MacOSAdapter(PlatformAdapter):
                     # Unified memory: use total RAM as VRAM estimate
                     mem_result = _run(["sysctl", "-n", "hw.memsize"])
                     if mem_result.returncode == 0:
-                        try:
+                        with contextlib.suppress(ValueError):
                             vram_mb = int(mem_result.stdout.strip()) // (1024 * 1024)
-                        except ValueError:
-                            pass
 
         if model:
             return GPUInfo(

@@ -11,11 +11,14 @@ Verifies:
 from __future__ import annotations
 
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from rex.store.sdk.plugin_api import PluginRegistry
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -143,7 +146,6 @@ class TestTokenPersistence:
     def test_file_permissions_restricted(self, tmp_path: Path, token: str) -> None:
         """Registry file should have 0o600 permissions."""
         import os
-        import stat
         path = tmp_path / "plugins.json"
         reg = PluginRegistry(path)
         reg.register(token, "test-plugin", "Test Plugin")

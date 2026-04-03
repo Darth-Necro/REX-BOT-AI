@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,7 +15,6 @@ from rex.dashboard import deps
 from rex.dashboard.deps import get_current_user
 from rex.dashboard.routers import schedule
 from rex.shared.config import RexConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

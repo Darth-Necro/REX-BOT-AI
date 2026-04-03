@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -11,13 +10,7 @@ from rex.core.agent.message_authenticator import PairedUser
 from rex.core.agent.message_router import (
     IncomingMessage,
     MessageRouter,
-    RouteResult,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
-    from rex.shared.config import RexConfig
-
 
 # ------------------------------------------------------------------
 # Fixtures

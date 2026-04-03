@@ -13,11 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from rex.interview.engine import QuestionEngine
 from rex.shared.enums import DeviceType, InterviewMode
-
 
 # ---- helpers ---------------------------------------------------------------
 

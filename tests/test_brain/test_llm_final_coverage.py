@@ -104,9 +104,9 @@ class TestOllamaGenerate5xxRetry:
         mock_http.is_closed = False
         client._client = mock_http
 
-        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(RexLLMUnavailableError):
-                await client.generate("test", "system")
+        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock), \
+             pytest.raises(RexLLMUnavailableError):
+            await client.generate("test", "system")
 
         # Should have retried all 3 times
         assert mock_http.post.call_count == 3

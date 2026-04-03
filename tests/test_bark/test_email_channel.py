@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from email.mime.multipart import MIMEMultipart
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rex.bark.channels.email import EmailChannel
-
 
 # ------------------------------------------------------------------
 # Helpers

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,9 +30,9 @@ class TestAtomicWriteText:
         target = tmp_path / "out.txt"
         target.write_text("original")
 
-        with patch("builtins.open", side_effect=OSError("disk full")):
-            with pytest.raises(OSError, match="disk full"):
-                atomic_write_text(target, "new content")
+        with patch("builtins.open", side_effect=OSError("disk full")), \
+             pytest.raises(OSError, match="disk full"):
+            atomic_write_text(target, "new content")
 
         assert target.read_text() == "original"
 
@@ -39,9 +40,9 @@ class TestAtomicWriteText:
         target = tmp_path / "out.txt"
         tmp_file = target.with_suffix(".tmp")
 
-        with patch("builtins.open", side_effect=OSError("fail")):
-            with pytest.raises(OSError):
-                atomic_write_text(target, "data")
+        with patch("builtins.open", side_effect=OSError("fail")), \
+             pytest.raises(OSError):
+            atomic_write_text(target, "data")
 
         assert not tmp_file.exists()
 
@@ -95,10 +96,10 @@ class TestAtomicWriteJson:
         assert mode == 0o600
 
     def test_default_serializer(self, tmp_path: Path) -> None:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         target = tmp_path / "data.json"
-        dt = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        dt = datetime(2025, 1, 1, tzinfo=UTC)
         atomic_write_json(target, {"ts": dt}, default=str)
         data = json.loads(target.read_text())
         assert "2025" in data["ts"]

@@ -8,10 +8,11 @@ older entries are archived to monthly JSON files under ``threats-archive/``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.constants import MAX_THREAT_LOG_ROWS
@@ -114,7 +115,7 @@ class ThreatLog:
         list[dict[str, Any]]
             Matching threat records, newest first.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
         cutoff_iso = cutoff.isoformat()
         async with self._lock:
             matches = [
@@ -246,10 +247,8 @@ class ThreatLog:
                     raw = archive_file.read_text("utf-8")
                     # Try to decrypt if it was previously encrypted
                     if secrets_manager is not None:
-                        try:
+                        with contextlib.suppress(Exception):
                             raw = secrets_manager.decrypt(raw)
-                        except Exception:
-                            pass  # Not encrypted or different key -- treat as plaintext
                     existing = json.loads(raw)
                 except (json.JSONDecodeError, OSError):
                     self._logger.warning("Corrupt archive file %s -- overwriting.", archive_file)
@@ -270,10 +269,8 @@ class ThreatLog:
                     json.dumps(existing, indent=2, default=str),
                     encoding="utf-8",
                 )
-                try:
+                with contextlib.suppress(OSError):
                     archive_file.chmod(0o600)
-                except OSError:
-                    pass
             total += len(month_threats)
             self._logger.debug("Wrote %d threats to %s", len(month_threats), archive_file)
 
@@ -291,13 +288,13 @@ class ThreatLog:
         if not self._archive_dir.exists():
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for archive_file in self._archive_dir.glob("*.json"):
             month_key = archive_file.stem  # e.g. "2025-06"
             try:
                 # Parse the month key as the first day of that month.
                 archive_date = datetime.strptime(month_key, "%Y-%m").replace(
-                    tzinfo=timezone.utc
+                    tzinfo=UTC
                 )
                 age_days = (now - archive_date).days
                 if age_days > ARCHIVE_RETENTION_DAYS:

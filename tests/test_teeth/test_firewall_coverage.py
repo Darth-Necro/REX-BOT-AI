@@ -4,17 +4,13 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from rex.shared.errors import RexFirewallError
 from rex.shared.models import FirewallRule
 from rex.shared.utils import utc_now
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -86,8 +82,8 @@ class TestRateLimit:
 
     def test_rate_limit_rejects_over_limit(self, fw_manager) -> None:
         """Exceeding MAX_ACTIONS_PER_MINUTE raises."""
+
         from rex.shared.constants import MAX_ACTIONS_PER_MINUTE
-        import time
 
         for _ in range(MAX_ACTIONS_PER_MINUTE):
             fw_manager._check_rate_limit()

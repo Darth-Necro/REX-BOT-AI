@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from rex.bark.channels.discord import DiscordChannel
 from rex.bark.channels.email import EmailChannel
@@ -108,7 +108,10 @@ class BarkService(BaseService):
                     for ch in self._manager._channels.values():
                         with contextlib.suppress(Exception):
                             await ch.send(message, {"title": "REX Alert", "severity": "info"})
-                    logger.info("Sent notification to all %d channels", len(self._manager._channels))
+                    logger.info(
+                        "Sent notification to all %d channels",
+                        len(self._manager._channels),
+                    )
 
         await self.bus.subscribe([STREAM_BRAIN_DECISIONS, STREAM_BARK_NOTIFICATIONS], handler)
 

@@ -7,11 +7,9 @@ parsing logic without requiring root or a real Linux system.
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,9 +80,9 @@ class TestGetDefaultInterface:
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
         with patch("builtins.open", side_effect=OSError("no procfs")), \
-             patch("rex.pal.linux._run", return_value=_completed(returncode=1)):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.get_default_interface()
+             patch("rex.pal.linux._run", return_value=_completed(returncode=1)), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.get_default_interface()
 
 
 # ======================================================================
@@ -650,9 +648,9 @@ class TestInstallDependency:
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
 
-        with patch("rex.pal.linux.shutil.which", return_value=None):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.install_dependency("nmap")
+        with patch("rex.pal.linux.shutil.which", return_value=None), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.install_dependency("nmap")
 
     def test_returns_false_on_install_failure(self):
         """Should return False when apt returns non-zero."""
@@ -1253,9 +1251,8 @@ class TestCreateRexChains:
         adapter = _make_adapter()
         with patch.object(
             adapter._firewall, "create_rex_chains", side_effect=RuntimeError("fail")
-        ):
-            with pytest.raises(RexFirewallError):
-                adapter.create_rex_chains()
+        ), pytest.raises(RexFirewallError):
+            adapter.create_rex_chains()
 
 
 # ======================================================================
@@ -1468,7 +1465,7 @@ class TestPersistRulesIptables:
 
         with patch("rex.pal.linux._run", return_value=_completed(stdout=iptables_output)), \
              patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_text") as mock_write:
+             patch("pathlib.Path.write_text"):
             result = adapter.persist_rules()
 
         assert result is True

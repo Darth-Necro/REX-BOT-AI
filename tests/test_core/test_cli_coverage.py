@@ -8,13 +8,10 @@ stop, scan, sleep, wake, backup command flows.  All external dependencies
 from __future__ import annotations
 
 import asyncio
-import inspect
-import logging
-import os
 import sys
-from io import StringIO
+import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 
 def _asyncio_run_close_coro(side_effects):
@@ -40,13 +37,12 @@ def _asyncio_run_close_coro(side_effects):
 
     return _fake_run
 
-import pytest
+import pytest  # noqa: E402
 
 typer = pytest.importorskip("typer", reason="typer not installed")
 
-from typer.testing import CliRunner
-
-from rex.core.cli import _get_token, _setup_logging, app
+from rex.core.cli import _get_token, _setup_logging, app  # noqa: E402  # isort: skip
+from typer.testing import CliRunner  # noqa: E402
 
 runner = CliRunner()
 
@@ -285,7 +281,7 @@ class TestStartCommand:
         """start should handle KeyboardInterrupt gracefully."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = "/tmp/rex-test"
+        mock_config.data_dir = tempfile.gettempdir() + "/rex-test"
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -305,7 +301,7 @@ class TestStartCommand:
         """start should display admin password on first boot (shown on stderr)."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = Path("/tmp/rex-test")
+        mock_config.data_dir = Path(tempfile.gettempdir() + "/rex-test")
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -327,7 +323,7 @@ class TestStartCommand:
         """start without initial password should skip password display."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = "/tmp/rex-test"
+        mock_config.data_dir = tempfile.gettempdir() + "/rex-test"
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -379,7 +375,7 @@ class TestStopCommand:
         with (
             patch("os.path.exists", return_value=True),
             patch("builtins.open", side_effect=_patched_open),
-            patch("os.kill") as mock_kill,
+            patch("os.kill"),
         ):
             result = runner.invoke(app, ["stop"])
 
@@ -576,7 +572,7 @@ class TestBackupCommand:
 
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
-            patch("shutil.make_archive", return_value="/tmp/backup.tar.gz"),
+            patch("shutil.make_archive", return_value=tempfile.gettempdir() + "/backup.tar.gz"),
         ):
             result = runner.invoke(app, ["backup"])
 

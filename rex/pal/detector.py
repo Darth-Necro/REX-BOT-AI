@@ -15,7 +15,6 @@ import os
 import platform
 import re
 import shutil
-import subprocess
 from pathlib import Path
 from typing import Any
 

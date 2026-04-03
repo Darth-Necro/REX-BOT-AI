@@ -3,23 +3,21 @@
 from __future__ import annotations
 
 import json
-import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.dashboard.auth import (
-    AuthManager,
-    _JWT_EXPIRY_HOURS,
-    _LOCKOUT_SECONDS,
     _MAX_LOGIN_ATTEMPTS,
+    AuthManager,
     create_token,
     hash_password,
-    verify_password,
     verify_token_str,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # Initialize -- edge cases
@@ -304,7 +302,6 @@ async def test_store_to_secrets_manager_handles_error(tmp_path: Path) -> None:
 async def test_initialize_deletes_plaintext_after_migration(tmp_path: Path) -> None:
     """After migrating credentials from plaintext to SecretsManager,
     the plaintext .credentials file must be deleted."""
-    import json
 
     creds_file = tmp_path / ".credentials"
     creds_file.write_text(json.dumps({

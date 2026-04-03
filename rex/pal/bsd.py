@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -38,6 +39,7 @@ from rex.shared.models import (
     OSInfo,
     SystemResources,
 )
+from rex.shared.subprocess_util import run_subprocess as _run
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -45,17 +47,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger("rex.pal.bsd")
 
 _DEFAULT_SUBPROCESS_TIMEOUT = 10
+_BINARY_PERMS = 0o755
 _REX_ANCHOR = "rex"
 _REX_RULES_DIR = Path("/etc/pf.anchors")
 _REX_RULES_FILE = _REX_RULES_DIR / "rex"
 _RC_D_DIR = Path("/usr/local/etc/rc.d")
 _RESOLV_CONF = "/etc/resolv.conf"
-
-
-# ---------------------------------------------------------------------------
-# Subprocess helper — centralised in rex.shared.subprocess_util
-# ---------------------------------------------------------------------------
-from rex.shared.subprocess_util import run_subprocess as _run  # noqa: E402
 
 
 class BSDAdapter(PlatformAdapter):
@@ -239,7 +236,7 @@ class BSDAdapter(PlatformAdapter):
         packets_yielded = 0
 
         try:
-            assert proc.stdout is not None  # noqa: S101
+            assert proc.stdout is not None
             for line in proc.stdout:
                 line = line.strip()
                 if not line:
@@ -521,10 +518,7 @@ class BSDAdapter(PlatformAdapter):
             logger.debug("ifconfig %s failed: %s", interface, result.stderr)
             return False
 
-        for line in result.stdout.splitlines():
-            if "PROMISC" in line.upper():
-                return True
-        return False
+        return any("PROMISC" in line.upper() for line in result.stdout.splitlines())
 
     def enable_ip_forwarding(self, enable: bool = True) -> bool:
         """Enable or disable IP forwarding on BSD via sysctl.
@@ -1112,10 +1106,9 @@ run_rc_command "$1"
             ``True`` if a timer was scheduled.
         """
         # Try using sysctl to set the ACPI wake timer (FreeBSD)
-        result = _run(["sysctl", f"machdep.acpi_timer_freq"])
-        if result.returncode == 0:
+        result = _run(["sysctl", "machdep.acpi_timer_freq"])
+        if result.returncode == 0 and shutil.which("at"):
             # Use at(1) to schedule a wakeup command
-            if shutil.which("at"):
                 minutes = max(seconds // 60, 1)
                 at_result = _run(
                     ["at", f"now + {minutes} minutes"],
@@ -1125,8 +1118,8 @@ run_rc_command "$1"
                     return True
 
         # Fallback: write a temporary cron job
-        from datetime import datetime, timedelta, timezone
-        wake_time = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        from datetime import datetime, timedelta
+        wake_time = datetime.now(UTC) + timedelta(seconds=seconds)
         cron_minute = wake_time.strftime("%M")
         cron_hour = wake_time.strftime("%H")
         cron_line = (
@@ -1294,7 +1287,7 @@ run_rc_command "$1"
                 timeout=120,
             )
             if result.returncode == 0:
-                os.chmod("/usr/local/bin/ollama", 0o755)
+                os.chmod("/usr/local/bin/ollama", _BINARY_PERMS)
                 logger.info("Ollama binary installed to /usr/local/bin/ollama")
                 return True
 
@@ -1358,7 +1351,13 @@ run_rc_command "$1"
                 pass
             if "device" in line.lower() and "=" in line:
                 val = line.split("=", 1)[1].strip().strip("'\"")
-                if "vga" in val.lower() or "gpu" in val.lower() or "radeon" in val.lower() or "nvidia" in val.lower() or "graphics" in val.lower():
+                if (
+                    "vga" in val.lower()
+                    or "gpu" in val.lower()
+                    or "radeon" in val.lower()
+                    or "nvidia" in val.lower()
+                    or "graphics" in val.lower()
+                ):
                     current_device = val
             if "vendor" in line.lower() and "=" in line:
                 current_vendor = line.split("=", 1)[1].strip().strip("'\"")

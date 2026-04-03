@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from rex.interview.service import InterviewService
 from rex.shared.enums import InterviewMode, ServiceName
-
 
 # ---- helpers ---------------------------------------------------------------
 
@@ -271,10 +270,7 @@ class TestSubmitAnswer:
 
             qid = q["id"]
             options = q.get("options", [])
-            if options:
-                answer = options[0]["value"]
-            else:
-                answer = "test answer"
+            answer = options[0]["value"] if options else "test answer"
 
             result = await svc.submit_answer(qid, answer)
             assert result["accepted"] is True
@@ -373,7 +369,7 @@ class TestRestart:
             answer = options[0]["value"] if options else "home"
             await svc.submit_answer(q["id"], answer)
 
-        status_before = await svc.get_status()
+        await svc.get_status()
 
         await svc.restart()
 

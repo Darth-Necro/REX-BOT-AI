@@ -30,10 +30,6 @@ import asyncio
 import logging
 import os
 import subprocess
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

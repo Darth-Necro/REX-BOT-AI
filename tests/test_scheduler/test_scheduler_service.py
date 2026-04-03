@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.shared.enums import PowerState, ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
+from rex.shared.enums import ServiceName
 
 # ------------------------------------------------------------------
 # SchedulerService construction
@@ -39,14 +34,14 @@ class TestSchedulerServiceOnStart:
         """_on_start creates PowerManager, ScanScheduler, CronManager."""
         from rex.scheduler.service import SchedulerService
 
-        with patch("rex.scheduler.service.PowerManager") as MockPower, \
-             patch("rex.scheduler.service.ScanScheduler") as MockScans, \
-             patch("rex.scheduler.service.CronManager") as MockCron:
+        with patch("rex.scheduler.service.PowerManager") as mock_power_cls, \
+             patch("rex.scheduler.service.ScanScheduler") as mock_scans_cls, \
+             patch("rex.scheduler.service.CronManager") as mock_cron_cls:
 
-            mock_scans_inst = MockScans.return_value
+            mock_scans_inst = mock_scans_cls.return_value
             mock_scans_inst.schedule_scan = AsyncMock()
 
-            mock_cron_inst = MockCron.return_value
+            mock_cron_inst = mock_cron_cls.return_value
             mock_cron_inst.add_job = MagicMock()
 
             svc = SchedulerService(config, mock_bus)
@@ -56,15 +51,15 @@ class TestSchedulerServiceOnStart:
             await svc._on_start()
 
             # Power manager created with bus
-            MockPower.assert_called_once_with(bus=mock_bus)
+            mock_power_cls.assert_called_once_with(bus=mock_bus)
             assert svc._power is not None
 
             # Scan scheduler created with bus
-            MockScans.assert_called_once_with(bus=mock_bus)
+            mock_scans_cls.assert_called_once_with(bus=mock_bus)
             assert svc._scans is not None
 
             # Cron manager created
-            MockCron.assert_called_once()
+            mock_cron_cls.assert_called_once()
             assert svc._cron is not None
 
     @pytest.mark.asyncio
@@ -73,13 +68,13 @@ class TestSchedulerServiceOnStart:
         from rex.scheduler.service import SchedulerService
 
         with patch("rex.scheduler.service.PowerManager"), \
-             patch("rex.scheduler.service.ScanScheduler") as MockScans, \
-             patch("rex.scheduler.service.CronManager") as MockCron:
+             patch("rex.scheduler.service.ScanScheduler") as mock_scans_cls, \
+             patch("rex.scheduler.service.CronManager") as mock_cron_cls:
 
-            mock_scans_inst = MockScans.return_value
+            mock_scans_inst = mock_scans_cls.return_value
             mock_scans_inst.schedule_scan = AsyncMock()
 
-            mock_cron_inst = MockCron.return_value
+            mock_cron_inst = mock_cron_cls.return_value
             mock_cron_inst.add_job = MagicMock()
 
             svc = SchedulerService(config, mock_bus)
@@ -98,13 +93,13 @@ class TestSchedulerServiceOnStart:
         from rex.scheduler.service import SchedulerService
 
         with patch("rex.scheduler.service.PowerManager"), \
-             patch("rex.scheduler.service.ScanScheduler") as MockScans, \
-             patch("rex.scheduler.service.CronManager") as MockCron:
+             patch("rex.scheduler.service.ScanScheduler") as mock_scans_cls, \
+             patch("rex.scheduler.service.CronManager") as mock_cron_cls:
 
-            mock_scans_inst = MockScans.return_value
+            mock_scans_inst = mock_scans_cls.return_value
             mock_scans_inst.schedule_scan = AsyncMock()
 
-            mock_cron_inst = MockCron.return_value
+            mock_cron_inst = mock_cron_cls.return_value
             mock_cron_inst.add_job = MagicMock()
 
             svc = SchedulerService(config, mock_bus)
@@ -128,13 +123,13 @@ class TestSchedulerServiceOnStart:
         from rex.scheduler.service import SchedulerService
 
         with patch("rex.scheduler.service.PowerManager"), \
-             patch("rex.scheduler.service.ScanScheduler") as MockScans, \
-             patch("rex.scheduler.service.CronManager") as MockCron:
+             patch("rex.scheduler.service.ScanScheduler") as mock_scans_cls, \
+             patch("rex.scheduler.service.CronManager") as mock_cron_cls:
 
-            mock_scans_inst = MockScans.return_value
+            mock_scans_inst = mock_scans_cls.return_value
             mock_scans_inst.schedule_scan = AsyncMock()
 
-            mock_cron_inst = MockCron.return_value
+            mock_cron_inst = mock_cron_cls.return_value
             mock_cron_inst.add_job = MagicMock()
 
             svc = SchedulerService(config, mock_bus)

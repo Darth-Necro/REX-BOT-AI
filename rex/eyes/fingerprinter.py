@@ -9,18 +9,16 @@ hostname patterns, and mDNS service type detection.
 
 from __future__ import annotations
 
-import asyncio
 import csv
 import io
 import logging
-
 import re
 import shutil
 import sqlite3
-
-import defusedxml.ElementTree as DefusedET
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import defusedxml.ElementTree as DefusedET
 
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import DeviceType
@@ -29,10 +27,10 @@ from rex.shared.utils import is_private_ip, is_valid_ipv4, mac_normalize
 if TYPE_CHECKING:
     from rex.shared.config import RexConfig
     from rex.shared.models import Device
+from rex.shared.subprocess_util import run_subprocess_async
 
 logger = logging.getLogger("rex.eyes.fingerprinter")
 
-from rex.shared.subprocess_util import run_subprocess_async
 
 
 class DeviceFingerprinter:

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rex.teeth.dns_blocker import MAX_BLOCKLIST_SIZE, DNSBlocker, _NEVER_BLOCK
+from rex.teeth.dns_blocker import _NEVER_BLOCK, MAX_BLOCKLIST_SIZE, DNSBlocker
 
 
 @pytest.fixture
@@ -59,10 +59,10 @@ class TestLoadBlocklists:
         remote_domains = {"tracker.ad.com", "malware.evil.org"}
 
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=remote_domains):
-            with patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock):
-                with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                    count = await blocker.load_blocklists()
+                          return_value=remote_domains), \
+             patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            count = await blocker.load_blocklists()
 
         assert count >= 2
         assert blocker.is_blocked("tracker.ad.com")
@@ -72,10 +72,10 @@ class TestLoadBlocklists:
     async def test_load_blocklists_removes_never_block(self, blocker):
         """load_blocklists removes safety-listed domains."""
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value={"localhost", "evil.com"}):
-            with patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock):
-                with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                    await blocker.load_blocklists()
+                          return_value={"localhost", "evil.com"}), \
+             patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            await blocker.load_blocklists()
 
         assert not blocker.is_blocked("localhost")
         assert blocker.is_blocked("evil.com")
@@ -84,10 +84,10 @@ class TestLoadBlocklists:
     async def test_load_blocklists_remote_failure_handled(self, blocker):
         """load_blocklists handles remote fetch failures gracefully."""
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          side_effect=ConnectionError("no internet")):
-            with patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock):
-                with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                    count = await blocker.load_blocklists()
+                          side_effect=ConnectionError("no internet")), \
+             patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            count = await blocker.load_blocklists()
 
         assert count == 0  # No domains loaded
 
@@ -97,10 +97,10 @@ class TestLoadBlocklists:
         huge_list = {f"domain-{i}.evil" for i in range(MAX_BLOCKLIST_SIZE + 1000)}
 
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=huge_list):
-            with patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock):
-                with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                    count = await blocker.load_blocklists()
+                          return_value=huge_list), \
+             patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            count = await blocker.load_blocklists()
 
         assert count == MAX_BLOCKLIST_SIZE
 
@@ -108,11 +108,11 @@ class TestLoadBlocklists:
     async def test_load_blocklists_persists(self, blocker, config):
         """load_blocklists calls _persist_blocklist."""
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=set()):
-            with patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock):
-                with patch.object(blocker, "_persist_blocklist",
-                                  new_callable=AsyncMock) as mock_persist:
-                    await blocker.load_blocklists()
+                          return_value=set()), \
+             patch.object(blocker, "_load_bundled_blocklist", new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock) as mock_persist:
+            await blocker.load_blocklists()
 
         mock_persist.assert_awaited_once()
 
@@ -342,30 +342,30 @@ class TestMaxBlocklistEnforcement:
     async def test_load_blocklists_enforces_max_size(self, blocker):
         """load_blocklists truncates to MAX_BLOCKLIST_SIZE via the real path."""
         # Use a smaller MAX for speed
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 100):
-            domains = {f"dom-{i}.test" for i in range(200)}
-            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                              return_value=domains):
-                with patch.object(blocker, "_load_bundled_blocklist",
-                                  new_callable=AsyncMock):
-                    with patch.object(blocker, "_persist_blocklist",
-                                      new_callable=AsyncMock):
-                        count = await blocker.load_blocklists()
+        domains = {f"dom-{i}.test" for i in range(200)}
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 100), \
+             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                          return_value=domains), \
+             patch.object(blocker, "_load_bundled_blocklist",
+                          new_callable=AsyncMock), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock):
+            count = await blocker.load_blocklists()
 
-            assert count <= 100
+        assert count <= 100
 
     @pytest.mark.asyncio
     async def test_update_blocklists_enforces_max_size(self, blocker):
         """update_blocklists also enforces MAX_BLOCKLIST_SIZE."""
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50):
-            domains = {f"upd-{i}.test" for i in range(100)}
-            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                              return_value=domains):
-                with patch.object(blocker, "_persist_blocklist",
-                                  new_callable=AsyncMock):
-                    await blocker.update_blocklists()
+        domains = {f"upd-{i}.test" for i in range(100)}
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50), \
+             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                          return_value=domains), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock):
+            await blocker.update_blocklists()
 
-            assert len(blocker._blocked_domains) <= 50
+        assert len(blocker._blocked_domains) <= 50
 
 
 # ------------------------------------------------------------------
@@ -490,5 +490,5 @@ class TestPersistBlocklist:
         persist_path = config.data_dir / "teeth" / "blocklist_merged.txt"
         assert persist_path.exists()
         content = persist_path.read_text()
-        lines = [l for l in content.strip().split("\n") if l]
+        lines = [line for line in content.strip().split("\n") if line]
         assert lines == ["aaa.com", "mmm.com", "zzz.com"]  # sorted

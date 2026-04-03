@@ -8,7 +8,6 @@ import pytest
 
 from rex.bark.manager import NotificationManager
 
-
 # ------------------------------------------------------------------
 # BarkService instantiation
 # ------------------------------------------------------------------

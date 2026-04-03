@@ -20,13 +20,11 @@ import pytest
 
 from rex.core.health import HealthAggregator
 from rex.core.orchestrator import (
-    _MAX_RESTART_ATTEMPTS,
     _START_ORDER,
     ServiceOrchestrator,
 )
 from rex.shared.enums import ServiceName
 from rex.shared.models import ServiceHealth
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -100,16 +98,16 @@ class TestCreateServices:
 
         def _import_success(module_path: str) -> types.ModuleType:
             mod = types.ModuleType(module_path)
-            setattr(mod, "MemoryService", fake_cls)
-            setattr(mod, "EyesService", fake_cls)
-            setattr(mod, "SchedulerService", fake_cls)
-            setattr(mod, "InterviewService", fake_cls)
-            setattr(mod, "BrainService", fake_cls)
-            setattr(mod, "BarkService", fake_cls)
-            setattr(mod, "TeethService", fake_cls)
-            setattr(mod, "FederationService", fake_cls)
-            setattr(mod, "StoreService", fake_cls)
-            setattr(mod, "DashboardService", fake_cls)
+            mod.MemoryService = fake_cls
+            mod.EyesService = fake_cls
+            mod.SchedulerService = fake_cls
+            mod.InterviewService = fake_cls
+            mod.BrainService = fake_cls
+            mod.BarkService = fake_cls
+            mod.TeethService = fake_cls
+            mod.FederationService = fake_cls
+            mod.StoreService = fake_cls
+            mod.DashboardService = fake_cls
             return mod
 
         with patch("importlib.import_module", side_effect=_import_success):

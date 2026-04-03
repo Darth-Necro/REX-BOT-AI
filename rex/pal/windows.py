@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
@@ -38,6 +39,7 @@ from rex.shared.models import (
     OSInfo,
     SystemResources,
 )
+from rex.shared.subprocess_util import run_subprocess as _run
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -46,12 +48,6 @@ logger = logging.getLogger("rex.pal.windows")
 
 _DEFAULT_SUBPROCESS_TIMEOUT = 10
 _REX_RULE_PREFIX = "REX-"
-
-
-# ---------------------------------------------------------------------------
-# Subprocess helper — centralised in rex.shared.subprocess_util
-# ---------------------------------------------------------------------------
-from rex.shared.subprocess_util import run_subprocess as _run  # noqa: E402
 
 
 class WindowsAdapter(PlatformAdapter):
@@ -267,10 +263,10 @@ class WindowsAdapter(PlatformAdapter):
         except FileNotFoundError:
             raise RexPlatformNotSupportedError(
                 "tshark not found on PATH",
-            )
+            ) from None
 
         try:
-            assert proc.stdout is not None  # noqa: S101
+            assert proc.stdout is not None
             for line in proc.stdout:
                 fields = line.strip().split("|")
                 if len(fields) < 11:
@@ -389,7 +385,7 @@ class WindowsAdapter(PlatformAdapter):
                 if "IPv4 Address" in line or "IP Address" in line:
                     parts = line.split(":", 1)
                     if len(parts) == 2:
-                        addr = parts[1].strip().rstrip("(Preferred)")
+                        addr = re.sub(r"\(Preferred\)$", "", parts[1].strip()).strip()
                         addr = re.sub(r"\(.*\)", "", addr).strip()
                         if re.match(r"^\d+\.\d+\.\d+\.\d+$", addr):
                             ip_addr = addr
@@ -601,7 +597,7 @@ class WindowsAdapter(PlatformAdapter):
         """
         # Check if Npcap is installed (which enables promiscuous capture)
         npcap_path = os.path.join(
-            os.environ.get("SystemRoot", r"C:\Windows"),
+            os.environ.get("SYSTEMROOT", r"C:\Windows"),
             "System32", "Npcap",
         )
         if os.path.isdir(npcap_path):
@@ -609,7 +605,7 @@ class WindowsAdapter(PlatformAdapter):
 
         # Fallback: check for WinPcap
         winpcap_dll = os.path.join(
-            os.environ.get("SystemRoot", r"C:\Windows"),
+            os.environ.get("SYSTEMROOT", r"C:\Windows"),
             "System32", "wpcap.dll",
         )
         return os.path.isfile(winpcap_dll)
@@ -885,10 +881,10 @@ class WindowsAdapter(PlatformAdapter):
         removed = False
         # Delete all isolation rules matching this device
         for suffix in (
-            f"allow-dns-udp",
-            f"allow-dns-tcp",
-            f"block-in",
-            f"block-out",
+            "allow-dns-udp",
+            "allow-dns-tcp",
+            "block-in",
+            "block-out",
         ):
             rule_name = f"{_REX_RULE_PREFIX}ISOLATE-{tag}-{suffix}"
             result = _run([
@@ -1192,9 +1188,9 @@ class WindowsAdapter(PlatformAdapter):
         bool
             *True* if the wake timer was set.
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        wake_time = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        wake_time = datetime.now(UTC) + timedelta(seconds=seconds)
         # Format for schtasks: MM/DD/YYYY and HH:MM
         date_str = wake_time.strftime("%m/%d/%Y")
         time_str = wake_time.strftime("%H:%M")
@@ -1415,10 +1411,7 @@ class WindowsAdapter(PlatformAdapter):
 
         # Fallback: check if ollama process exists via tasklist
         result = _run(["tasklist", "/FI", "IMAGENAME eq ollama.exe", "/NH"])
-        if result.returncode == 0 and "ollama.exe" in result.stdout.lower():
-            return True
-
-        return False
+        return result.returncode == 0 and "ollama.exe" in result.stdout.lower()
 
     def get_gpu_info(self) -> GPUInfo | None:
         """Detect GPU capabilities on Windows.

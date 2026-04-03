@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-from rex.shared.fileutil import atomic_write_text
-
 from rex.dashboard.deps import get_current_user
+from rex.shared.fileutil import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def _snapshot_previous(kb_file: Path) -> str | None:
         return None
 
     old_content = kb_file.read_text()
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%f")
     hist_dir = _history_dir()
     hist_dir.mkdir(parents=True, exist_ok=True)
     hist_file = hist_dir / f"{ts}.md"
@@ -69,7 +70,7 @@ def _list_history_entries(limit: int = 50) -> list[dict[str, Any]]:
         ts_raw = f.stem  # e.g. "20260401T123456_789012"
         try:
             dt = datetime.strptime(ts_raw, "%Y%m%dT%H%M%S_%f").replace(
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
             iso = dt.isoformat()
         except ValueError:
@@ -173,7 +174,7 @@ async def update_kb(
         return result
     except Exception as e:
         logger.exception("Failed to update knowledge base: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to update knowledge base")
+        raise HTTPException(status_code=500, detail="Failed to update knowledge base") from e
 
 
 @router.get("/history")
@@ -233,4 +234,4 @@ async def revert(
         }
     except Exception as e:
         logger.exception("Failed to revert KB to %s: %s", commit_hash, e)
-        raise HTTPException(status_code=500, detail="Failed to revert knowledge base")
+        raise HTTPException(status_code=500, detail="Failed to revert knowledge base") from e

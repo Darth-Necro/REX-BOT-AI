@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import inspect
 
-
 # ------------------------------------------------------------------
 # Import tests
 # ------------------------------------------------------------------
@@ -122,6 +121,7 @@ def test_adapters_network_methods_have_correct_signatures():
 def test_adapters_get_os_info_returns_osinfo():
     """get_os_info() should return an OSInfo model on any platform."""
     import sys
+
     from rex.shared.models import OSInfo
 
     # Only test the adapter matching the current platform
@@ -145,6 +145,7 @@ def test_adapters_get_os_info_returns_osinfo():
 def test_adapters_get_system_resources_returns_resources():
     """get_system_resources() should return a SystemResources model on any platform."""
     import sys
+
     from rex.shared.models import SystemResources
 
     if sys.platform == "win32":

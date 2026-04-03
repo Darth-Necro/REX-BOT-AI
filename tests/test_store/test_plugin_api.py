@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from rex.store.sdk.plugin_api import (
     PluginRegistry,
-    _verify_plugin_token,
     router,
     set_plugin_registry,
 )

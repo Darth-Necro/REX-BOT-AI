@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.shared.errors import RexPlatformNotSupportedError
-from rex.shared.models import FirewallRule
-
 
 # =====================================================================
 # Module-level _run helper
@@ -305,8 +302,8 @@ class TestMacOSBlockIp:
     @patch("rex.pal.macos._REX_RULES_FILE")
     @patch("rex.pal.macos._REX_RULES_DIR")
     def test_block_failure(self, mock_dir, mock_file, mock_run):
-        from rex.pal.macos import MacOSAdapter
         from rex.pal.base import FirewallError
+        from rex.pal.macos import MacOSAdapter
         mock_file.exists.return_value = False
         mock_run.return_value = subprocess.CompletedProcess(
             ["pfctl"], 1, stdout="", stderr="permission denied",
@@ -637,7 +634,7 @@ class TestMacOSPhase2Implementations:
     @patch("rex.pal.macos._run")
     def test_get_dhcp_leases_no_dir(self, _mock_run):
         # No lease directory on this system -> empty list
-        with patch("rex.pal.macos.Path") as mock_path_cls:
+        with patch("rex.pal.macos.Path"):
             result = self.adapter.get_dhcp_leases()
             assert isinstance(result, list)
 
@@ -768,7 +765,7 @@ class TestMacOSPhase2Implementations:
             ["pfctl"], 0, stdout="", stderr="",
         )
         # Mock _REX_RULES_DIR and _REX_RULES_FILE at module level
-        with patch("rex.pal.macos._REX_RULES_DIR") as mock_dir, \
+        with patch("rex.pal.macos._REX_RULES_DIR"), \
              patch("rex.pal.macos._REX_RULES_FILE") as mock_file:
             mock_file.exists.return_value = False
             result = self.adapter.create_rex_chains()

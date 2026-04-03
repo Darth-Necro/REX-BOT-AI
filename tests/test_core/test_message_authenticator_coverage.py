@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from rex.core.agent.message_authenticator import (
-    VALID_ROLES,
     MessageAuthenticator,
     PairedUser,
 )
 from rex.shared.utils import utc_now
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # PairedUser.from_dict edge cases (line 149)

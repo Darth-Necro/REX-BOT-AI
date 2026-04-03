@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import importlib
 
-import pytest
-
 
 class TestAppCreation:
     """Prove the FastAPI app can be created and all routers import."""

@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rex.shared.enums import HardwareTier
 from rex.shared.models import OSInfo, SystemResources
-
 
 # =====================================================================
 # Helpers

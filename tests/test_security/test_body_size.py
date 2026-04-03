@@ -9,12 +9,16 @@ Verifies:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
-from starlette.testclient import TestClient
 from starlette.applications import Starlette
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+from starlette.testclient import TestClient
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 from rex.dashboard.app import BodySizeLimitMiddleware
 

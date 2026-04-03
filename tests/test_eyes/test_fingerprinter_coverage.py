@@ -10,17 +10,18 @@ _download_oui_csv, and _load_oui_csv error paths.
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.eyes.fingerprinter import DeviceFingerprinter
-from rex.shared.subprocess_util import safe_env as _safe_env
 from rex.shared.enums import DeviceType
 from rex.shared.models import Device
+from rex.shared.subprocess_util import safe_env as _safe_env
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ===================================================================
 # Helper
@@ -194,7 +195,7 @@ class TestFingerprintMac:
             scan_interval=60,
         )
         fp = DeviceFingerprinter(config=cfg)
-        assert fp.OUI_CACHE_PATH == cfg.data_dir / "cache" / "oui.db"
+        assert cfg.data_dir / "cache" / "oui.db" == fp.OUI_CACHE_PATH
 
 
 # ===================================================================
@@ -841,7 +842,7 @@ class TestVendorDisambiguationViaIdentify:
     def test_samsung_with_tab_hostname(self) -> None:
         """Samsung + tab hostname -> hostname tier wins (tablet)."""
         fp = _fp()
-        result = fp.identify_device_type("Samsung Electronics", None, [], "samsung-tab")
+        fp.identify_device_type("Samsung Electronics", None, [], "samsung-tab")
         # Hostname tier does not have a 'tab' pattern, so falls through to vendor
         # The vendor disambiguation checks "tab" in hostname
         # Actually "tab" in hostname is not in HOSTNAME_PATTERNS, so tier 4 runs

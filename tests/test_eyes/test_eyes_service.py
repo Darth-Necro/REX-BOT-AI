@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # EyesService construction and service_name
@@ -51,12 +46,12 @@ class TestEyesServiceOnStart:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
-             patch("rex.eyes.service.DeviceFingerprinter") as MockFP, \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
-             patch("rex.eyes.service.TrafficMonitor") as MockTraffic, \
-             patch("rex.eyes.service.PortScanner") as MockPort, \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
+             patch("rex.eyes.service.DeviceFingerprinter"), \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
+             patch("rex.eyes.service.TrafficMonitor"), \
+             patch("rex.eyes.service.PortScanner"), \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store"):
             from rex.eyes.service import EyesService
 
@@ -64,7 +59,7 @@ class TestEyesServiceOnStart:
             svc._running = True
 
             # Mock the scanner to return an interface
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(return_value="eth0")
             mock_scanner_inst.discover_devices = AsyncMock(
                 return_value=MagicMock(
@@ -74,11 +69,11 @@ class TestEyesServiceOnStart:
             )
 
             # Mock DNS monitor
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_threat_feeds = AsyncMock()
 
             # Mock device store
-            mock_store_inst = MockStore.return_value
+            mock_store_inst = mock_store_cls.return_value
             mock_store_inst.update_from_scan = AsyncMock(return_value=([], [], []))
 
             await svc._on_start()
@@ -99,19 +94,19 @@ class TestEyesServiceOnStart:
         mock_pal = MagicMock()
 
         with patch("rex.eyes.service.get_adapter", return_value=mock_pal), \
-             patch("rex.eyes.service.NetworkScanner") as MockScanner, \
+             patch("rex.eyes.service.NetworkScanner") as mock_scanner_cls, \
              patch("rex.eyes.service.DeviceFingerprinter"), \
-             patch("rex.eyes.service.DNSMonitor") as MockDNS, \
+             patch("rex.eyes.service.DNSMonitor") as mock_dns_cls, \
              patch("rex.eyes.service.TrafficMonitor"), \
              patch("rex.eyes.service.PortScanner"), \
-             patch("rex.eyes.service.DeviceStore") as MockStore, \
+             patch("rex.eyes.service.DeviceStore") as mock_store_cls, \
              patch("rex.dashboard.data_registry.set_device_store"):
             from rex.eyes.service import EyesService
 
             svc = EyesService(config, mock_bus)
             svc._running = True
 
-            mock_scanner_inst = MockScanner.return_value
+            mock_scanner_inst = mock_scanner_cls.return_value
             mock_scanner_inst.auto_detect_interface = AsyncMock(
                 side_effect=RuntimeError("no interface")
             )
@@ -122,10 +117,10 @@ class TestEyesServiceOnStart:
                 )
             )
 
-            mock_dns_inst = MockDNS.return_value
+            mock_dns_inst = mock_dns_cls.return_value
             mock_dns_inst.load_threat_feeds = AsyncMock()
 
-            mock_store_inst = MockStore.return_value
+            mock_store_inst = mock_store_cls.return_value
             mock_store_inst.update_from_scan = AsyncMock(return_value=([], [], []))
 
             await svc._on_start()

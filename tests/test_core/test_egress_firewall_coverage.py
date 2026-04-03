@@ -14,7 +14,6 @@ import pytest
 
 from rex.core.privacy.egress_firewall import EgressFirewall
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------

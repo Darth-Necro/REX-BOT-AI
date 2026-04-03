@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 
@@ -12,21 +12,18 @@ from rex.core.agent.command_executor import (
     COMMAND_WHITELIST,
     CommandExecutor,
     CommandResult,
-    WhitelistedCommand,
     validate_bpf_filter,
     validate_chain_name,
-    validate_cidr,
     validate_dns_record_type,
-    validate_domain_name,
     validate_integer,
     validate_interface_name,
-    validate_ip_address,
     validate_ip_or_domain,
     validate_nft_rule,
     validate_positive_integer,
-    validate_safe_path,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # validate_interface_name

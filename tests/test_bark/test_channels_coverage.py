@@ -6,11 +6,9 @@ Mocks urlopen to test send() for both success and failure scenarios.
 from __future__ import annotations
 
 import json
-from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ------------------------------------------------------------------
 # MatrixChannel

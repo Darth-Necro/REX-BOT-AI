@@ -7,16 +7,13 @@ audit logging, _try_parse_json, and security query/assistant query paths.
 
 from __future__ import annotations
 
-import asyncio
 import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from rex.brain.llm import (
-    ALLOWED_HOSTS,
     DataSanitizer,
     LLMProvider,
     LLMRouter,
@@ -26,7 +23,6 @@ from rex.brain.llm import (
     _try_parse_json,
 )
 from rex.shared.errors import RexLLMUnavailableError, RexTimeoutError
-
 
 # ===================================================================
 # _try_parse_json helper
@@ -232,7 +228,7 @@ class TestOllamaGenerate:
         mock_http.is_closed = False
         client._client = mock_http
 
-        result = await client.generate("analyze", "system", response_format="json")
+        await client.generate("analyze", "system", response_format="json")
         # Verify 'format' was included in the payload
         call_kwargs = mock_http.post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
@@ -266,9 +262,9 @@ class TestOllamaGenerate:
         mock_http.is_closed = False
         client._client = mock_http
 
-        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(RexTimeoutError):
-                await client.generate("test", "system")
+        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock), \
+             pytest.raises(RexTimeoutError):
+            await client.generate("test", "system")
 
     @pytest.mark.asyncio
     async def test_generate_connection_error_raises(self) -> None:
@@ -280,9 +276,9 @@ class TestOllamaGenerate:
         mock_http.is_closed = False
         client._client = mock_http
 
-        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(RexLLMUnavailableError):
-                await client.generate("test", "system")
+        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock), \
+             pytest.raises(RexLLMUnavailableError):
+            await client.generate("test", "system")
 
     @pytest.mark.asyncio
     async def test_generate_4xx_no_retry(self) -> None:
@@ -302,9 +298,9 @@ class TestOllamaGenerate:
         mock_http.is_closed = False
         client._client = mock_http
 
-        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(RexLLMUnavailableError):
-                await client.generate("test", "system")
+        with patch("rex.brain.llm.asyncio.sleep", new_callable=AsyncMock), \
+             pytest.raises(RexLLMUnavailableError):
+            await client.generate("test", "system")
 
         # Should only attempt once for 4xx
         assert mock_http.post.call_count == 1
@@ -356,9 +352,8 @@ class TestOllamaGenerateJson:
         with patch.object(
             client, "generate", new_callable=AsyncMock,
             return_value={"response": "still not json", "model": "test"},
-        ):
-            with pytest.raises(ValueError, match="not valid JSON"):
-                await client.generate_json("analyze", "system")
+        ), pytest.raises(ValueError, match="not valid JSON"):
+            await client.generate_json("analyze", "system")
 
 
 # ===================================================================
@@ -627,7 +622,7 @@ class TestLLMRouter:
         local = _make_local_provider()
         router = LLMRouter(security_provider=local)
 
-        result = await router.assistant_query(
+        await router.assistant_query(
             "what is 192.168.1.1",
             "you are helpful",
             context={"ip": "192.168.1.1"},
@@ -646,7 +641,7 @@ class TestLLMRouter:
             assistant_provider=external,
         )
 
-        result = await router.assistant_query(
+        await router.assistant_query(
             "explain 192.168.1.50 activity",
             "helpful assistant",
             context={"device_ip": "192.168.1.50"},

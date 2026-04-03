@@ -7,21 +7,20 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
-from rex.memory.threat_log import ARCHIVE_RETENTION_DAYS, ThreatLog
+from rex.memory.threat_log import ThreatLog
 from rex.memory.versioning import GitManager
 from rex.shared.config import RexConfig
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
 from rex.shared.utils import generate_id, utc_now
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ===================================================================
 # GitManager -- disabled paths
@@ -224,13 +223,13 @@ class TestThreatLogPruneOldArchives:
         archive_dir.mkdir(parents=True, exist_ok=True)
 
         # Create an archive file from 120 days ago
-        old_date = datetime.now(timezone.utc) - timedelta(days=120)
+        old_date = datetime.now(UTC) - timedelta(days=120)
         old_key = old_date.strftime("%Y-%m")
         old_file = archive_dir / f"{old_key}.json"
         old_file.write_text("[]", encoding="utf-8")
 
         # Create a recent archive file
-        recent_key = datetime.now(timezone.utc).strftime("%Y-%m")
+        recent_key = datetime.now(UTC).strftime("%Y-%m")
         recent_file = archive_dir / f"{recent_key}.json"
         recent_file.write_text("[]", encoding="utf-8")
 

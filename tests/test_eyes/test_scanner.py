@@ -12,7 +12,6 @@ from rex.shared.enums import DeviceStatus
 from rex.shared.models import Device, NetworkInfo
 from rex.shared.utils import utc_now
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -367,7 +366,7 @@ class TestDiscoverDevices:
         scanner = NetworkScanner(pal=mock_pal, config=config)
 
         # Simulate nmap returning same device with a hostname
-        nmap_xml = f"""\
+        nmap_xml = """\
 <?xml version="1.0"?>
 <nmaprun>
   <host>

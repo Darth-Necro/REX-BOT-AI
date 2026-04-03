@@ -95,7 +95,7 @@ class MemoryService(BaseService):
         self._threat_log = ThreatLog(self.config)
 
         # Register threat log and knowledge base in the dashboard data registry
-        from rex.dashboard.data_registry import set_threat_log, set_knowledge_base
+        from rex.dashboard.data_registry import set_knowledge_base, set_threat_log
         set_threat_log(self._threat_log)
         set_knowledge_base(self._kb)
 

@@ -9,7 +9,6 @@ import json
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -17,7 +16,6 @@ from rex.dashboard import deps
 from rex.dashboard.deps import get_current_user
 from rex.dashboard.routers import notifications
 from rex.shared.config import RexConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -9,7 +9,6 @@ import pytest
 
 from rex.shared.errors import RexPlatformNotSupportedError
 
-
 # =====================================================================
 # Module-level _run helper
 # =====================================================================
@@ -286,8 +285,8 @@ class TestBSDBlockIp:
     @patch("rex.pal.bsd._REX_RULES_FILE")
     @patch("rex.pal.bsd._REX_RULES_DIR")
     def test_block_failure(self, mock_dir, mock_file, mock_run):
-        from rex.pal.bsd import BSDAdapter
         from rex.pal.base import FirewallError
+        from rex.pal.bsd import BSDAdapter
         mock_file.exists.return_value = False
         mock_run.return_value = subprocess.CompletedProcess(
             ["pfctl"], 1, stdout="", stderr="permission denied",
@@ -758,7 +757,7 @@ class TestBSDPhase2Implementations:
         mock_run.return_value = subprocess.CompletedProcess(
             ["pfctl"], 0, stdout="", stderr="",
         )
-        with patch("rex.pal.bsd._REX_RULES_DIR") as m_dir, \
+        with patch("rex.pal.bsd._REX_RULES_DIR"), \
              patch("rex.pal.bsd._REX_RULES_FILE") as m_file:
             m_file.exists.return_value = False
             result = self.adapter.create_rex_chains()

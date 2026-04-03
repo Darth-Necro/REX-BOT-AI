@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # FederationService construction
@@ -39,11 +34,11 @@ class TestFederationServiceOnStartDisabled:
         """FederationService stays disabled when env var is not set."""
         from rex.federation.service import FederationService
 
-        with patch("rex.federation.service.PrivacyEngine") as MockPrivacy, \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+        with patch("rex.federation.service.PrivacyEngine") as mock_privacy_cls, \
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = False
             mock_sharing_inst.enable = MagicMock()
 
@@ -58,9 +53,9 @@ class TestFederationServiceOnStartDisabled:
                 await svc._on_start()
 
             # Components created
-            MockPrivacy.assert_called_once()
-            MockGossip.assert_called_once()
-            MockSharing.assert_called_once()
+            mock_privacy_cls.assert_called_once()
+            mock_gossip_cls.assert_called_once()
+            mock_sharing_cls.assert_called_once()
 
             # But sharing not enabled and no background tasks appended
             mock_sharing_inst.enable.assert_not_called()
@@ -71,14 +66,14 @@ class TestFederationServiceOnStartDisabled:
         """FederationService enables sharing when REX_FEDERATION_ENABLED=true."""
         from rex.federation.service import FederationService
 
-        with patch("rex.federation.service.PrivacyEngine") as MockPrivacy, \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+        with patch("rex.federation.service.PrivacyEngine"), \
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True  # Will be checked after enable()
             mock_sharing_inst.enable = MagicMock()
 
@@ -145,9 +140,9 @@ class TestFederationServiceConsumeLoop:
 
         with patch("rex.federation.service.PrivacyEngine"), \
              patch("rex.federation.service.GossipProtocol"), \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = False
 
             svc = FederationService(config, mock_bus)
@@ -173,13 +168,13 @@ class TestFederationServiceConsumeLoop:
         from rex.shared.constants import STREAM_BRAIN_DECISIONS
 
         with patch("rex.federation.service.PrivacyEngine"), \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True
             mock_sharing_inst.enable = MagicMock()
 

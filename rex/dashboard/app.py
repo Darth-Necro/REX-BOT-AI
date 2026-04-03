@@ -17,7 +17,6 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rex.dashboard import deps
 from rex.dashboard.routers import (
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
 
     from starlette.requests import Request
     from starlette.responses import Response
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
             # Evict oldest IPs if at capacity
             if len(self._requests) > _MAX_TRACKED_IPS:
-                oldest = sorted(self._requests, key=lambda k: self._requests[k][-1] if self._requests[k] else 0)
+                oldest = sorted(
+                    self._requests,
+                    key=lambda k: self._requests[k][-1] if self._requests[k] else 0,
+                )
                 for old_key in oldest[:len(self._requests) - _MAX_TRACKED_IPS]:
                     del self._requests[old_key]
 
@@ -422,7 +425,7 @@ def create_app() -> FastAPI:
         """
         from rex.shared.config import get_config as _get_config
 
-        cfg = _get_config()
+        _get_config()
         # Retention days from user settings (if available)
         try:
             from rex.dashboard.routers.config import _load_user_settings

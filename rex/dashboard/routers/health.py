@@ -8,8 +8,8 @@ import time
 from typing import Any
 
 import psutil
-
 from fastapi import APIRouter, Header
+
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
@@ -178,6 +178,7 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
     authed = False
     if authorization.startswith("Bearer "):
         from fastapi import HTTPException
+
         from rex.dashboard.deps import get_auth
 
         try:
@@ -208,7 +209,11 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
     llm_status = "ready" if probes["ollama_ok"] else "offline"
 
     # Power state from config
-    power_state = config.power_state.value if hasattr(config.power_state, "value") else str(config.power_state)
+    power_state = (
+        config.power_state.value
+        if hasattr(config.power_state, "value")
+        else str(config.power_state)
+    )
 
     # Mode from config
     mode = config.mode.value if hasattr(config.mode, "value") else str(config.mode)

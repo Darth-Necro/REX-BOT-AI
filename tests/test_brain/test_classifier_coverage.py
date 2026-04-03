@@ -8,8 +8,6 @@ exposed_service, credential_theft, and iot_compromise classifiers.
 
 from __future__ import annotations
 
-import time
-
 from rex.brain.classifier import ClassificationResult, ThreatClassifier
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 
@@ -308,7 +306,6 @@ def test_dns_tunneling_high_entropy_long_query():
     """High entropy subdomain + long query triggers DNS_TUNNELING."""
     tc = _make_classifier()
     # Construct a high-entropy subdomain
-    import string
     subdomain = "zq8x7w3m9k2v6b5n1p4j" * 3  # random-looking
     query = f"{subdomain}.evil-tunnel.com"
     result = tc.classify_detailed({

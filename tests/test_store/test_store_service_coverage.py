@@ -2,21 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.shared.constants import (
-    STREAM_CORE_COMMANDS,
-    STREAM_EYES_DEVICE_UPDATES,
-    STREAM_EYES_THREATS,
-)
 from rex.shared.enums import ServiceName
 from rex.shared.events import RexEvent
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -24,8 +15,8 @@ def store_svc(config, mock_bus):
     """Return a StoreService with a mocked PluginManager already wired."""
     from rex.store.service import StoreService
 
-    with patch("rex.store.service.PluginManager") as MockPM:
-        mock_pm = MockPM.return_value
+    with patch("rex.store.service.PluginManager") as mock_pm_cls:
+        mock_pm = mock_pm_cls.return_value
         mock_pm.initialize = AsyncMock()
         mock_pm.load_bundled_plugins = AsyncMock()
         mock_pm.get_installed = MagicMock(return_value=[])

@@ -23,15 +23,13 @@ Targets uncovered lines:
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rex.memory.knowledge import KnowledgeBase, _SECTION_ORDER, _TABLE_HEADERS
-from rex.shared.constants import VERSION
+from rex.memory.knowledge import KnowledgeBase
 
 
 @pytest.fixture

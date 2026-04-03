@@ -6,25 +6,18 @@ global exception handler, and the privacy endpoint.
 
 from __future__ import annotations
 
-import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from starlette.responses import JSONResponse
 
 from rex.dashboard.app import (
-    BodySizeLimitMiddleware,
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
-    _ROUTE_LIMITS,
-    _DEFAULT_RATE_LIMIT,
     create_app,
 )
 from rex.dashboard.deps import get_current_user
-
 
 # ---------------------------------------------------------------------------
 # Helpers

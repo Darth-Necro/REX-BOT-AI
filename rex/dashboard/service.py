@@ -80,7 +80,7 @@ class DashboardService(BaseService):
 
         # Map internal event types to canonical WS channel names.
         # The WebSocket manager and frontend both use the dotted names on the right.
-        _EVENT_TO_CHANNEL = {
+        event_to_channel = {
             "threat_detected": "threat.new",
             "threat_resolved": "threat.resolved",
             "device_discovered": "device.new",
@@ -93,7 +93,7 @@ class DashboardService(BaseService):
 
         async def handler(event: Any) -> None:
             raw_type = event.event_type
-            channel = _EVENT_TO_CHANNEL.get(raw_type, raw_type.replace("_", "."))
+            channel = event_to_channel.get(raw_type, raw_type.replace("_", "."))
             timestamp = (
                 event.timestamp.isoformat()
                 if hasattr(event.timestamp, "isoformat")

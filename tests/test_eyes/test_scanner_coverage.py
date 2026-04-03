@@ -7,18 +7,16 @@ DHCP lease parsing corner cases, and hostname enrichment paths.
 
 from __future__ import annotations
 
-import asyncio
 import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.eyes.scanner import NetworkScanner
-from rex.shared.subprocess_util import safe_env as _safe_env
 from rex.shared.config import RexConfig
-from rex.shared.models import Device, NetworkInfo
 from rex.shared.enums import DeviceStatus
-
+from rex.shared.models import Device, NetworkInfo
+from rex.shared.subprocess_util import safe_env as _safe_env
 
 # ---- helpers ---------------------------------------------------------------
 
@@ -428,12 +426,12 @@ class TestDiscoverDevices:
         nmap_dev = Device(mac_address="aa:bb:cc:dd:ee:ff", ip_address="192.168.1.10", hostname="nmap-host", vendor="NmapVendor")
         scanner.pal.scan_arp_table.return_value = [arp_dev]
 
-        with patch.object(scanner, "_nmap_ping_sweep", return_value=[nmap_dev]):
-            with patch.object(scanner, "get_network_info", return_value=NetworkInfo(
-                interface="eth0", gateway_ip="192.168.1.1",
-                subnet_cidr="192.168.1.0/24", dns_servers=["8.8.8.8"],
-            )):
-                result = await scanner.discover_devices()
+        with patch.object(scanner, "_nmap_ping_sweep", return_value=[nmap_dev]), \
+             patch.object(scanner, "get_network_info", return_value=NetworkInfo(
+                 interface="eth0", gateway_ip="192.168.1.1",
+                 subnet_cidr="192.168.1.0/24", dns_servers=["8.8.8.8"],
+             )):
+            result = await scanner.discover_devices()
 
         assert len(result.devices_found) == 1
         assert result.devices_found[0].hostname == "nmap-host"

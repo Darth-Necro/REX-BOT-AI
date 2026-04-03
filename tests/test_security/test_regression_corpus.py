@@ -1,8 +1,12 @@
 """Regression tests using committed payload corpus files."""
 import json
 from pathlib import Path
+
 import pytest
-from rex.core.agent.network_data_sanitizer import sanitize_hostname, sanitize_banner, sanitize_network_data
+
+from rex.core.agent.network_data_sanitizer import (
+    sanitize_hostname,
+)
 
 REGRESSIONS_DIR = Path(__file__).parent.parent / "regressions"
 
@@ -37,7 +41,7 @@ class TestMarkdownInjectionCorpus:
 
     def test_heading_injection_stripped(self, payload):
         if payload["category"] in ("heading_injection", "section_injection", "hr_section_injection"):
-            from rex.interview.processor import AnswerProcessor
+            pass
             # The processor should strip ## headings from free text
             # (This tests the interview answer sanitization path)
 

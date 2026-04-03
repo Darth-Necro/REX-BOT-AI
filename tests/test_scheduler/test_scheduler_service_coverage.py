@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.shared.enums import PowerState, ServiceName
+from rex.shared.enums import PowerState
 
 
 class TestConsumeLoopHandler:

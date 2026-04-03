@@ -9,24 +9,21 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from rex.interview.question_bank import (
-    ALL_QUESTIONS,
     ADVANCED_QUESTIONS,
+    ALL_QUESTIONS,
     BASIC_QUESTIONS,
+    _always,
+    _has_exposed_services,
+    _has_iot_devices,
     count_iot_devices,
     get_advanced_questions,
     get_basic_questions,
     get_exposed_service_name,
     get_question_by_id,
     get_questions_for_mode,
-    _has_iot_devices,
-    _has_exposed_services,
-    _always,
 )
 from rex.shared.enums import DeviceType, InterviewMode
-
 
 # ---- get_exposed_service_name (lines 83-87) --------------------------------
 

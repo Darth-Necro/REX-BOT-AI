@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from rex.dashboard.websocket import (
-    MAX_CONNECTIONS,
-    WebSocketManager,
     _ALLOWED_CHANNELS,
     _DEFAULT_CHANNELS,
+    MAX_CONNECTIONS,
+    WebSocketManager,
 )
 
 

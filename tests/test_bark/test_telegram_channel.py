@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import json
-from http.client import HTTPResponse
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
-import pytest
-
 from rex.bark.channels.telegram import TelegramChannel
-
 
 # ------------------------------------------------------------------
 # Helpers

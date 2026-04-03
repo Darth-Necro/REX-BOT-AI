@@ -6,17 +6,14 @@ anywhere without root or real Linux services.
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import socket
 import struct
 import subprocess
 from datetime import UTC, datetime
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, call, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,7 +35,7 @@ def _make_adapter(fw_backend: str = "nftables"):
         "nftables": "/usr/sbin/nft",
         "iptables": None,
     }
-    nft_binary = which_map.get(fw_backend)
+    which_map.get(fw_backend)
 
     def _which_side_effect(name):
         if name == "nft" and fw_backend == "nftables":
@@ -90,9 +87,9 @@ class TestRunHelper:
         """_run re-raises CalledProcessError when check=True (line 124-126)."""
         from rex.pal.linux import _run
         exc = subprocess.CalledProcessError(1, ["fail"])
-        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=exc):
-            with pytest.raises(subprocess.CalledProcessError):
-                _run(["fail"], check=True)
+        with patch("rex.shared.subprocess_util.subprocess.run", side_effect=exc), \
+             pytest.raises(subprocess.CalledProcessError):
+            _run(["fail"], check=True)
 
 
 # ======================================================================
@@ -392,7 +389,6 @@ class TestIptablesFirewall:
             " pkts bytes target prot opt in out source destination\n"
             " 50   2000 ACCEPT all  --  *  *  0.0.0.0/0 10.0.0.6 /* REX-BOT-AI: allowed test */\n"
         )
-        forward_output = ""
 
         call_count = [0]
         def _side_effect(cmd, **kwargs):
@@ -726,7 +722,6 @@ class TestGetNetworkInfo:
                 return mock_open(read_data="")()
             raise OSError()
 
-        call_count = [0]
         def _run_side_effect(cmd, **kwargs):
             if "addr" in cmd:
                 return _completed(stdout="2: eth0 inet 192.168.1.50/24\n")
@@ -860,10 +855,10 @@ class TestCapturePackets:
         adapter = _make_adapter()
         cap_data = "CapEff:\t0000000000000000\n"
         with patch("rex.pal.linux.os.geteuid", return_value=1000), \
-             patch("builtins.open", mock_open(read_data=cap_data)):
-            with pytest.raises(RexPermissionError):
-                gen = adapter.capture_packets("eth0")
-                next(gen)
+             patch("builtins.open", mock_open(read_data=cap_data)), \
+             pytest.raises(RexPermissionError):
+            gen = adapter.capture_packets("eth0")
+            next(gen)
 
     def test_permission_ok_with_cap_net_raw(self):
         """Proceeds when CAP_NET_RAW is set (line 1095-1114)."""
@@ -871,35 +866,34 @@ class TestCapturePackets:
         adapter = _make_adapter()
         # CAP_NET_RAW is bit 13 = 0x2000
         cap_data = "CapEff:\t0000000000002000\n"
+        mock_sock = MagicMock()
+        mock_sock.bind.side_effect = OSError("test bind fail")
         with patch("rex.pal.linux.os.geteuid", return_value=1000), \
              patch("builtins.open", mock_open(read_data=cap_data)), \
-             patch("rex.pal.linux.socket.socket") as mock_sock_cls:
-            mock_sock = MagicMock()
-            mock_sock.bind.side_effect = OSError("test bind fail")
-            mock_sock_cls.return_value = mock_sock
-            with pytest.raises(RexCaptureError, match="Cannot bind"):
-                gen = adapter.capture_packets("eth0")
-                next(gen)
+             patch("rex.pal.linux.socket.socket", return_value=mock_sock), \
+             pytest.raises(RexCaptureError, match="Cannot bind"):
+            gen = adapter.capture_packets("eth0")
+            next(gen)
 
     def test_proc_status_oserror(self):
         """Raises RexPermissionError if /proc/self/status is unreadable (line 1106-1107)."""
         from rex.shared.errors import RexPermissionError
         adapter = _make_adapter()
         with patch("rex.pal.linux.os.geteuid", return_value=1000), \
-             patch("builtins.open", side_effect=OSError("no proc")):
-            with pytest.raises(RexPermissionError):
-                gen = adapter.capture_packets("eth0")
-                next(gen)
+             patch("builtins.open", side_effect=OSError("no proc")), \
+             pytest.raises(RexPermissionError):
+            gen = adapter.capture_packets("eth0")
+            next(gen)
 
     def test_socket_creation_error(self):
         """Raises RexCaptureError on socket creation failure (line 1120-1123)."""
         from rex.shared.errors import RexCaptureError
         adapter = _make_adapter()
         with patch("rex.pal.linux.os.geteuid", return_value=0), \
-             patch("rex.pal.linux.socket.socket", side_effect=OSError("no raw")):
-            with pytest.raises(RexCaptureError, match="Cannot create raw socket"):
-                gen = adapter.capture_packets("eth0")
-                next(gen)
+             patch("rex.pal.linux.socket.socket", side_effect=OSError("no raw")), \
+             pytest.raises(RexCaptureError, match="Cannot create raw socket"):
+            gen = adapter.capture_packets("eth0")
+            next(gen)
 
     def test_bind_failure(self):
         """Raises RexCaptureError on bind failure (line 1128-1132)."""
@@ -908,11 +902,11 @@ class TestCapturePackets:
         mock_sock = MagicMock()
         mock_sock.bind.side_effect = OSError("bind fail")
         with patch("rex.pal.linux.os.geteuid", return_value=0), \
-             patch("rex.pal.linux.socket.socket", return_value=mock_sock):
-            with pytest.raises(RexCaptureError, match="Cannot bind"):
-                gen = adapter.capture_packets("eth0")
-                next(gen)
-            mock_sock.close.assert_called()
+             patch("rex.pal.linux.socket.socket", return_value=mock_sock), \
+             pytest.raises(RexCaptureError, match="Cannot bind"):
+            gen = adapter.capture_packets("eth0")
+            next(gen)
+        mock_sock.close.assert_called()
 
     def test_packet_parsing_ipv4_tcp(self):
         """Parses a valid IPv4/TCP packet from raw socket (line 1137-1210)."""
@@ -935,10 +929,8 @@ class TestCapturePackets:
         mock_sock.recvfrom.side_effect = [(raw_packet, ("eth0", 0)), TimeoutError, StopIteration]
 
         def _recvfrom_with_stop(size):
-            result = mock_sock.recvfrom.side_effect
             if not hasattr(_recvfrom_with_stop, "_idx"):
                 _recvfrom_with_stop._idx = 0
-            idx = _recvfrom_with_stop._idx
             _recvfrom_with_stop._idx += 1
             # Re-setup side_effect iterator
             raise StopIteration
@@ -1304,9 +1296,9 @@ class TestFirewallDelegation:
         adapter = _make_adapter()
         adapter._own_ip = "10.0.0.100"
         adapter._gateway_ip = "10.0.0.1"
-        with patch.object(adapter._firewall, "block_ip", side_effect=RuntimeError("oops")):
-            with pytest.raises(RexFirewallError, match="Failed to block"):
-                adapter.block_ip("10.0.0.5", "both", "test")
+        with patch.object(adapter._firewall, "block_ip", side_effect=RuntimeError("oops")), \
+             pytest.raises(RexFirewallError, match="Failed to block"):
+            adapter.block_ip("10.0.0.5", "both", "test")
 
     def test_isolate_device_error_wrapping(self):
         from rex.shared.errors import RexFirewallError
@@ -1314,18 +1306,18 @@ class TestFirewallDelegation:
         adapter._own_ip = "10.0.0.100"
         adapter._gateway_ip = "10.0.0.1"
         adapter._config = MagicMock(dashboard_port=8443)
-        with patch.object(adapter._firewall, "isolate_device", side_effect=RuntimeError("fail")):
-            with pytest.raises(RexFirewallError, match="Failed to isolate"):
-                adapter.isolate_device("aa:bb:cc:dd:ee:ff", "10.0.0.5")
+        with patch.object(adapter._firewall, "isolate_device", side_effect=RuntimeError("fail")), \
+             pytest.raises(RexFirewallError, match="Failed to isolate"):
+            adapter.isolate_device("aa:bb:cc:dd:ee:ff", "10.0.0.5")
 
     def test_rate_limit_ip_error_wrapping(self):
         from rex.shared.errors import RexFirewallError
         adapter = _make_adapter()
         adapter._own_ip = "10.0.0.100"
         adapter._gateway_ip = "10.0.0.1"
-        with patch.object(adapter._firewall, "rate_limit_ip", side_effect=RuntimeError("fail")):
-            with pytest.raises(RexFirewallError, match="Failed to rate-limit"):
-                adapter.rate_limit_ip("10.0.0.5", 100)
+        with patch.object(adapter._firewall, "rate_limit_ip", side_effect=RuntimeError("fail")), \
+             pytest.raises(RexFirewallError, match="Failed to rate-limit"):
+            adapter.rate_limit_ip("10.0.0.5", 100)
 
 
 # ======================================================================
@@ -1369,7 +1361,6 @@ class TestServiceManagement:
         """Warns when disable fails but continues (line 1625)."""
         adapter = _make_adapter()
 
-        call_idx = [0]
         def _run_side_effect(cmd, **kwargs):
             if "disable" in cmd:
                 return _completed(returncode=1, stderr="not loaded")
@@ -1379,9 +1370,9 @@ class TestServiceManagement:
 
         mock_path = MagicMock()
         mock_path.exists.return_value = False
-        with patch("rex.pal.linux.Path") as MockPath, \
+        with patch("rex.pal.linux.Path") as mock_path_cls, \
              patch("rex.pal.linux._run", side_effect=_run_side_effect):
-            MockPath.return_value.__truediv__ = MagicMock(return_value=mock_path)
+            mock_path_cls.return_value.__truediv__ = MagicMock(return_value=mock_path)
             result = adapter.unregister_autostart()
         assert result is True
 
@@ -1395,9 +1386,9 @@ class TestServiceManagement:
         mock_path = MagicMock()
         mock_path.exists.return_value = True
         mock_path.unlink.side_effect = OSError("permission denied")
-        with patch("rex.pal.linux.Path") as MockPath, \
+        with patch("rex.pal.linux.Path") as mock_path_cls, \
              patch("rex.pal.linux._run", side_effect=_run_side_effect):
-            MockPath.return_value.__truediv__ = MagicMock(return_value=mock_path)
+            mock_path_cls.return_value.__truediv__ = MagicMock(return_value=mock_path)
             result = adapter.unregister_autostart()
         assert result is False
 
@@ -1583,9 +1574,9 @@ class TestInstallDependency:
     def test_no_package_manager(self):
         from rex.shared.errors import RexPlatformNotSupportedError
         adapter = _make_adapter()
-        with patch.object(adapter, "_detect_package_manager", return_value=None):
-            with pytest.raises(RexPlatformNotSupportedError):
-                adapter.install_dependency("nmap")
+        with patch.object(adapter, "_detect_package_manager", return_value=None), \
+             pytest.raises(RexPlatformNotSupportedError):
+            adapter.install_dependency("nmap")
 
     def test_unknown_package_manager(self):
         """Returns False for unknown pm (line 1817-1818)."""
@@ -1834,8 +1825,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.name == "Ubuntu"
         assert info.version == "22.04"
@@ -1862,8 +1853,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.name == "Linux"
 
@@ -1887,8 +1878,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_wsl is True
 
@@ -1912,8 +1903,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_wsl is False
 
@@ -1937,8 +1928,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = True  # /.dockerenv exists
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = True  # /.dockerenv exists
             info = adapter.get_os_info()
         assert info.is_docker is True
 
@@ -1962,8 +1953,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_docker is True
 
@@ -1987,8 +1978,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_docker is False
 
@@ -2012,8 +2003,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_raspberry_pi is True
 
@@ -2021,7 +2012,6 @@ class TestGetOsInfo:
         """Handles /proc/cpuinfo OSError for RPi detection (line 2084-2085)."""
         adapter = _make_adapter()
 
-        open_call_count = [0]
         def _open_side_effect(path, *a, **kw):
             path_str = str(path)
             if "os-release" in path_str:
@@ -2038,8 +2028,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_raspberry_pi is False
 
@@ -2063,8 +2053,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="none")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_raspberry_pi is True
 
@@ -2088,8 +2078,8 @@ class TestGetOsInfo:
 
         with patch("builtins.open", side_effect=_open_side_effect), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="kvm")), \
-             patch("rex.pal.linux.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+             patch("rex.pal.linux.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
             info = adapter.get_os_info()
         assert info.is_vm is True
 
@@ -2375,8 +2365,8 @@ class TestPersistRules:
     def test_persist_nftables(self):
         adapter = _make_adapter()
         adapter._fw_backend = "nftables"
-        with patch("rex.pal.linux._REX_DATA_DIR") as mock_dir, \
-             patch("rex.pal.linux._REX_FW_RULES_CONF") as mock_conf, \
+        with patch("rex.pal.linux._REX_DATA_DIR"), \
+             patch("rex.pal.linux._REX_FW_RULES_CONF"), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="table data")):
             result = adapter.persist_rules()
         assert result is True
@@ -2384,8 +2374,8 @@ class TestPersistRules:
     def test_persist_iptables(self):
         adapter = _make_adapter()
         adapter._fw_backend = "iptables"
-        with patch("rex.pal.linux._REX_DATA_DIR") as mock_dir, \
-             patch("rex.pal.linux._REX_FW_RULES_CONF") as mock_conf, \
+        with patch("rex.pal.linux._REX_DATA_DIR"), \
+             patch("rex.pal.linux._REX_FW_RULES_CONF"), \
              patch("rex.pal.linux._run", return_value=_completed(stdout="iptables save data")):
             result = adapter.persist_rules()
         assert result is True

@@ -94,7 +94,7 @@ async def trust_device(
         return {"mac": mac, "action": "trust", "status": "requested", "delivered": True}
     except Exception as e:
         logger.exception("Failed to trust device %s: %s", mac, e)
-        raise HTTPException(status_code=503, detail="Event bus unavailable")
+        raise HTTPException(status_code=503, detail="Event bus unavailable") from e
 
 
 @router.post("/{mac}/block")
@@ -118,7 +118,7 @@ async def block_device(
         return {"mac": mac, "action": "block", "status": "requested", "delivered": True}
     except Exception as e:
         logger.exception("Failed to block device %s: %s", mac, e)
-        raise HTTPException(status_code=503, detail="Event bus unavailable")
+        raise HTTPException(status_code=503, detail="Event bus unavailable") from e
 
 
 @router.post("/scan")
@@ -139,7 +139,10 @@ async def trigger_scan(
         try:
             ipaddress.ip_address(target)
         except ValueError:
-            raise HTTPException(status_code=422, detail="target must be a valid IP address")
+            raise HTTPException(
+                status_code=422,
+                detail="target must be a valid IP address",
+            ) from None
 
     try:
         from rex.dashboard.deps import get_bus
@@ -157,7 +160,7 @@ async def trigger_scan(
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "scan_requested", "delivered": True}
-    except Exception as e:
+    except Exception:
         return {
             "status": "scan_not_available",
             "delivered": False,

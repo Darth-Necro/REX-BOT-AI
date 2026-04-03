@@ -21,6 +21,7 @@ from rex.shared.config import RexConfig, get_config
 from rex.shared.enums import ServiceName
 
 if TYPE_CHECKING:
+    from rex.shared.events import RexEvent
     from rex.shared.service import BaseService
 
 logger = logging.getLogger(__name__)
@@ -230,7 +231,6 @@ class ServiceOrchestrator:
             return
 
         from rex.shared.constants import STREAM_CORE_COMMANDS
-        from rex.shared.events import RexEvent
 
         async def handler(event: RexEvent) -> None:
             if event.event_type != "power_state_change":
@@ -240,13 +240,13 @@ class ServiceOrchestrator:
             logger.info("Power state change: %s -> %s", old_state, new_state)
 
             # Determine which services to suspend/resume
-            from rex.shared.enums import PowerState as PS
+            from rex.shared.enums import PowerState
 
             suspend_map = {
-                PS.ALERT_SLEEP.value: {
+                PowerState.ALERT_SLEEP.value: {
                     ServiceName.STORE, ServiceName.FEDERATION, ServiceName.INTERVIEW,
                 },
-                PS.DEEP_SLEEP.value: {
+                PowerState.DEEP_SLEEP.value: {
                     ServiceName.STORE, ServiceName.FEDERATION, ServiceName.INTERVIEW,
                     ServiceName.BARK, ServiceName.BRAIN, ServiceName.TEETH,
                     ServiceName.SCHEDULER,
@@ -255,7 +255,7 @@ class ServiceOrchestrator:
 
             to_suspend = suspend_map.get(new_state, set())
 
-            if new_state in (PS.AWAKE.value,):
+            if new_state in (PowerState.AWAKE.value,):
                 # Resume all previously suspended services
                 for name in _START_ORDER:
                     if name in self._services and self._status.get(name) == "suspended":

@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -256,15 +257,15 @@ def validate_nft_rule(value: str) -> bool:
     lower = value.lower()
 
     # Only allow "drop" and "reject" actions; block "accept" and others.
-    _ALLOWED_ACTIONS = {"drop", "reject"}
-    _DANGEROUS_ACTIONS = {"accept", "jump", "goto", "queue", "continue", "return"}
-    for action in _DANGEROUS_ACTIONS:
+    allowed_actions = {"drop", "reject"}
+    dangerous_actions = {"accept", "jump", "goto", "queue", "continue", "return"}
+    for action in dangerous_actions:
         if re.search(r'\b' + action + r'\b', lower):
             return False
 
     # The rule MUST end with an allowed action (drop or reject).
     tokens = lower.split()
-    if not tokens or tokens[-1] not in _ALLOWED_ACTIONS:
+    if not tokens or tokens[-1] not in allowed_actions:
         return False
 
     # Block wildcard source/destination addresses.
@@ -272,10 +273,7 @@ def validate_nft_rule(value: str) -> bool:
         return False
 
     # Block full port ranges that would match all traffic.
-    if "0-65535" in value:
-        return False
-
-    return True
+    return "0-65535" not in value
 
 
 def validate_integer(value: str) -> bool:
@@ -343,15 +341,12 @@ def validate_safe_path(value: str) -> bool:
         return False
 
     # Whitelist: only these directory prefixes are allowed.
-    _ALLOWED_PREFIXES = (
+    allowed_prefixes = (
         "/etc/rex-bot-ai/",
         "/var/log/rex-bot-ai/",
-        "/tmp/rex-",
+        tempfile.gettempdir() + "/rex-",
     )
-    if not any(resolved.startswith(prefix) for prefix in _ALLOWED_PREFIXES):
-        return False
-
-    return True
+    return any(resolved.startswith(prefix) for prefix in allowed_prefixes)
 
 
 def validate_bpf_filter(value: str) -> bool:

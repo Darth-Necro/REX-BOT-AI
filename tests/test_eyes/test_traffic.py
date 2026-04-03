@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import time
-from collections import defaultdict
 from unittest.mock import MagicMock
-
-import pytest
 
 from rex.eyes.traffic import (
     LATERAL_MOVEMENT_THRESHOLD,
     PORT_SCAN_THRESHOLD,
-    UNUSUAL_PORT_SET,
     VOLUME_SPIKE_MULTIPLIER,
     TrafficMonitor,
 )
 from rex.shared.enums import ThreatCategory, ThreatSeverity
-
 
 # ---- helpers ---------------------------------------------------------------
 

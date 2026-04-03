@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from rex.dashboard.websocket import WebSocketManager, _DEFAULT_CHANNELS
+from rex.dashboard.websocket import _DEFAULT_CHANNELS, WebSocketManager
 
 
 @pytest.fixture

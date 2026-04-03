@@ -6,20 +6,16 @@ update_kb snapshot archival (172-173).
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from rex.dashboard.deps import get_current_user
 from rex.dashboard.routers import knowledge_base
 from rex.shared.config import RexConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -9,8 +9,6 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
-
 from rex.core.agent.network_data_sanitizer import sanitize_hostname, sanitize_network_data
 from rex.interview.processor import AnswerProcessor
 from rex.memory.knowledge import KnowledgeBase
@@ -29,7 +27,7 @@ class TestPipeInjectionInHostname:
         """Pipe characters in cell values are escaped by _escape_md_table."""
         result = KnowledgeBase._escape_md_table("evil|host|name")
         assert "|" not in result.replace("\\|", "")
-        assert "evil\\|host\\|name" == result
+        assert result == "evil\\|host\\|name"
 
     def test_pipe_in_rendered_table_row(self):
         """A hostname containing pipes should produce a valid table row
@@ -53,7 +51,7 @@ class TestPipeInjectionInHostname:
         """Newlines in cell values are replaced with spaces."""
         result = KnowledgeBase._escape_md_table("host\nname")
         assert "\n" not in result
-        assert "host name" == result
+        assert result == "host name"
 
     def test_cr_in_hostname_removed_in_table(self):
         """Carriage returns in cell values are removed."""

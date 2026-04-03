@@ -7,19 +7,16 @@ Targets the ~27% of FirewallManager that existing tests miss.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.shared.errors import RexFirewallError
 from rex.shared.models import FirewallRule
 from rex.shared.utils import utc_now
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -53,8 +50,8 @@ class TestInitialize:
         fw.config.data_dir = tmp_path
 
         # Mock the socket connect for IP discovery
-        with patch("socket.socket") as MockSock:
-            mock_sock_inst = MockSock.return_value
+        with patch("socket.socket") as mock_sock_cls:
+            mock_sock_inst = mock_sock_cls.return_value
             mock_sock_inst.getsockname.return_value = ("192.168.1.42", 0)
 
             await fw.initialize()
@@ -66,10 +63,8 @@ class TestInitialize:
         # Cancel the background task
         if fw._rollback_task:
             fw._rollback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await fw._rollback_task
-            except asyncio.CancelledError:
-                pass
 
     @pytest.mark.asyncio
     async def test_initialize_socket_failure_falls_back(self, fw, tmp_path) -> None:
@@ -77,8 +72,8 @@ class TestInitialize:
         fw.config = MagicMock()
         fw.config.data_dir = tmp_path
 
-        with patch("socket.socket") as MockSock:
-            mock_sock_inst = MockSock.return_value
+        with patch("socket.socket") as mock_sock_cls:
+            mock_sock_inst = mock_sock_cls.return_value
             mock_sock_inst.connect.side_effect = OSError("unreachable")
 
             await fw.initialize()
@@ -88,10 +83,8 @@ class TestInitialize:
 
         if fw._rollback_task:
             fw._rollback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await fw._rollback_task
-            except asyncio.CancelledError:
-                pass
 
     @pytest.mark.asyncio
     async def test_initialize_net_info_failure(self, fw, tmp_path) -> None:
@@ -106,10 +99,8 @@ class TestInitialize:
 
         if fw._rollback_task:
             fw._rollback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await fw._rollback_task
-            except asyncio.CancelledError:
-                pass
 
     @pytest.mark.asyncio
     async def test_initialize_create_chains_failure_raises(self, fw, tmp_path) -> None:
@@ -118,8 +109,8 @@ class TestInitialize:
         fw.config.data_dir = tmp_path
         fw.pal.create_rex_chains.side_effect = RuntimeError("nft broken")
 
-        with patch("socket.socket") as MockSock:
-            mock_sock_inst = MockSock.return_value
+        with patch("socket.socket") as mock_sock_cls:
+            mock_sock_inst = mock_sock_cls.return_value
             mock_sock_inst.getsockname.return_value = ("192.168.1.42", 0)
 
             with pytest.raises(RuntimeError, match="nft broken"):
@@ -139,8 +130,8 @@ class TestInitialize:
              "action": "drop", "created_by": "test"},
         ]))
 
-        with patch("socket.socket") as MockSock:
-            mock_sock_inst = MockSock.return_value
+        with patch("socket.socket") as mock_sock_cls:
+            mock_sock_inst = mock_sock_cls.return_value
             mock_sock_inst.getsockname.return_value = ("192.168.1.42", 0)
             await fw.initialize()
 
@@ -149,10 +140,8 @@ class TestInitialize:
 
         if fw._rollback_task:
             fw._rollback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await fw._rollback_task
-            except asyncio.CancelledError:
-                pass
 
 
 # ------------------------------------------------------------------
@@ -288,10 +277,8 @@ class TestAutoRollbackLoop:
             task = asyncio.create_task(fw_ready._auto_rollback_loop())
             await asyncio.sleep(0.1)  # Let the task pick up
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         # Patch asyncio.sleep to return immediately on first call
         original_sleep = asyncio.sleep
@@ -305,11 +292,9 @@ class TestAutoRollbackLoop:
             else:
                 raise asyncio.CancelledError()
 
-        with patch("asyncio.sleep", side_effect=fast_sleep):
-            try:
-                await fw_ready._auto_rollback_loop()
-            except asyncio.CancelledError:
-                pass
+        with patch("asyncio.sleep", side_effect=fast_sleep), \
+             contextlib.suppress(asyncio.CancelledError):
+            await fw_ready._auto_rollback_loop()
 
     @pytest.mark.asyncio
     async def test_auto_rollback_loop_handles_exception(self, fw_ready) -> None:
@@ -325,7 +310,6 @@ class TestAutoRollbackLoop:
 
         # Make _auto_rollback_check raise on first call
         fw_ready._rules = []
-        original_check = fw_ready._auto_rollback_check
         check_calls = 0
 
         async def failing_check():
@@ -337,11 +321,9 @@ class TestAutoRollbackLoop:
 
         fw_ready._auto_rollback_check = failing_check
 
-        with patch("asyncio.sleep", side_effect=failing_sleep):
-            try:
-                await fw_ready._auto_rollback_loop()
-            except asyncio.CancelledError:
-                pass
+        with patch("asyncio.sleep", side_effect=failing_sleep), \
+             contextlib.suppress(asyncio.CancelledError):
+            await fw_ready._auto_rollback_loop()
 
 
 # ------------------------------------------------------------------
@@ -414,7 +396,6 @@ class TestPersistEdgeCases:
         # Make the teeth dir unwritable by patching write_text
         teeth_dir = tmp_path / "teeth"
         teeth_dir.mkdir(parents=True, exist_ok=True)
-        rules_file = teeth_dir / "firewall_rules.json"
 
         with patch.object(Path, "write_text", side_effect=OSError("read-only filesystem")):
             # Should not raise

@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # BrainService construction
@@ -78,7 +73,7 @@ class TestBrainServiceDegradedMode:
              patch("rex.brain.decision.DecisionEngine"), \
              patch("rex.brain.llm.OllamaClient", return_value=mock_client), \
              patch("rex.brain.llm.DataSanitizer"), \
-             patch("rex.brain.llm.LLMRouter") as MockRouter:
+             patch("rex.brain.llm.LLMRouter"):
 
             svc = BrainService(config, mock_bus)
             svc._running = True
@@ -192,7 +187,7 @@ class TestOllamaRecoveryLoop:
 
         with patch("rex.brain.llm.OllamaClient", return_value=mock_client), \
              patch("rex.brain.llm.DataSanitizer"), \
-             patch("rex.brain.llm.LLMRouter") as MockRouter:
+             patch("rex.brain.llm.LLMRouter"):
 
             call_count = 0
 

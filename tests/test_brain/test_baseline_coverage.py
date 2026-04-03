@@ -8,16 +8,16 @@ and all deviation sub-scorers.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
-from unittest.mock import patch
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 
-from rex.brain.baseline import BehavioralBaseline, _LearningState, _domain_to_pattern
+from rex.brain.baseline import BehavioralBaseline, _domain_to_pattern, _LearningState
 from rex.shared.models import BehavioralProfile
 from rex.shared.utils import utc_now
-
 
 # ===================================================================
 # Helpers

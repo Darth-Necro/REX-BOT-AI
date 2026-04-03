@@ -9,8 +9,8 @@ from __future__ import annotations
 from rex.pal.base import (
     CaptureError,
     FirewallError,
-    PlatformError,
     PermissionDeniedError,
+    PlatformError,
 )
 
 

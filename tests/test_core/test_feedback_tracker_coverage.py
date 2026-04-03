@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
-from rex.core.agent.feedback_tracker import FeedbackTracker, VALID_RESPONSES
+from rex.core.agent.feedback_tracker import FeedbackTracker
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ------------------------------------------------------------------
 # record_feedback -- MAX_FEEDBACK_ENTRIES trimming (lines 150-151)

@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from rex.pal.docker_helper import (
     _extract_mem_limit,
@@ -24,7 +22,6 @@ from rex.pal.docker_helper import (
     pull_image,
     restart_container,
 )
-
 
 # ------------------------------------------------------------------
 # _run_docker internal helper

@@ -9,11 +9,11 @@ Targets:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rex.eyes.port_scanner import PortScanner, SERVICE_MAP
+from rex.eyes.port_scanner import PortScanner
 from rex.shared.subprocess_util import safe_env as _safe_env
 
 

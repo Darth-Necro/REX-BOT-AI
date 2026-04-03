@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # StoreService construction
@@ -38,8 +33,8 @@ class TestStoreServiceOnStart:
         """_on_start creates PluginManager and loads bundled plugins."""
         from rex.store.service import StoreService
 
-        with patch("rex.store.service.PluginManager") as MockPM:
-            mock_pm_inst = MockPM.return_value
+        with patch("rex.store.service.PluginManager") as mock_pm_cls:
+            mock_pm_inst = mock_pm_cls.return_value
             mock_pm_inst.initialize = AsyncMock()
             mock_pm_inst.load_bundled_plugins = AsyncMock()
             mock_pm_inst.get_installed = MagicMock(return_value=[])
@@ -51,7 +46,7 @@ class TestStoreServiceOnStart:
 
             await svc._on_start()
 
-            MockPM.assert_called_once_with(data_dir=config.data_dir)
+            mock_pm_cls.assert_called_once_with(data_dir=config.data_dir)
             mock_pm_inst.initialize.assert_awaited_once()
             mock_pm_inst.load_bundled_plugins.assert_awaited_once()
             mock_pm_inst.get_installed.assert_called_once()
@@ -61,8 +56,8 @@ class TestStoreServiceOnStart:
         """_on_start logs installed and active plugin counts."""
         from rex.store.service import StoreService
 
-        with patch("rex.store.service.PluginManager") as MockPM:
-            mock_pm_inst = MockPM.return_value
+        with patch("rex.store.service.PluginManager") as mock_pm_cls:
+            mock_pm_inst = mock_pm_cls.return_value
             mock_pm_inst.initialize = AsyncMock()
             mock_pm_inst.load_bundled_plugins = AsyncMock()
             mock_pm_inst.get_installed = MagicMock(
@@ -113,8 +108,8 @@ class TestStoreServiceConsumeLoop:
         )
         from rex.store.service import StoreService
 
-        with patch("rex.store.service.PluginManager") as MockPM:
-            mock_pm_inst = MockPM.return_value
+        with patch("rex.store.service.PluginManager") as mock_pm_cls:
+            mock_pm_inst = mock_pm_cls.return_value
             mock_pm_inst.initialize = AsyncMock()
             mock_pm_inst.load_bundled_plugins = AsyncMock()
             mock_pm_inst.get_installed = MagicMock(return_value=[])

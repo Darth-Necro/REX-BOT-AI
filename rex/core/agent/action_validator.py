@@ -17,6 +17,7 @@ Checks performed (in order):
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import logging
 import time
@@ -249,11 +250,8 @@ class ActionValidator:
         # representations are correctly matched (fixes VULN-006).
         normalized_protected: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
         for ip_str in self.PROTECTED_IPS:
-            try:
+            with contextlib.suppress(ValueError):
                 normalized_protected.add(ipaddress.ip_address(ip_str))
-            except ValueError:
-                # Keep raw string comparison as fallback for non-IP values
-                pass
 
         for param_name in self._TARGET_PARAMS:
             target_value = request.params.get(param_name)
@@ -311,10 +309,8 @@ class ActionValidator:
         # Handle zero-padded octets (192.168.001.001)
         parts = stripped.split(".")
         if len(parts) == 4:
-            try:
+            with contextlib.suppress(ValueError):
                 stripped = ".".join(str(int(p)) for p in parts)
-            except ValueError:
-                pass
 
         # Parse through ipaddress to canonicalize IPv6-mapped addresses
         try:

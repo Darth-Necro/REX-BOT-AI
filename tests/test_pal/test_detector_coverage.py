@@ -5,11 +5,8 @@ from __future__ import annotations
 import subprocess
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rex.shared.enums import HardwareTier
-from rex.shared.models import GPUInfo, OSInfo, SystemResources
-
+from rex.shared.models import GPUInfo, SystemResources
 
 # =====================================================================
 # Helpers

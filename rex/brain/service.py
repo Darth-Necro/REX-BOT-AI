@@ -21,12 +21,11 @@ from rex.shared.service import BaseService
 from rex.shared.utils import utc_now
 
 if TYPE_CHECKING:
+    from rex.brain.classifier import ThreatClassifier
+    from rex.brain.llm import LLMRouter
     from rex.shared.bus import EventBus
     from rex.shared.config import RexConfig
     from rex.shared.events import RexEvent
-
-from rex.brain.classifier import ThreatClassifier
-from rex.brain.llm import LLMRouter
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,10 @@ class BrainService(BaseService):
             logger.error("LLM endpoint is not localhost — privacy violation, degraded mode")
             self._degraded = True
         except Exception as exc:
-            logger.exception("Failed to initialise LLM (%s: %s) — degraded mode", type(exc).__name__, exc)
+            logger.exception(
+                "Failed to initialise LLM (%s: %s) — degraded mode",
+                type(exc).__name__, exc,
+            )
             self._degraded = True
 
         # Try to wire knowledge base for LLM context
@@ -215,7 +217,10 @@ class BrainService(BaseService):
                         self._degraded = False
                         logger.info("Ollama recovered — exiting degraded mode")
                 except Exception as exc:
-                    logger.info("Ollama recovery attempt failed (%s: %s), retrying in 30s", type(exc).__name__, exc)
+                    logger.info(
+                        "Ollama recovery attempt failed (%s: %s), retrying in 30s",
+                        type(exc).__name__, exc,
+                    )
 
     async def _check_prerequisites(self) -> None:
         """Brain has no hard prerequisites — degrades gracefully without LLM."""

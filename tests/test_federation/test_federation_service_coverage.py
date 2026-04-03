@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rex.shared.enums import ServiceName
-
 
 class TestConsumeLoopHandler:
     """Exercise the handler registered by _consume_loop when enabled."""
@@ -19,13 +17,13 @@ class TestConsumeLoopHandler:
         from rex.federation.service import FederationService
 
         with patch("rex.federation.service.PrivacyEngine"), \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True
             mock_sharing_inst.enable = MagicMock()
             mock_sharing_inst.publish_ioc = AsyncMock()
@@ -61,13 +59,13 @@ class TestConsumeLoopHandler:
         from rex.federation.service import FederationService
 
         with patch("rex.federation.service.PrivacyEngine"), \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True
             mock_sharing_inst.enable = MagicMock()
             mock_sharing_inst.publish_ioc = AsyncMock()
@@ -100,13 +98,13 @@ class TestConsumeLoopHandler:
         from rex.federation.service import FederationService
 
         with patch("rex.federation.service.PrivacyEngine"), \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True
             mock_sharing_inst.enable = MagicMock()
             mock_sharing_inst.publish_ioc = AsyncMock()
@@ -139,13 +137,13 @@ class TestConsumeLoopHandler:
         from rex.federation.service import FederationService
 
         with patch("rex.federation.service.PrivacyEngine"), \
-             patch("rex.federation.service.GossipProtocol") as MockGossip, \
-             patch("rex.federation.service.ThreatSharing") as MockSharing:
+             patch("rex.federation.service.GossipProtocol") as mock_gossip_cls, \
+             patch("rex.federation.service.ThreatSharing") as mock_sharing_cls:
 
-            mock_gossip_inst = MockGossip.return_value
+            mock_gossip_inst = mock_gossip_cls.return_value
             mock_gossip_inst.register_self = AsyncMock()
 
-            mock_sharing_inst = MockSharing.return_value
+            mock_sharing_inst = mock_sharing_cls.return_value
             mock_sharing_inst._enabled = True
             mock_sharing_inst.enable = MagicMock()
             mock_sharing_inst.publish_ioc = AsyncMock()

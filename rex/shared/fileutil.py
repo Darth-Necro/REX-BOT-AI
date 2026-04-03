@@ -17,6 +17,7 @@ either the old file survives intact or the new one does.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -64,10 +65,8 @@ def atomic_write_text(
         tmp.replace(path)
     except BaseException:
         # Clean up the temp file on any failure (including KeyboardInterrupt).
-        try:
+        with contextlib.suppress(OSError):
             tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
         raise
 
 

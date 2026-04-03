@@ -20,18 +20,16 @@ import logging
 import secrets
 import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import bcrypt
+if TYPE_CHECKING:
+    from pathlib import Path
 
-from rex.shared.fileutil import atomic_write_json
+import bcrypt
 import jwt  # PyJWT
 
 from rex.shared.audit import audit_event
-
-if TYPE_CHECKING:
-    pass
+from rex.shared.fileutil import atomic_write_json
 
 logger = logging.getLogger(__name__)
 
@@ -369,9 +367,15 @@ class AuthManager:
                 if self._store_to_secrets_manager():
                     try:
                         self._creds_file.unlink()
-                        logger.info("Migrated credentials to encrypted storage, removed plaintext file")
+                        logger.info(
+                            "Migrated credentials to encrypted storage,"
+                            " removed plaintext file"
+                        )
                     except OSError:
-                        logger.warning("Could not remove plaintext credentials file after migration")
+                        logger.warning(
+                            "Could not remove plaintext credentials"
+                            " file after migration"
+                        )
                 self._initialized = True
                 return None
             except Exception:
@@ -421,11 +425,16 @@ class AuthManager:
         try:
             if self._creds_file.exists():
                 self._creds_file.unlink()
-                logger.info("Removed plaintext credentials file after migration to encrypted storage")
+                logger.info(
+                    "Removed plaintext credentials file after"
+                    " migration to encrypted storage"
+                )
         except OSError:
             logger.warning("Failed to remove plaintext credentials file: %s", self._creds_file)
 
-    async def login(self, username: str, password: str, client_ip: str = "unknown") -> dict[str, Any]:
+    async def login(
+        self, username: str, password: str, client_ip: str = "unknown",
+    ) -> dict[str, Any]:
         """Authenticate and return a JWT token.
 
         Raises ValueError on auth failure.  Throttled per IP via durable backend.
@@ -532,5 +541,8 @@ class AuthManager:
                 if stored:
                     jwt_secret = stored
             except Exception:
-                logger.warning("SecretsManager read failed during token verification; using cached JWT secret")
+                logger.warning(
+                    "SecretsManager read failed during token"
+                    " verification; using cached JWT secret"
+                )
         return verify_token_str(token, jwt_secret)

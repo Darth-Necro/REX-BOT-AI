@@ -8,14 +8,12 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from rex.dashboard import deps
 from rex.dashboard.deps import get_current_user
 from rex.dashboard.routers import auth
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,10 +47,7 @@ def _mock_auth_manager(
             "token_type": "bearer",
             "expires_in": 14400,
         })
-    if change_pw_error:
-        mgr.change_password = AsyncMock(side_effect=change_pw_error)
-    else:
-        mgr.change_password = AsyncMock(return_value=change_pw_result)
+    mgr.change_password = AsyncMock(side_effect=change_pw_error) if change_pw_error else AsyncMock(return_value=change_pw_result)
     return mgr
 
 

@@ -76,7 +76,7 @@ async def get_audit(user: dict = Depends(get_current_user)) -> dict[str, Any]:
         }
     except Exception as e:
         logger.warning("Privacy audit failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/connections")
@@ -87,7 +87,7 @@ async def get_connections(user: dict = Depends(get_current_user)) -> dict[str, A
         connections = auditor.audit_outbound_connections()
         return {"status": "ok", "connections": connections, "count": len(connections)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/inventory")
@@ -97,7 +97,7 @@ async def get_inventory(user: dict = Depends(get_current_user)) -> dict[str, Any
         auditor = _get_auditor()
         return {"status": "ok", "inventory": auditor.audit_data_inventory()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/encryption")
@@ -107,7 +107,7 @@ async def get_encryption(user: dict = Depends(get_current_user)) -> dict[str, An
         auditor = _get_auditor()
         return {"status": "ok", "encryption": auditor.audit_encryption_status()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/retention")
@@ -117,4 +117,4 @@ async def get_retention(user: dict = Depends(get_current_user)) -> dict[str, Any
         auditor = _get_auditor()
         return {"status": "ok", "retention": auditor.get_data_retention_status()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

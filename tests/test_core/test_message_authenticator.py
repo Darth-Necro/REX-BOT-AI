@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +11,9 @@ from rex.core.agent.message_authenticator import (
     MessageAuthenticator,
     PairedUser,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestPairedUser:

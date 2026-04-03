@@ -14,12 +14,13 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import hmac
-import json
 import logging
 import secrets
 import time
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 

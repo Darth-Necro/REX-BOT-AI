@@ -4,6 +4,7 @@ Services register their data stores here during startup.
 Dashboard routers query through this registry.
 """
 from __future__ import annotations
+
 import logging
 from typing import Any
 

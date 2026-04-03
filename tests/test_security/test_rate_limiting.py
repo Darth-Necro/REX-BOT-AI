@@ -8,9 +8,7 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
-
-from rex.dashboard.app import RateLimitMiddleware, _ROUTE_LIMITS, _DEFAULT_RATE_LIMIT
+from rex.dashboard.app import _DEFAULT_RATE_LIMIT, _ROUTE_LIMITS, RateLimitMiddleware
 
 
 class TestRouteSpecificLimits:
@@ -43,7 +41,6 @@ class TestRouteSpecificLimits:
         assert window == 60
 
     def test_get_limit_returns_route_specific(self) -> None:
-        from starlette.applications import Starlette
         mw = RateLimitMiddleware.__new__(RateLimitMiddleware)
         assert mw._get_limit("/api/auth/login") == _ROUTE_LIMITS["/api/auth/login"]
         assert mw._get_limit("/api/status") == _ROUTE_LIMITS["/api/status"]

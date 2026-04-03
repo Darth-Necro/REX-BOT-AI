@@ -8,12 +8,13 @@ Targets the ~25% of DNSBlocker that existing tests miss.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rex.teeth.dns_blocker import DNSBlocker, _NEVER_BLOCK, MAX_BLOCKLIST_SIZE
+from rex.teeth.dns_blocker import DNSBlocker
 
 
 @pytest.fixture
@@ -35,9 +36,9 @@ class TestUpdateBlocklists:
         new_domains = {"new1.evil.com", "new2.evil.com", "existing.com"}
 
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=new_domains):
-            with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                added = await blocker.update_blocklists()
+                          return_value=new_domains), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            added = await blocker.update_blocklists()
 
         assert added == 2
         assert "new1.evil.com" in blocker._blocked_domains
@@ -58,9 +59,9 @@ class TestUpdateBlocklists:
     async def test_update_removes_never_block(self, blocker) -> None:
         """update_blocklists removes safety-listed domains."""
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value={"localhost", "evil.com"}):
-            with patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
-                await blocker.update_blocklists()
+                          return_value={"localhost", "evil.com"}), \
+             patch.object(blocker, "_persist_blocklist", new_callable=AsyncMock):
+            await blocker.update_blocklists()
 
         assert "localhost" not in blocker._blocked_domains
         assert "evil.com" in blocker._blocked_domains
@@ -81,10 +82,10 @@ class TestUpdateBlocklists:
     async def test_update_persists_when_new_domains(self, blocker) -> None:
         """update_blocklists calls persist when new domains are added."""
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value={"brand-new.evil"}):
-            with patch.object(blocker, "_persist_blocklist",
-                              new_callable=AsyncMock) as mock_persist:
-                await blocker.update_blocklists()
+                          return_value={"brand-new.evil"}), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock) as mock_persist:
+            await blocker.update_blocklists()
 
         mock_persist.assert_awaited_once()
 
@@ -94,25 +95,25 @@ class TestUpdateBlocklists:
         blocker._blocked_domains = {"known.com"}
 
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value={"known.com"}):
-            with patch.object(blocker, "_persist_blocklist",
-                              new_callable=AsyncMock) as mock_persist:
-                await blocker.update_blocklists()
+                          return_value={"known.com"}), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock) as mock_persist:
+            await blocker.update_blocklists()
 
         mock_persist.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_update_enforces_max_size(self, blocker) -> None:
         """update_blocklists truncates when exceeding MAX_BLOCKLIST_SIZE."""
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50):
-            domains = {f"upd-{i}.test" for i in range(100)}
-            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                              return_value=domains):
-                with patch.object(blocker, "_persist_blocklist",
-                                  new_callable=AsyncMock):
-                    await blocker.update_blocklists()
+        domains = {f"upd-{i}.test" for i in range(100)}
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50), \
+             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                          return_value=domains), \
+             patch.object(blocker, "_persist_blocklist",
+                          new_callable=AsyncMock):
+            await blocker.update_blocklists()
 
-            assert len(blocker._blocked_domains) <= 50
+        assert len(blocker._blocked_domains) <= 50
 
 
 # ------------------------------------------------------------------
@@ -208,11 +209,9 @@ class TestUpdateLoop:
                 raise asyncio.CancelledError()
 
         with patch("asyncio.sleep", side_effect=fast_sleep), \
-             patch.object(blocker, "update_blocklists", update_mock):
-            try:
-                await blocker._update_loop()
-            except asyncio.CancelledError:
-                pass
+             patch.object(blocker, "update_blocklists", update_mock), \
+             contextlib.suppress(asyncio.CancelledError):
+            await blocker._update_loop()
 
         update_mock.assert_awaited_once()
 
@@ -230,11 +229,9 @@ class TestUpdateLoop:
         with patch("asyncio.sleep", side_effect=fast_sleep), \
              patch.object(blocker, "update_blocklists",
                           new_callable=AsyncMock,
-                          side_effect=RuntimeError("fetch failed")):
-            try:
-                await blocker._update_loop()
-            except asyncio.CancelledError:
-                pass
+                          side_effect=RuntimeError("fetch failed")), \
+             contextlib.suppress(asyncio.CancelledError):
+            await blocker._update_loop()
 
 
 # ------------------------------------------------------------------
@@ -300,10 +297,10 @@ class TestLoadBundledBlocklist:
         blocklist.write_text("valid.com\n")
 
         # Make the file unreadable by patching open
-        with patch("builtins.open", side_effect=PermissionError("denied")):
+        with patch("builtins.open", side_effect=PermissionError("denied")), \
+             patch.object(type(blocklist), "exists", return_value=True):
             # The exists() check will pass but open() will fail
-            with patch.object(type(blocklist), "exists", return_value=True):
-                await blocker._load_bundled_blocklist()
+            await blocker._load_bundled_blocklist()
 
 
 # ------------------------------------------------------------------

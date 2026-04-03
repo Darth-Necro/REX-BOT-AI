@@ -5,11 +5,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from rex.bark.manager import NotificationManager
 from rex.shared.constants import STREAM_BRAIN_DECISIONS
-
 
 # ------------------------------------------------------------------
 # Helpers

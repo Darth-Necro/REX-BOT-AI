@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # MemoryService construction
@@ -45,25 +40,25 @@ class TestMemoryServiceOnStart:
         """_on_start initializes KB, git, vector store, and threat log."""
         from rex.memory.service import MemoryService
 
-        with patch("rex.memory.service.KnowledgeBase") as MockKB, \
-             patch("rex.memory.service.GitManager") as MockGit, \
-             patch("rex.memory.service.VectorStore") as MockVS, \
-             patch("rex.memory.service.ThreatLog") as MockTL, \
+        with patch("rex.memory.service.KnowledgeBase") as mock_kb_cls, \
+             patch("rex.memory.service.GitManager") as mock_git_cls, \
+             patch("rex.memory.service.VectorStore") as mock_vs_cls, \
+             patch("rex.memory.service.ThreatLog") as mock_tl_cls, \
              patch("rex.dashboard.data_registry.set_threat_log"), \
              patch("rex.dashboard.data_registry.set_knowledge_base"):
 
-            mock_kb_inst = MockKB.return_value
+            mock_kb_inst = mock_kb_cls.return_value
             mock_kb_inst.initialize = AsyncMock()
             mock_kb_inst.read_section = AsyncMock(return_value=[])
 
-            mock_git_inst = MockGit.return_value
+            mock_git_inst = mock_git_cls.return_value
             mock_git_inst.initialize = AsyncMock()
             mock_git_inst.commit = AsyncMock()
 
-            mock_vs_inst = MockVS.return_value
+            mock_vs_inst = mock_vs_cls.return_value
             mock_vs_inst.initialize = AsyncMock()
 
-            mock_tl_inst = MockTL.return_value
+            mock_tl_inst = mock_tl_cls.return_value
             mock_tl_inst.load_from_records = AsyncMock()
 
             svc = MemoryService(config, mock_bus)
@@ -90,22 +85,22 @@ class TestMemoryServiceOnStart:
         """_on_start continues even if loading existing threats fails."""
         from rex.memory.service import MemoryService
 
-        with patch("rex.memory.service.KnowledgeBase") as MockKB, \
-             patch("rex.memory.service.GitManager") as MockGit, \
-             patch("rex.memory.service.VectorStore") as MockVS, \
-             patch("rex.memory.service.ThreatLog") as MockTL, \
+        with patch("rex.memory.service.KnowledgeBase") as mock_kb_cls, \
+             patch("rex.memory.service.GitManager") as mock_git_cls, \
+             patch("rex.memory.service.VectorStore") as mock_vs_cls, \
+             patch("rex.memory.service.ThreatLog"), \
              patch("rex.dashboard.data_registry.set_threat_log"), \
              patch("rex.dashboard.data_registry.set_knowledge_base"):
 
-            mock_kb_inst = MockKB.return_value
+            mock_kb_inst = mock_kb_cls.return_value
             mock_kb_inst.initialize = AsyncMock()
             mock_kb_inst.read_section = AsyncMock(side_effect=RuntimeError("bad"))
 
-            mock_git_inst = MockGit.return_value
+            mock_git_inst = mock_git_cls.return_value
             mock_git_inst.initialize = AsyncMock()
             mock_git_inst.commit = AsyncMock()
 
-            mock_vs_inst = MockVS.return_value
+            mock_vs_inst = mock_vs_cls.return_value
             mock_vs_inst.initialize = AsyncMock()
 
             svc = MemoryService(config, mock_bus)

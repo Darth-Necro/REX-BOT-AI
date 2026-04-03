@@ -104,13 +104,13 @@ class TrafficMonitor:
         self._logger.info("Starting traffic capture on %s", interface)
 
         loop = asyncio.get_running_loop()
-        _EXHAUSTED = object()
+        exhausted = object()
 
-        def _next_or_exhausted(g):  # noqa: ANN001, ANN202
+        def _next_or_exhausted(g):
             try:
                 return next(g)
             except StopIteration:
-                return _EXHAUSTED
+                return exhausted
 
         try:
             gen = self.pal.capture_packets(interface=interface)
@@ -124,7 +124,7 @@ class TrafficMonitor:
                 except TimeoutError:
                     continue
 
-                if packet is _EXHAUSTED:
+                if packet is exhausted:
                     self._logger.info("Traffic capture generator exhausted")
                     break
 

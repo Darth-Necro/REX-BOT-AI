@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-
 import re
 import shutil
 import socket
 import time
-import defusedxml.ElementTree as DefusedET
 from typing import TYPE_CHECKING
+
+import defusedxml.ElementTree as DefusedET
 
 from rex.shared.constants import DEFAULT_NETWORK_TIMEOUT, DEFAULT_SCAN_TIMEOUT
 from rex.shared.enums import DeviceStatus
@@ -27,10 +27,10 @@ from rex.shared.utils import is_valid_ipv4, mac_normalize, utc_now
 if TYPE_CHECKING:
     from rex.pal.base import PlatformAdapter
     from rex.shared.config import RexConfig
+from rex.shared.subprocess_util import run_subprocess_async
 
 logger = logging.getLogger("rex.eyes.scanner")
 
-from rex.shared.subprocess_util import run_subprocess_async
 
 
 class NetworkScanner:

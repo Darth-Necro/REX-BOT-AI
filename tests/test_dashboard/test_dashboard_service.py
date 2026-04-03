@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rex.shared.enums import ServiceName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 # ------------------------------------------------------------------
 # DashboardService construction
@@ -45,8 +40,8 @@ class TestDashboardServiceOnStart:
 
         # create_app is imported lazily inside _on_start from rex.dashboard.app
         with patch("rex.dashboard.app.create_app", return_value=mock_app) as mock_create, \
-             patch("uvicorn.Config") as MockConfig, \
-             patch("uvicorn.Server", return_value=mock_server) as MockServer:
+             patch("uvicorn.Config") as mock_config_cls, \
+             patch("uvicorn.Server", return_value=mock_server):
 
             svc = DashboardService(config, mock_bus)
             svc._running = True
@@ -58,7 +53,7 @@ class TestDashboardServiceOnStart:
             mock_create.assert_called_once()
 
             # uvicorn.Config called with correct host/port from config
-            MockConfig.assert_called_once_with(
+            mock_config_cls.assert_called_once_with(
                 mock_app,
                 host=config.dashboard_host,
                 port=config.dashboard_port,

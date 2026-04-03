@@ -11,13 +11,12 @@ which drives the packet capture loop.  These tests exercise:
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+import contextlib
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rex.eyes.traffic import TrafficMonitor
-
 
 # ---- helpers ---------------------------------------------------------------
 
@@ -59,15 +58,12 @@ class TestStartPassiveCapture:
 
         # Patch asyncio.wait_for directly so StopIteration propagates
         # exactly as the try/except block expects
-        original_wait_for = asyncio.wait_for
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
             # Consume the coroutine to avoid warnings
-            try:
+            with contextlib.suppress(AttributeError):
                 coro.close()
-            except AttributeError:
-                pass
             if call_idx < len(packets):
                 result = packets[call_idx]
                 call_idx += 1
@@ -94,10 +90,8 @@ class TestStartPassiveCapture:
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
-            try:
+            with contextlib.suppress(AttributeError):
                 coro.close()
-            except AttributeError:
-                pass
             call_idx += 1
             if call_idx == 1:
                 raise TimeoutError
@@ -134,10 +128,8 @@ class TestStartPassiveCapture:
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
-            try:
+            with contextlib.suppress(AttributeError):
                 coro.close()
-            except AttributeError:
-                pass
             call_idx += 1
             # First call succeeds, then we stop and raise
             if call_idx == 1:
@@ -162,10 +154,8 @@ class TestStartPassiveCapture:
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
-            try:
+            with contextlib.suppress(AttributeError):
                 coro.close()
-            except AttributeError:
-                pass
             call_idx += 1
             if call_idx == 1:
                 return pkt
@@ -189,10 +179,8 @@ class TestStartPassiveCapture:
         mon.pal.capture_packets.return_value = gen_mock
 
         async def mock_wait_for(coro, *, timeout=None):
-            try:
+            with contextlib.suppress(AttributeError):
                 coro.close()
-            except AttributeError:
-                pass
             # Verify state was set before first packet
             assert mon._running is True
             assert mon._start_time is not None

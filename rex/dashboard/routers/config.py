@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from rex.shared.fileutil import atomic_write_json, safe_read_json
-
 from rex.dashboard.deps import get_current_user
+from rex.shared.fileutil import atomic_write_json, safe_read_json
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 logger = logging.getLogger(__name__)
@@ -105,7 +105,10 @@ async def set_mode(
 
     valid_modes = {m.value for m in OperatingMode}
     if mode not in valid_modes:
-        raise HTTPException(status_code=422, detail=f"Invalid mode. Must be one of: {sorted(valid_modes)}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid mode. Must be one of: {sorted(valid_modes)}",
+        )
 
     from rex.shared.config import get_config as _get_config
 
@@ -156,7 +159,10 @@ async def set_protection_mode(
 
     valid_modes = {m.value for m in ProtectionMode}
     if mode not in valid_modes:
-        raise HTTPException(status_code=422, detail=f"Invalid protection mode. Must be one of: {sorted(valid_modes)}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid protection mode. Must be one of: {sorted(valid_modes)}",
+        )
 
     from rex.shared.config import get_config as _get_config
 
@@ -226,16 +232,13 @@ async def update_config(
         except (TypeError, ValueError):
             errors["data_retention_days"] = "Must be a positive integer"
 
-    if "telemetry_enabled" in updates:
-        if not isinstance(updates["telemetry_enabled"], bool):
+    if "telemetry_enabled" in updates and not isinstance(updates["telemetry_enabled"], bool):
             errors["telemetry_enabled"] = "Must be a boolean"
 
-    if "sleep_time" in updates:
-        if not isinstance(updates["sleep_time"], str):
+    if "sleep_time" in updates and not isinstance(updates["sleep_time"], str):
             errors["sleep_time"] = "Must be a time string (HH:MM)"
 
-    if "wake_time" in updates:
-        if not isinstance(updates["wake_time"], str):
+    if "wake_time" in updates and not isinstance(updates["wake_time"], str):
             errors["wake_time"] = "Must be a time string (HH:MM)"
 
     if errors:
