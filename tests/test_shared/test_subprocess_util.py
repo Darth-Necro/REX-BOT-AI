@@ -85,7 +85,7 @@ class TestRunSubprocessAsync:
 
     @pytest.mark.asyncio
     async def test_successful_command(self) -> None:
-        rc, stdout, stderr = await run_subprocess_async(
+        rc, stdout, _stderr = await run_subprocess_async(
             "echo", "async-hello", label="test-async-echo",
         )
         assert rc == 0
@@ -93,7 +93,7 @@ class TestRunSubprocessAsync:
 
     @pytest.mark.asyncio
     async def test_command_not_found(self) -> None:
-        rc, stdout, stderr = await run_subprocess_async(
+        rc, _stdout, stderr = await run_subprocess_async(
             "__nonexistent_cmd_67890__", label="test-async-notfound",
         )
         assert rc == 127
@@ -101,7 +101,7 @@ class TestRunSubprocessAsync:
 
     @pytest.mark.asyncio
     async def test_timeout(self) -> None:
-        rc, stdout, stderr = await run_subprocess_async(
+        rc, _stdout, stderr = await run_subprocess_async(
             "sleep", "30", timeout=1, label="test-async-timeout",
         )
         assert rc == -1

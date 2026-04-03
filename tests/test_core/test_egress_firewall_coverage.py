@@ -116,7 +116,7 @@ class TestSetup:
 
     def test_setup_failure_returns_false(self) -> None:
         """If PAL returns False, setup should return False."""
-        fw, pal = _make_firewall(setup_result=False)
+        fw, _pal = _make_firewall(setup_result=False)
 
         result = fw.setup()
 

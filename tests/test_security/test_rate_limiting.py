@@ -16,7 +16,7 @@ class TestRouteSpecificLimits:
 
     def test_login_route_has_tighter_limit(self) -> None:
         assert "/api/auth/login" in _ROUTE_LIMITS
-        max_req, window = _ROUTE_LIMITS["/api/auth/login"]
+        max_req, _window = _ROUTE_LIMITS["/api/auth/login"]
         assert max_req <= 10  # Tighter than default
         assert max_req < _DEFAULT_RATE_LIMIT[0]
 

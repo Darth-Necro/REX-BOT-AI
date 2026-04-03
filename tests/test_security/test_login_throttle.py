@@ -109,7 +109,7 @@ class TestAuthManagerErrorMessages:
 
     async def test_wrong_password_no_attempt_count(self, auth_manager: AuthManager) -> None:
         """Error message must NOT contain attempt count or remaining count."""
-        with pytest.raises(ValueError, match="Invalid credentials."):
+        with pytest.raises(ValueError, match=r"Invalid credentials\."):
             await auth_manager.login("admin", "wrong-password", client_ip="1.2.3.4")
 
     async def test_lockout_no_timing_details(self, auth_manager: AuthManager) -> None:
@@ -136,5 +136,5 @@ class TestAuthManagerErrorMessages:
         assert "access_token" in result
 
         # Should be able to fail again without immediate lockout
-        with pytest.raises(ValueError, match="Invalid credentials."):
+        with pytest.raises(ValueError, match=r"Invalid credentials\."):
             await auth_manager.login("admin", "wrong", client_ip="1.2.3.4")

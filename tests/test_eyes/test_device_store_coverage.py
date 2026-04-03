@@ -57,7 +57,7 @@ class TestUpdateFromScanMaxDevices:
         )
         scan = _scan([overflow_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        new, _updated, _departed = await store.update_from_scan(scan)
 
         assert len(new) == 0
         assert "ff:ff:ff:ff:ff:ff" not in store._devices
@@ -79,7 +79,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", ip_address="192.168.1.99")
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].ip_address == "192.168.1.99"
@@ -94,7 +94,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", hostname="new-name")
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].hostname == "new-name"
@@ -109,7 +109,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", vendor="New Vendor")
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].vendor == "New Vendor"
@@ -125,7 +125,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", vendor="Newer Vendor")
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, _updated, _departed = await store.update_from_scan(scan)
 
         assert store._devices["aa:bb:cc:11:22:33"].vendor == "Known Vendor"
 
@@ -139,7 +139,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", os_guess="Linux 5.15")
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].os_guess == "Linux 5.15"
@@ -154,7 +154,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", device_type=DeviceType.PHONE)
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].device_type == DeviceType.PHONE
@@ -169,7 +169,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", open_ports=[80, 443])
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert store._devices["aa:bb:cc:11:22:33"].open_ports == [22, 80, 443]
@@ -184,7 +184,7 @@ class TestUpdateFromScanFieldMerges:
         updated_dev = Device(mac_address="aa:bb:cc:11:22:33", services=["ssh", "http"])
         scan = _scan([updated_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 1
         assert "http" in store._devices["aa:bb:cc:11:22:33"].services
@@ -215,7 +215,7 @@ class TestUpdateFromScanFieldMerges:
         same_dev = Device(mac_address="aa:bb:cc:11:22:33", ip_address="192.168.1.10")
         scan = _scan([same_dev])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, updated, _departed = await store.update_from_scan(scan)
 
         assert len(updated) == 0
 
@@ -235,7 +235,7 @@ class TestUpdateFromScanDeparted:
         # Scan with empty devices list
         scan = _scan([])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, _updated, departed = await store.update_from_scan(scan)
 
         assert len(departed) == 1
         assert store._devices["aa:bb:cc:11:22:33"].status == DeviceStatus.OFFLINE
@@ -249,7 +249,7 @@ class TestUpdateFromScanDeparted:
 
         scan = _scan([])
 
-        new, updated, departed = await store.update_from_scan(scan)
+        _new, _updated, departed = await store.update_from_scan(scan)
 
         assert len(departed) == 0
 

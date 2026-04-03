@@ -97,7 +97,7 @@ def test_brute_force_possible_threshold():
     """6-10 auth failures triggers MEDIUM brute force."""
     tc = _make_classifier()
     for _ in range(8):
-        cat, sev, conf = tc.classify({"source_ip": "10.0.0.5", "destination_port": 22,
+        cat, sev, _conf = tc.classify({"source_ip": "10.0.0.5", "destination_port": 22,
                                       "event_type": "auth_failure"})
     assert cat == ThreatCategory.BRUTE_FORCE
     assert sev == ThreatSeverity.MEDIUM
@@ -127,7 +127,7 @@ def test_lateral_movement_triggers_on_many_internal_dests():
             "source_ip": "192.168.1.50",
             "destination_ip": f"192.168.1.{100 + i}",
         })
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "source_ip": "192.168.1.50",
         "destination_ip": "192.168.1.200",
     })
@@ -144,7 +144,7 @@ def test_lateral_movement_ignores_external_dest():
             "destination_ip": f"8.8.{i}.{i}",  # external
         })
     # Should NOT classify as lateral movement
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "source_ip": "192.168.1.50",
         "destination_ip": "8.8.8.8",
     })
@@ -159,7 +159,7 @@ def test_lateral_movement_ignores_external_dest():
 def test_c2_known_domain():
     """Traffic to a known C2 domain is flagged as C2."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({
+    cat, sev, _conf = tc.classify({
         "destination_ip": "10.0.0.1",
         "destination_port": 443,
         "raw_data": {"known_c2_domains": {"evil.c2.com"}, "dns_query": "evil.c2.com"},
@@ -171,7 +171,7 @@ def test_c2_known_domain():
 def test_c2_known_ip():
     """Traffic to a known C2 IP is flagged as C2."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({
+    cat, sev, _conf = tc.classify({
         "destination_ip": "185.0.0.1",
         "destination_port": 443,
         "raw_data": {"known_c2_ips": {"185.0.0.1"}},
@@ -188,7 +188,7 @@ def test_c2_known_ip():
 def test_data_exfiltration_bandwidth_anomaly():
     """10x baseline bandwidth triggers DATA_EXFILTRATION."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "device_id": "dev-1",
         "outbound_bytes": 50_000_000,  # 400_000 kbps
         "raw_data": {"baseline_bandwidth_kbps": 100},
@@ -207,7 +207,7 @@ def test_data_exfiltration_volume_absolute():
             "outbound_bytes": 25_000_000,
             "raw_data": {"baseline_bandwidth_kbps": 0},
         })
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "device_id": "dev-2",
         "source_ip": "10.0.0.1",
         "outbound_bytes": 25_000_000,
@@ -319,7 +319,7 @@ def test_dns_tunneling_high_entropy_long_query():
 def test_dns_tunneling_known_cdn_skipped():
     """Known CDN domains are not flagged as DNS tunneling."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "dns_query": "abc123def456.cloudfront.net",
         "event_type": "dns_query",
     })
@@ -375,7 +375,7 @@ def test_exposed_service_internal_port():
 def test_exposed_service_not_external_ignored():
     """Non-external-facing services are not flagged."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({
+    cat, _sev, _conf = tc.classify({
         "event_type": "exposed_service",
         "destination_ip": "192.168.1.10",
         "destination_port": 3306,
@@ -392,7 +392,7 @@ def test_exposed_service_not_external_ignored():
 def test_classify_empty_event():
     """Empty event returns UNKNOWN."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({})
+    cat, _sev, conf = tc.classify({})
     assert cat == ThreatCategory.UNKNOWN
     assert conf == 0.1
 
@@ -400,6 +400,6 @@ def test_classify_empty_event():
 def test_classify_minimal_event():
     """Event with minimal fields does not crash."""
     tc = _make_classifier()
-    cat, sev, conf = tc.classify({"source_ip": "10.0.0.1"})
+    cat, _sev, _conf = tc.classify({"source_ip": "10.0.0.1"})
     # May or may not match depending on classifiers, but should not crash
     assert isinstance(cat, ThreatCategory)
