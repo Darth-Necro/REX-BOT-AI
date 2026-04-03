@@ -17,8 +17,25 @@
 ---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.11–3.12](https://img.shields.io/badge/python-3.11%E2%80%933.12-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11-3.12](https://img.shields.io/badge/python-3.11%E2%80%933.12-blue.svg)](https://www.python.org/downloads/)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-yellow.svg)]()
+
+---
+
+## Table of Contents
+
+- [What This Is](#what-this-is)
+- [Required Software](#required-software)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Starting REX](#starting-rex)
+- [CLI Commands](#cli-commands)
+- [Current State](#current-state)
+- [Architecture](#architecture)
+- [Security Invariants](#security-invariants)
+- [Protection Modes](#protection-modes)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
@@ -27,6 +44,259 @@
 REX-BOT-AI is an open-source autonomous AI security agent for home and small business networks. It uses a local LLM (via Ollama) to reason about network threats and takes defensive actions through a whitelisted command system.
 
 All 13 modules are implemented with real logic. The core security pipeline (EYES scan, BRAIN classify, TEETH enforce, BARK notify) is wired through Redis Streams with per-service consumer groups. End-to-end Docker deployment is not yet verified.
+
+---
+
+## Required Software
+
+REX will not start or will run in degraded mode without these dependencies. Install them **before** proceeding.
+
+### System Requirements
+
+| Software | Version | Required | Purpose | Install (Ubuntu/Debian) |
+|----------|---------|----------|---------|-------------------------|
+| **Python** | 3.11 or 3.12 | Yes | Runtime | `sudo apt install python3 python3-venv python3-pip` |
+| **Git** | 2.x+ | Yes | Clone repo, knowledge base versioning | `sudo apt install git` |
+| **Redis** | 7.x+ | Yes | Event bus between services | `sudo apt install redis-server` |
+| **nmap** | 7.x+ | Recommended | Full network scanning (falls back to ARP-only without it) | `sudo apt install nmap` |
+| **arp-scan** | 1.x+ | Recommended | ARP-based device discovery | `sudo apt install arp-scan` |
+| **libpcap** | 1.x+ | Yes | Packet capture (required by scapy) | `sudo apt install libpcap-dev` |
+| **Docker** | 24.x+ | Optional | Plugin sandbox, container deployment | See [Docker docs](https://docs.docker.com/engine/install/) |
+| **Docker Compose** | 2.x+ | Optional | Full-stack deployment | Included with Docker Desktop or `sudo apt install docker-compose-v2` |
+
+### Services (Must Be Running)
+
+| Service | Required | Purpose | Default URL |
+|---------|----------|---------|-------------|
+| **Redis** | Yes | Event bus, pub/sub between all REX services | `redis://localhost:6379` |
+| **Ollama** | Recommended | Local LLM for AI threat analysis (rules-only mode without it) | `http://localhost:11434` |
+| **ChromaDB** | Optional | Vector store for knowledge base memory | `http://localhost:8000` |
+
+### Platform Support
+
+| Platform | Status |
+|----------|--------|
+| **Linux** (Ubuntu, Debian, Fedora) | Fully supported -- primary target |
+| **macOS** | Experimental -- PAL stub exists, many features raise NotImplementedError |
+| **Windows** | Experimental -- PAL stub exists, not functional |
+| **FreeBSD** | Experimental -- PAL stub exists, not functional |
+
+---
+
+## Installation
+
+### Step 1: Install system dependencies
+
+```bash
+# Ubuntu / Debian
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git \
+    redis-server nmap arp-scan libpcap-dev curl
+```
+
+### Step 2: Start Redis
+
+```bash
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+
+# Verify Redis is running
+redis-cli ping
+# Expected output: PONG
+```
+
+### Step 3: Install Ollama (recommended)
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model (REX auto-selects based on your hardware)
+ollama pull llama3.2
+
+# Verify Ollama is running
+curl -s http://localhost:11434/api/tags | head -1
+```
+
+### Step 4: Clone and install REX
+
+```bash
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Upgrade pip
+python -m pip install --upgrade pip
+
+# Install REX and all dependencies
+pip install -e .
+
+# Verify installation
+python -m rex.core.cli --help
+```
+
+### Step 5: Install dev/test dependencies (optional)
+
+Only needed if you plan to run tests or contribute:
+
+```bash
+pip install -e ".[dev]"
+# Or use the requirements file:
+pip install -r requirements-dev.txt
+
+# Verify lint
+python -m ruff check .
+
+# Run tests
+python -m pytest -q
+```
+
+---
+
+## Configuration
+
+### Quick start (minimal)
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+
+```bash
+# REQUIRED: Change the Redis password before first run
+REDIS_PASSWORD=your_secure_password_here
+
+# Optional: set your network interface (auto-detected if omitted)
+REX_NETWORK_INTERFACE=auto
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REX_MODE` | `basic` | Operating mode |
+| `REX_LOG_LEVEL` | `info` | Log verbosity: debug, info, warning, error |
+| `REX_DATA_DIR` | `/etc/rex-bot-ai` | Data directory (needs write access) |
+| `REX_DASHBOARD_PORT` | `8443` | Dashboard web UI port |
+| `REX_DASHBOARD_HOST` | `0.0.0.0` | Dashboard bind address |
+| `REX_REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `REX_OLLAMA_URL` | `http://localhost:11434` | Ollama LLM endpoint (localhost only) |
+| `REX_OLLAMA_MODEL` | `auto` | LLM model (auto-selects based on hardware) |
+| `REX_CHROMA_URL` | `http://localhost:8000` | ChromaDB vector store URL |
+| `REX_NETWORK_INTERFACE` | `auto` | Network interface to monitor |
+| `REX_SCAN_INTERVAL` | `300` | Seconds between periodic scans |
+| `REX_PROTECTION_MODE` | `auto_block_critical` | Protection level (see below) |
+
+### Data directory
+
+REX stores its data in `REX_DATA_DIR` (default `/etc/rex-bot-ai`). Create it before first run:
+
+```bash
+sudo mkdir -p /etc/rex-bot-ai
+sudo chown $USER:$USER /etc/rex-bot-ai
+```
+
+Or use a user-writable directory:
+
+```bash
+export REX_DATA_DIR="$HOME/.rex-bot-ai"
+mkdir -p "$REX_DATA_DIR"
+```
+
+---
+
+## Starting REX
+
+### Option A: Local development (no Docker)
+
+Make sure Redis is running, then:
+
+```bash
+cd REX-BOT-AI
+source .venv/bin/activate
+
+# Start REX (needs root for packet capture and firewall)
+sudo .venv/bin/python -m rex.core.cli start
+```
+
+REX will:
+1. Load configuration from `.env` and environment variables
+2. Generate a login password on first boot (printed to terminal)
+3. Start all 10 services in order: Memory, Eyes, Scheduler, Interview, Brain, Bark, Teeth, Federation, Store, Dashboard
+4. Begin monitoring your network
+
+**Save the generated password** -- you need it to log into the dashboard.
+
+### Option B: Docker Compose (full stack)
+
+This starts Redis, Ollama, ChromaDB, and REX together:
+
+```bash
+# Set your Redis password first
+echo "REDIS_PASSWORD=$(openssl rand -base64 32)" > .env
+
+# Start everything
+docker compose up -d
+
+# Check status
+docker compose ps
+docker compose logs -f rex
+```
+
+The dashboard will be available at `http://localhost:8443`.
+
+### Verify REX is running
+
+In a separate terminal:
+
+```bash
+source .venv/bin/activate
+
+# Check service health
+python -m rex.core.cli status
+
+# If dashboard is running on HTTP (no TLS certs):
+REX_API_URL=http://127.0.0.1:8443 python -m rex.core.cli status
+```
+
+### Stopping REX
+
+```bash
+# Graceful stop
+python -m rex.core.cli stop
+
+# Or Ctrl+C in the terminal where REX is running
+
+# Docker
+docker compose down
+```
+
+---
+
+## CLI Commands
+
+```bash
+rex start      # Start all services (blocks until Ctrl+C)
+rex stop       # Stop all services gracefully
+rex status     # Show service health
+rex scan       # Trigger manual network scan
+rex sleep      # Put REX into alert-sleep mode
+rex wake       # Wake REX to full monitoring
+rex junkyard   # Activate JUNKYARD DOG mode (BITE! removes threats)
+rex patrol     # Schedule security patrols (--now or --schedule "cron")
+rex login      # Authenticate with the REX API
+rex diag       # Full diagnostic dump
+rex backup     # Create data backup
+rex privacy    # Run privacy audit
+rex version    # Print version string
+```
+
+---
 
 ## Current State (Honest)
 
@@ -51,8 +321,10 @@ All 13 modules are implemented with real logic. The core security pipeline (EYES
 | Orchestrator | Working -- per-service bus ownership, health monitor, auto-restart |
 | Docker deployment | **Unverified** -- compose file exists, end-to-end not tested |
 | Installer (install.sh) | **Unverified** -- clones full repo for Docker build context |
-| Windows/macOS/BSD PAL | **Experimental** -- stub adapters exist, many methods raise NotImplementedError. Not supported for production use. |
-| Test suite | 4,062 tests, 0 failures, 22 warnings |
+| Windows/macOS/BSD PAL | **Experimental** -- stub adapters, many methods raise NotImplementedError |
+| Test suite | 4,289 tests, 0 failures, 0 lint errors |
+
+---
 
 ## Architecture
 
@@ -64,11 +336,28 @@ EYES (scan) -> Redis -> BRAIN (classify) -> TEETH (block) -> BARK (notify)
                               MEMORY (log to REX-BOT-AI.md)
 ```
 
+**Service startup order:**
+
+```
+1. Memory     -- threat logs, knowledge base, vector store
+2. Eyes       -- network scanner, DNS monitor, traffic capture
+3. Scheduler  -- cron jobs, patrol schedules, power state
+4. Interview  -- initial setup wizard
+5. Brain      -- threat classifier, LLM router
+6. Bark       -- notification channels (Discord, Telegram, email, Matrix)
+7. Teeth      -- firewall manager, DNS blocker, device isolator
+8. Federation -- multi-instance coordination
+9. Store      -- plugin registry, sandbox
+10. Dashboard  -- FastAPI web UI (depends on all others)
+```
+
 Each service owns its bus connection. Consumer groups are isolated (`rex:<service>:group`) so every subscribing service sees every event -- no message stealing between services.
 
 All OS-specific operations go through the Platform Abstraction Layer (PAL). The LLM is hardcoded to localhost only -- network data never leaves the machine.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+
+---
 
 ## Security Invariants
 
@@ -81,29 +370,14 @@ These are enforced in code, not just policy:
 - **Action whitelist**: the LLM cannot execute actions not in the registry regardless of its output.
 - **Scope enforcement**: out-of-scope request patterns override security keyword matches to prevent disguised-request bypass.
 - **CORS safety**: wildcard origins are stripped when `allow_credentials=True`.
-- **WebSocket auth**: first-message auth only — JWTs are never sent in URLs/query strings.
+- **WebSocket auth**: first-message auth only -- JWTs are never sent in URLs/query strings.
 - **Password hashing**: bcrypt with SHA-256 pre-hashing to prevent 72-byte truncation attacks.
 - **Restart anti-flapping**: sliding-window restart budget with exponential backoff prevents restart storms.
 - **Credential storage**: plaintext fallback only when encrypted storage is unavailable; plaintext removed on migration.
 - **Health fail-closed**: the `/api/health` endpoint returns 503 when the event bus is unreachable.
 - **Plugin permissions**: registered plugins are restricted to declared permissions; unregistered tokens are rejected once any plugin is registered.
 
-## Development Setup
-
-```bash
-git clone https://github.com/Darth-Necro/REX-BOT-AI.git
-cd REX-BOT-AI
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest
-
-# Lint
-ruff check rex/ tests/
-```
+---
 
 ## Protection Modes
 
@@ -147,22 +421,58 @@ During a patrol, REX will:
 - **Report findings** to the owner
 - **Go back to sleep** when patrol is done
 
-## CLI Commands
+---
+
+## Troubleshooting
+
+### Port 8443 already in use
 
 ```bash
-rex start      # Start all services (blocks until Ctrl+C)
-rex stop       # Stop all services gracefully
-rex status     # Show service health
-rex scan       # Trigger manual network scan
-rex sleep      # Put REX into alert-sleep mode
-rex wake       # Wake REX to full monitoring
-rex junkyard   # Activate JUNKYARD DOG mode (BITE! removes threats)
-rex patrol     # Schedule security patrols (--now or --schedule "cron")
-rex diag       # Full diagnostic dump
-rex backup     # Create data backup
-rex privacy    # Run privacy audit
-rex version    # Print version string
+# Find what's using the port
+sudo ss -ltnp | grep :8443
+
+# Kill the process
+sudo fuser -k 8443/tcp
+
+# Or change the port
+export REX_DASHBOARD_PORT=9443
 ```
+
+### Redis not running
+
+```bash
+sudo systemctl start redis-server
+redis-cli ping  # Should print: PONG
+```
+
+REX can run in degraded WAL-only mode without Redis, but all inter-service communication is lost.
+
+### Permission denied (packet capture / firewall)
+
+REX needs root privileges for packet capture (`NET_RAW`) and firewall management (`NET_ADMIN`):
+
+```bash
+sudo .venv/bin/python -m rex.core.cli start
+```
+
+### Ollama not available
+
+REX falls back to rules-only classification (no LLM). Install Ollama to enable AI-powered analysis:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
+```
+
+### TLS / CLI connection issues
+
+If dashboard runs without TLS certs (development mode), tell the CLI to use HTTP:
+
+```bash
+REX_API_URL=http://127.0.0.1:8443 python -m rex.core.cli status
+```
+
+---
 
 ## Contributing
 
@@ -174,6 +484,8 @@ Priority areas:
 3. Wire remaining frontend components to all dashboard API endpoints
 4. Replace plugin sandbox dict with real Docker isolation
 5. Complete Windows/macOS/BSD PAL adapters (currently experimental stubs with many NotImplementedError)
+
+---
 
 ## License
 
