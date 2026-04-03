@@ -91,6 +91,7 @@ def _setup_logging(level: str = "info") -> None:
 @app.command()
 def start(
     log_level: str = typer.Option("info", help="Log level: debug, info, warning, error"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't auto-open browser"),
 ) -> None:
     """Start all REX services (blocks until Ctrl+C)."""
     _setup_logging(log_level)
@@ -146,7 +147,9 @@ def start(
                 webbrowser.open(url)
         threading.Thread(target=_open, daemon=True).start()
 
-    _open_browser_delayed()
+    # Only auto-open browser for interactive desktop sessions
+    if not no_browser and _os.environ.get("DISPLAY") and not _os.environ.get("SSH_CONNECTION"):
+        _open_browser_delayed()
     typer.echo(f"  Dashboard: http://localhost:{config.dashboard_port}")
     typer.echo("")
 

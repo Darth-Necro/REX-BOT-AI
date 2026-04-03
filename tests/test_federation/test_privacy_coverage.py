@@ -108,17 +108,17 @@ class TestPrivacyEngineAnonymize:
 class TestPrivacyEngineGetInstallId:
     """Cover _get_install_id file-not-found generation path."""
 
-    def test_get_install_id_generates_when_no_file(self) -> None:
+    def test_get_install_id_generates_when_no_file(self, tmp_path) -> None:
         """When the install-id file does not exist, a new ID is generated."""
         engine = PrivacyEngine()
-        with patch("rex.federation.privacy.Path.exists", return_value=False), \
-             patch("rex.federation.privacy.Path.parent", new_callable=lambda: property(lambda self: MagicMock())), \
-             patch("rex.federation.privacy.Path.write_text", side_effect=OSError("read-only fs")), \
-             patch("rex.federation.privacy.Path.chmod", side_effect=OSError("read-only fs")):
-            # Even when file write fails, an ID is still returned
+        mock_cfg = MagicMock()
+        mock_cfg.data_dir = tmp_path
+        with patch("rex.shared.config.get_config", return_value=mock_cfg):
             install_id = engine._get_install_id()
             assert isinstance(install_id, str)
             assert len(install_id) == 32  # secrets.token_hex(16) = 32 hex chars
+            # File should have been created
+            assert (tmp_path / ".install-id").exists()
 
 
 class TestPrivacyEngineStripPii:

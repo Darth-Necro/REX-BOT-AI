@@ -186,6 +186,7 @@ class ServiceOrchestrator:
         if power_task:
             power_task.cancel()
 
+        stop_failures = []
         for name in reversed(_START_ORDER):
             if name in self._services and self._status.get(name) == "running":
                 try:
@@ -196,14 +197,23 @@ class ServiceOrchestrator:
                     logger.info("Stopped %s", name.value)
                 except TimeoutError:
                     self._status[name] = "force_stopped"
+                    stop_failures.append(name.value)
                     logger.warning("Force-stopped %s (timeout)", name.value)
                 except Exception:
+                    self._status[name] = "stop_failed"
+                    stop_failures.append(name.value)
                     logger.exception("Error stopping %s", name.value)
 
         if self._bus:
             await self._bus.disconnect()
 
-        logger.info("All services stopped")
+        if stop_failures:
+            logger.warning(
+                "Shutdown incomplete: %d service(s) failed to stop cleanly: %s",
+                len(stop_failures), ", ".join(stop_failures),
+            )
+        else:
+            logger.info("All services stopped")
 
     async def restart_service(self, name: ServiceName) -> bool:
         """Restart a single service."""

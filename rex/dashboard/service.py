@@ -90,17 +90,30 @@ class DashboardService(BaseService):
         )
 
     async def _on_stop(self) -> None:
-        """Shutdown uvicorn."""
-        if hasattr(self, "_server"):
-            self._server.should_exit = True
-            # Give uvicorn a moment to shut down cleanly
-            if hasattr(self, "_serve_task") and not self._serve_task.done():
-                try:
-                    async with asyncio.timeout(5):
-                        await self._serve_task
-                except (TimeoutError, asyncio.CancelledError, OSError):
-                    # Timeout or cancellation during shutdown is acceptable
-                    pass
+        """Shutdown uvicorn completely, ensuring port is released."""
+        if not hasattr(self, "_server"):
+            logger.info("Dashboard stopped (no server)")
+            return
+
+        # Step 1: signal graceful exit
+        self._server.should_exit = True
+
+        # Step 2: wait for serve task with timeout
+        if hasattr(self, "_serve_task") and not self._serve_task.done():
+            try:
+                async with asyncio.timeout(5):
+                    await self._serve_task
+            except TimeoutError:
+                # Step 3: force exit if graceful didn't work
+                logger.warning("Dashboard graceful shutdown timed out, forcing exit")
+                self._server.force_exit = True
+                import contextlib
+                self._serve_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, OSError):
+                    await self._serve_task
+            except (asyncio.CancelledError, OSError):
+                pass
+
         logger.info("Dashboard stopped")
 
     async def _consume_loop(self) -> None:

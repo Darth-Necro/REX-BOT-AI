@@ -11,7 +11,6 @@ import logging
 import re
 import secrets
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -58,7 +57,8 @@ class PrivacyEngine:
 
     def _get_install_id(self) -> str:
         """Read or generate a per-install random ID."""
-        id_file = Path("/etc/rex-bot-ai/.install-id")
+        from rex.shared.config import get_config
+        id_file = get_config().data_dir / ".install-id"
         if id_file.exists():
             return id_file.read_text().strip()
         install_id = secrets.token_hex(16)
