@@ -48,8 +48,14 @@ class TestScanCommandContract:
         assert event.payload["command"] == "scan_now"
 
     @pytest.mark.asyncio
-    async def test_scan_now_publishes_to_bus(self):
-        """ScanScheduler.run_scan_now should publish an event to the bus."""
+    async def test_run_scan_now_does_not_republish(self):
+        """ScanScheduler.run_scan_now must NOT publish to the bus.
+
+        Manual scan commands are published by the dashboard and consumed
+        directly by Eyes.  If the scheduler republished, it would create
+        an infinite loop because the scheduler also subscribes to the
+        same command stream.
+        """
         from rex.scheduler.scan_scheduler import ScanScheduler
 
         mock_bus = AsyncMock()
@@ -59,13 +65,7 @@ class TestScanCommandContract:
         result = await scheduler.run_scan_now("quick")
 
         assert result["status"] == "triggered"
-        mock_bus.publish.assert_called_once()
-        args = mock_bus.publish.call_args
-        stream = args[0][0]
-        event = args[0][1]
-        assert stream == "rex:core:commands"
-        assert event.event_type == "command"
-        assert event.payload["command"] == "scan_now"
+        mock_bus.publish.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

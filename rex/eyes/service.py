@@ -490,8 +490,10 @@ class EyesService(BaseService):
             payload = event.payload if isinstance(event, RexEvent) else {}
             target_service = payload.get("target_service", "")
 
-            # Only handle commands directed at Eyes
-            if target_service and target_service != ServiceName.EYES:
+            # Only handle commands directed at Eyes (compare by value for
+            # string payloads from JSON serialization)
+            eyes_names = {ServiceName.EYES, ServiceName.EYES.value, "eyes"}
+            if target_service and target_service not in eyes_names:
                 return
 
             command = payload.get("command", "")

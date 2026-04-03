@@ -52,8 +52,12 @@ class TestConsumeLoopHandler:
         svc._power.transition.assert_awaited_once_with(PowerState.AWAKE, bus=mock_bus)
 
     @pytest.mark.asyncio
-    async def test_handler_scan_now(self, config, mock_bus) -> None:
-        """Handler should trigger a scan for scan_now events."""
+    async def test_handler_scan_now_ignored(self, config, mock_bus) -> None:
+        """Scheduler must NOT handle scan_now -- Eyes handles it directly.
+
+        This prevents the infinite-loop bug where scheduler consumed
+        scan_now, republished it, and consumed it again endlessly.
+        """
         from rex.scheduler.service import SchedulerService
 
         svc = SchedulerService(config, mock_bus)
@@ -69,11 +73,11 @@ class TestConsumeLoopHandler:
         event.payload = {"scan_type": "full"}
         await handler(event)
 
-        svc._scans.run_scan_now.assert_awaited_once_with("full")
+        svc._scans.run_scan_now.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_handler_scan_now_default_type(self, config, mock_bus) -> None:
-        """Handler should default to 'quick' when scan_type not in payload."""
+    async def test_handler_command_scan_now_ignored(self, config, mock_bus) -> None:
+        """Scheduler must NOT handle command scan_now -- Eyes handles it."""
         from rex.scheduler.service import SchedulerService
 
         svc = SchedulerService(config, mock_bus)
@@ -85,11 +89,11 @@ class TestConsumeLoopHandler:
         handler = mock_bus.subscribe.call_args[0][1]
 
         event = MagicMock()
-        event.event_type = "scan_now"
-        event.payload = {}
+        event.event_type = "command"
+        event.payload = {"command": "scan_now", "scan_type": "quick"}
         await handler(event)
 
-        svc._scans.run_scan_now.assert_awaited_once_with("quick")
+        svc._scans.run_scan_now.assert_not_awaited()
 
 
 class TestPowerCheckLoop:

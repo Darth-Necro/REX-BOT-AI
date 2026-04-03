@@ -150,13 +150,15 @@ async def trigger_scan(
         from rex.shared.events import RexEvent
 
         bus = await get_bus()
-        payload: dict[str, str] = {"scan_type": scan_type}
-        if target:
-            payload["target"] = target
         event = RexEvent(
             source=ServiceName.DASHBOARD,
-            event_type="scan_now",
-            payload=payload,
+            event_type="command",
+            payload={
+                "command": "scan_now",
+                "scan_type": scan_type,
+                "target_service": "eyes",
+                **({"target": target} if target else {}),
+            },
         )
         await bus.publish("rex:core:commands", event)
         return {"status": "scan_requested", "delivered": True}

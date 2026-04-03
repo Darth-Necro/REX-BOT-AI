@@ -48,34 +48,22 @@ class ScanScheduler:
         return self._scheduled.pop(job_id, None) is not None
 
     async def run_scan_now(self, scan_type: str = "quick") -> dict[str, Any]:
-        """Trigger an immediate scan (publishes event to bus)."""
-        status = "triggered"
-        if self._bus:
-            try:
-                from rex.shared.enums import ServiceName
-                from rex.shared.events import RexEvent
+        """Record an immediate scan request in history.
 
-                await self._bus.publish("rex:core:commands", RexEvent(
-                    source=ServiceName.SCHEDULER,
-                    event_type="command",
-                    payload={
-                        "command": "scan_now",
-                        "scan_type": scan_type,
-                        "triggered_by": "manual",
-                    },
-                ))
-            except Exception:
-                logger.warning("Failed to publish scan_now event to bus")
-                status = "trigger_failed"
-
+        NOTE: This method does NOT publish to the bus.  Manual scan
+        commands are published by the dashboard router and consumed
+        directly by EyesService.  Republishing here would create an
+        infinite loop because the scheduler also subscribes to the
+        same command stream.
+        """
         result = {
             "scan_id": generate_id()[:8],
             "scan_type": scan_type,
             "started_at": utc_now().isoformat(),
-            "status": status,
+            "status": "triggered",
         }
         self._history.append(result)
-        logger.info("Immediate %s scan triggered", scan_type)
+        logger.info("Immediate %s scan recorded", scan_type)
         return result
 
     def get_schedule(self) -> list[dict[str, Any]]:
@@ -110,6 +98,7 @@ class ScanScheduler:
                         payload={
                             "command": "scan_now",
                             "scan_type": spec["scan_type"],
+                            "target_service": "eyes",
                             "triggered_by": "scheduler",
                         },
                     ))

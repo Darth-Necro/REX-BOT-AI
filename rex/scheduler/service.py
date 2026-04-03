@@ -81,9 +81,8 @@ class SchedulerService(BaseService):
                         await self._power.transition(target, bus=self.bus)
                     else:
                         logger.warning("Unknown power state: %s", state_str)
-                elif command == "scan_now":
-                    scan_type = payload.get("scan_type", "quick")
-                    await self._scans.run_scan_now(scan_type)
+                # scan_now is handled directly by Eyes -- scheduler
+                # must NOT republish it (that creates an infinite loop).
                 return
 
             # Legacy event_type routing (kept for backward compatibility)
@@ -91,8 +90,7 @@ class SchedulerService(BaseService):
                 await self._power.transition(PowerState.ALERT_SLEEP, bus=self.bus)
             elif et == "schedule_wake":
                 await self._power.transition(PowerState.AWAKE, bus=self.bus)
-            elif et == "scan_now":
-                await self._scans.run_scan_now(payload.get("scan_type", "quick"))
+            # Legacy scan_now events are handled by Eyes directly.
             elif et == "mode_change":
                 logger.info(
                     "Mode changed: %s -> %s",
