@@ -7,6 +7,7 @@ The ``start`` command initializes the full orchestrator and runs until SIGINT/SI
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 # TLS verification is ENABLED by default.  For local development with
@@ -160,24 +161,24 @@ def stop() -> None:
     if os.path.exists(pidfile):
         with open(pidfile) as f:
             pid = int(f.read().strip())
-        os.kill(pid, signal.SIGTERM)
-        typer.echo(r"""
-        ^
-       / \__
-      (  - @\___   *ruff* Sent stop signal to REX (PID """ + str(pid) + r""")
-      /         O  *woof* ... going down...
-     /   (_____/
-    /_____/   U
-""")
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except PermissionError:
+            typer.echo(
+                f"  *whimper* Cannot stop REX (PID {pid}): permission denied.\n"
+                "  REX was started with elevated privileges.\n"
+                "  Rerun with: sudo rex stop"
+            )
+            return
+        except ProcessLookupError:
+            typer.echo("  *whimper* REX process not found (stale PID file).")
+            with contextlib.suppress(OSError):
+                os.unlink(pidfile)
+            return
+        typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
+        typer.echo("  *woof* ... going down...")
     else:
-        typer.echo(r"""
-        ^
-       / \__
-      (  ? @\___   *whimper* REX does not appear to be running.
-      /         O  (no PID file found)
-     /   (_____/
-    /_____/   U
-""")
+        typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
 
 
 @app.command()
@@ -398,7 +399,21 @@ def wake() -> None:
 @app.command()
 def junkyard() -> None:
     """Activate JUNKYARD DOG mode -- REX BITEs and removes all active threats."""
-    typer.echo(r"""
+    typer.echo("  *GRRRRR* Requesting JUNKYARD DOG mode...")
+    try:
+        import httpx
+        resp = httpx.post(
+            f"{_DEFAULT_API_URL}/api/config/protection-mode",
+            json={"mode": "junkyard_dog"},
+            timeout=5,
+            verify=not _DEV_INSECURE,
+            headers=_auth_headers(),
+        )
+        if not _check_auth_response(resp):
+            return
+        data = resp.json()
+        if data.get("mode") == "junkyard_dog" or data.get("status") == "updated":
+            typer.echo(r"""
         ^
        / \__
       (!O @\___    *WOOF WOOF GRRRRR!*
@@ -416,24 +431,8 @@ def junkyard() -> None:
     - Notify owner of every attack and what REX did about it
   *GRRRRR WOOF WOOF!* ... No mercy! No intruder gets out alive!
 """)
-    try:
-        import httpx
-        resp = httpx.post(
-            f"{_DEFAULT_API_URL}/api/config/protection-mode",
-            json={"mode": "junkyard_dog"},
-            timeout=5,
-            verify=not _DEV_INSECURE,
-            headers=_auth_headers(),
-        )
-        if not _check_auth_response(resp):
-            return
-        data = resp.json()
-        typer.echo(f"  Status: {data.get('status', 'unknown')}")
-        if data.get("mode") == "junkyard_dog":
-            typer.echo(
-                "  *WOOF WOOF GRRRRR!* Junkyard Dog mode is ACTIVE."
-                " REX will eliminate all threats!"
-            )
+        else:
+            typer.echo(f"  Status: {data.get('status', 'unknown')}")
     except Exception as e:
         typer.echo(f"  *whimper* Cannot reach REX: {e}")
 
@@ -569,28 +568,54 @@ def diag() -> None:
 @app.command()
 def backup() -> None:
     """Create an immediate backup of REX data."""
-    typer.echo(r"""
-        ^
-       / \__
-      (    @\___   *ruff* Creating backup...
-      /         O  *woof* Burying bones safely!
-     /   (_____/
-    /_____/   U
-""")
-    import shutil
+    import tarfile
     from datetime import datetime
 
     from rex.shared.config import get_config
     config = get_config()
-    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+
+    typer.echo("  *ruff* Creating backup...")
+
     backup_dir = config.data_dir / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    archive = shutil.make_archive(
-        str(backup_dir / f"rex-backup-{ts}"), "gztar",
-        root_dir=str(config.data_dir),
-        base_dir=".",
-    )
-    typer.echo(f"  *WOOF!* Backup created: {archive}")
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        typer.echo(f"  *whimper* Cannot create backup directory: {backup_dir}")
+        typer.echo("  Check permissions or run with sudo.")
+        return
+
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    archive_path = backup_dir / f"rex-backup-{ts}.tar.gz"
+
+    # Exclude the backups directory itself to avoid recursion
+    exclude_dirs = {"backups", ".git", "__pycache__"}
+
+    try:
+        with tarfile.open(str(archive_path), "w:gz") as tar:
+            for item in sorted(config.data_dir.iterdir()):
+                if item.name in exclude_dirs:
+                    continue
+                try:
+                    tar.add(str(item), arcname=item.name)
+                except PermissionError:
+                    typer.echo(f"  (skipped unreadable: {item.name})")
+                except OSError as exc:
+                    typer.echo(f"  (skipped {item.name}: {exc})")
+    except Exception as exc:
+        typer.echo(f"  *whimper* Backup failed: {exc}")
+        # Clean up partial archive
+        with contextlib.suppress(OSError):
+            archive_path.unlink()
+        return
+
+    size_kb = archive_path.stat().st_size // 1024
+    typer.echo(f"  *WOOF!* Backup created: {archive_path} ({size_kb} KB)")
+    # Prune old backups, keep last 5
+    backups = sorted(backup_dir.glob("rex-backup-*.tar.gz"))
+    for old in backups[:-5]:
+        with contextlib.suppress(OSError):
+            old.unlink()
+            typer.echo(f"  (pruned old backup: {old.name})")
 
 
 @app.command()
