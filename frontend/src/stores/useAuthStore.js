@@ -1,7 +1,8 @@
 /**
  * useAuthStore -- Single source of truth for authentication state.
  *
- * Token is held in-memory only (never localStorage) to reduce XSS surface.
+ * Token is stored in localStorage keyed by the API base URL so that
+ * multiple REX instances on different origins do not share tokens.
  * All auth checks should go through this store. The legacy token/setToken/logout
  * in useSystemStore have been removed.
  */
@@ -13,6 +14,15 @@ const SESSION_STATES = {
   AUTHENTICATING: 'authenticating',
   AUTHENTICATED: 'authenticated',
   EXPIRED: 'expired',
+};
+
+/**
+ * Derive a per-instance localStorage key from the API base URL.
+ * Multiple REX dashboards on different origins each get their own token slot.
+ */
+const _tokenKey = () => {
+  const base = import.meta.env.VITE_API_URL || window.location.origin;
+  return `rex-token-${btoa(base).slice(0, 16)}`;
 };
 
 /**
@@ -28,22 +38,37 @@ function _getExpiry(token) {
   }
 }
 
+/**
+ * Try to restore a token from instance-aware localStorage on startup.
+ */
+function _loadPersistedToken() {
+  try {
+    const t = localStorage.getItem(_tokenKey());
+    if (t && typeof t === 'string' && t.trim() !== '') return t;
+  } catch { /* ignore */ }
+  return null;
+}
+
+const _restoredToken = _loadPersistedToken();
+
 const useAuthStore = create((set, get) => ({
-  sessionState: SESSION_STATES.ANONYMOUS,
-  token: null,
+  sessionState: _restoredToken ? SESSION_STATES.AUTHENTICATED : SESSION_STATES.ANONYMOUS,
+  token: _restoredToken,
   error: null,
 
   /**
    * Store a token after successful login.
-   * Keeps token in JS memory -- not localStorage.
+   * Persisted to localStorage keyed by instance URL.
    * Also clears any legacy localStorage token.
    */
   setToken: (token) => {
     localStorage.removeItem('rex_token');
     if (!token || typeof token !== 'string' || token.trim() === '') {
+      try { localStorage.removeItem(_tokenKey()); } catch { /* ignore */ }
       set({ token: null, sessionState: SESSION_STATES.ANONYMOUS, error: 'Blank token rejected' });
       return;
     }
+    try { localStorage.setItem(_tokenKey(), token); } catch { /* ignore */ }
     set({ token, sessionState: SESSION_STATES.AUTHENTICATED, error: null });
   },
 
@@ -56,10 +81,11 @@ const useAuthStore = create((set, get) => ({
   beginLogin: () => set({ sessionState: SESSION_STATES.AUTHENTICATING, error: null }),
 
   /**
-   * Full logout -- wipe token, clear legacy storage, and redirect to /login.
+   * Full logout -- wipe token, clear legacy + instance storage, redirect to /login.
    */
   logout: () => {
     localStorage.removeItem('rex_token');
+    try { localStorage.removeItem(_tokenKey()); } catch { /* ignore */ }
     set({
       token: null,
       sessionState: SESSION_STATES.ANONYMOUS,

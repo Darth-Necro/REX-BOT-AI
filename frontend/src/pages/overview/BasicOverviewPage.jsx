@@ -12,6 +12,11 @@
  */
 import React from 'react';
 import useSystemStore from '../../stores/useSystemStore';
+import useAuthStore from '../../stores/useAuthStore';
+import DegradedBanner from '../../components/DegradedBanner';
+import ActionPanel from '../../components/ActionPanel';
+import ServiceStatus from '../../components/ServiceStatus';
+import RecentActions, { useActionHistory } from '../../components/RecentActions';
 
 /* ---------- helpers ---------- */
 
@@ -157,13 +162,25 @@ export default function BasicOverviewPage() {
     threatsBlocked24h,
     uptimeSeconds,
     recentAlerts,
+    health,
   } = useSystemStore();
+  const token = useAuthStore((s) => s.token);
+  const { actions } = useActionHistory();
 
   const isLoading = bootstrapState === 'idle' || bootstrapState === 'loading';
   const effectivePosture = isLoading ? 'unknown' : threatPosture;
 
+  // Derive degraded-service flags from health data
+  const degradedServices = health ? {
+    redis: health.redis !== 'unhealthy',
+    ollama: health.ollama !== 'unhealthy',
+  } : null;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4 sm:space-y-6">
+      {/* Degraded banner */}
+      {degradedServices && <DegradedBanner services={degradedServices} />}
+
       {/* Header */}
       <h1 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
         Defense Overview
@@ -213,6 +230,15 @@ export default function BasicOverviewPage() {
           Failed to reach REX backend. All values above may be unavailable.
         </div>
       )}
+
+      {/* Service status */}
+      <ServiceStatus />
+
+      {/* Quick actions */}
+      <ActionPanel token={token} />
+
+      {/* Recent actions */}
+      <RecentActions actions={actions} />
 
       {/* Honest disclaimer */}
       <p className="text-[10px] text-slate-700 text-center">

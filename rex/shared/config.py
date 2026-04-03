@@ -171,6 +171,24 @@ class RexConfig(BaseSettings):
         """Path to the TLS certificate directory."""
         return self.data_dir / "certs"
 
+    def is_user_dir(self) -> bool:
+        """Return True if data_dir is under a user's home directory.
+
+        Checks whether the resolved data_dir falls under ``/home/``
+        or the current user's home (e.g. ``/root/``).
+        """
+        import os
+
+        resolved = self.data_dir.resolve()
+        # Under /home/<user>/...
+        if str(resolved).startswith("/home/"):
+            return True
+        # Under the current user's home (covers /root/ etc.)
+        home = Path(os.path.expanduser("~")).resolve()
+        if str(resolved).startswith(str(home) + "/") or resolved == home:
+            return True
+        return False
+
 
 @functools.lru_cache(maxsize=1)
 def get_config() -> RexConfig:

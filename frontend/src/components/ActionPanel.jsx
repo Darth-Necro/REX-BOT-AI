@@ -85,14 +85,7 @@ export default function ActionPanel({ token }) {
           label="Patrol Now"
           requireAuth
           token={token}
-          onClick={() => api.post('/schedule/patrol', { now: true })}
-        />
-        <ActionButton
-          label="Backup"
-          variant="secondary"
-          requireAuth
-          token={token}
-          onClick={() => api.post('/backup')}
+          onClick={() => api.post('/devices/scan', { scan_type: 'deep' })}
         />
         <ActionButton
           label="Privacy Audit"

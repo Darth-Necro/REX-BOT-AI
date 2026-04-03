@@ -134,6 +134,16 @@ def start(
     from rex.shared.config import get_config
     config = get_config()
 
+    # -- Root-vs-user ownership warning --
+    import os
+    if os.geteuid() == 0 and config.is_user_dir():
+        typer.echo(
+            "  WARNING: Running as root with user data directory.\n"
+            "  Files created will be owned by root. Consider using:\n"
+            "    REX_DATA_DIR=/etc/rex-bot-ai  (system mode)\n"
+            "    or run without sudo for user-mode operation.\n"
+        )
+
     if mode != "headless":
         typer.echo(f"  Mode:   {config.mode.value}")
         typer.echo(f"  Start:  --mode {mode}")
@@ -156,6 +166,28 @@ def start(
         print("  Write this down. It will not be shown again.", file=sys.stderr)
         print("  " + "=" * 46, file=sys.stderr)
         print("", file=sys.stderr)
+
+    # -- chown data dir back to SUDO_USER when running as root --
+    sudo_user = os.environ.get("SUDO_USER", "")
+    if os.geteuid() == 0 and sudo_user and config.is_user_dir():
+        import pwd
+        import shutil
+        try:
+            pw = pwd.getpwnam(sudo_user)
+            uid, gid = pw.pw_uid, pw.pw_gid
+            for dirpath, dirnames, filenames in os.walk(str(config.data_dir)):
+                with contextlib.suppress(OSError):
+                    shutil.chown(dirpath, user=uid, group=gid)
+                for fn in filenames:
+                    with contextlib.suppress(OSError):
+                        shutil.chown(os.path.join(dirpath, fn), user=uid, group=gid)
+            logging.getLogger(__name__).info(
+                "Chowned %s back to %s (uid=%d)", config.data_dir, sudo_user, uid
+            )
+        except KeyError:
+            logging.getLogger(__name__).warning(
+                "SUDO_USER=%s not found in passwd; skipping chown", sudo_user
+            )
 
     from rex.core.orchestrator import ServiceOrchestrator
 
@@ -635,6 +667,61 @@ def diag() -> None:
 
 
 @app.command()
+def reset_password() -> None:
+    """Emergency password reset (requires access to data directory).
+
+    Deletes stored credentials so the next ``rex start`` generates a
+    fresh default password and displays it on stderr.
+    """
+    from rex.shared.config import get_config
+
+    config = get_config()
+    creds_file = config.data_dir / ".credentials"
+    removed: list[str] = []
+
+    # Remove plaintext credentials file
+    if creds_file.exists():
+        try:
+            creds_file.unlink()
+            removed.append(str(creds_file))
+        except OSError as exc:
+            typer.echo(f"  *whimper* Cannot remove {creds_file}: {exc}")
+            typer.echo("  Try again with sudo.")
+            raise typer.Exit(code=1) from exc
+
+    # Remove encrypted secrets if SecretsManager is available
+    try:
+        from rex.core.privacy.encryption import SecretsManager
+
+        sm = SecretsManager(config.data_dir)
+        for key in ("jwt_secret", "password_hash"):
+            with contextlib.suppress(Exception):
+                sm.delete_secret(key)
+        removed.append("encrypted secrets")
+    except Exception:
+        pass  # SecretsManager not available -- that is fine
+
+    if removed:
+        typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *WOOF!* Credentials deleted!
+      /         O  """ + ", ".join(removed) + r"""
+     /   (_____/   Run 'rex start' to generate a new password.
+    /_____/   U
+""")
+    else:
+        typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *ruff?* No credentials found to remove.
+      /         O  Data dir: """ + str(config.data_dir) + r"""
+     /   (_____/   The next 'rex start' will create fresh credentials.
+    /_____/   U
+""")
+
+
+@app.command()
 def backup() -> None:
     """Create an immediate backup of REX data."""
     import tarfile
@@ -767,12 +854,18 @@ def _create_desktop_shortcut() -> None:
             desktop = Path.home() / "Desktop"
             desktop.mkdir(exist_ok=True)
 
-    python_path = sys.executable
-    icon_path = (
-        Path(__file__).resolve().parent.parent.parent
-        / "frontend" / "dist" / "rex-icon.svg"
-    )
+    # Locate the launcher script at the repo root (three levels up from this file)
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    launcher_path = repo_root / "rex-launcher.sh"
+    icon_path = repo_root / "frontend" / "dist" / "rex-icon.svg"
     icon_path_str = str(icon_path) if icon_path.exists() else ""
+
+    # Fallback: if the launcher script doesn't exist, use python -m directly
+    python_path = sys.executable
+    if launcher_path.exists():
+        exec_cmd = str(launcher_path)
+    else:
+        exec_cmd = f"{python_path} -m rex.core.cli start"
 
     import platform
     system = platform.system()
@@ -782,7 +875,7 @@ def _create_desktop_shortcut() -> None:
         shortcut.write_text(f"""[Desktop Entry]
 Name=REX-BOT-AI
 Comment=Autonomous AI Security Agent
-Exec={python_path} -m rex.core.cli start
+Exec={exec_cmd}
 Icon={icon_path_str}
 Terminal=true
 Type=Application
@@ -796,17 +889,17 @@ Keywords=security;network;firewall;ai;
         # macOS: create a simple shell script on desktop
         shortcut = desktop / "REX-BOT-AI.command"
         shortcut.write_text(f"""#!/bin/bash
-cd "{Path.cwd()}"
-{python_path} -m rex.core.cli start
+cd "{repo_root}"
+exec "{exec_cmd}"
 """)
         shortcut.chmod(0o755)
         typer.echo(f"  Created: {shortcut}")
 
     elif system == "Windows":
-        # Windows: create a .bat file
+        # Windows: use python -m directly (shell scripts aren't native)
         shortcut = desktop / "REX-BOT-AI.bat"
         shortcut.write_text(f"""@echo off
-cd /d "{Path.cwd()}"
+cd /d "{repo_root}"
 "{python_path}" -m rex.core.cli start
 pause
 """)
@@ -862,6 +955,79 @@ def _check_auth_response(resp: object) -> bool:
         typer.echo("  Not logged in. Run 'rex login' first.")
         return False
     return True
+
+
+def _is_rex_running() -> tuple[bool, int | None]:
+    """Check if REX is already running by inspecting the PID file.
+
+    Returns a tuple of (is_running, pid_or_None).
+    """
+    import os
+    import tempfile
+    from pathlib import Path
+
+    from rex.shared.config import get_config
+
+    config = get_config()
+    pid_paths = [
+        config.data_dir / "rex-bot-ai.pid",
+        Path(tempfile.gettempdir()) / "rex-bot-ai.pid",
+    ]
+
+    for pidfile in pid_paths:
+        if pidfile.exists():
+            try:
+                pid = int(pidfile.read_text().strip())
+                # Check if the process is actually alive
+                os.kill(pid, 0)
+                return True, pid
+            except (ValueError, ProcessLookupError):
+                # Stale PID file or bad content
+                continue
+            except PermissionError:
+                # Process exists but we can't signal it (running as different user)
+                return True, pid
+
+    return False, None
+
+
+@app.command()
+def gui() -> None:
+    """Open the REX dashboard in your browser."""
+    import webbrowser
+
+    from rex.shared.config import get_config
+
+    config = get_config()
+    dashboard_url = _detect_api_url()
+    running, pid = _is_rex_running()
+
+    if running:
+        typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *woof!* REX is already running""" + f" (PID {pid})." + r"""
+      /         O  Opening dashboard in your browser...
+     /   (_____/
+    /_____/   U
+""")
+        try:
+            webbrowser.open(dashboard_url)
+            typer.echo(f"  Dashboard: {dashboard_url}")
+        except Exception as exc:
+            typer.echo(f"  *whimper* Could not open browser: {exc}")
+            typer.echo(f"  Open manually: {dashboard_url}")
+    else:
+        typer.echo(r"""
+        ^
+       / \__
+      (    @\___   *ruff?* REX is not running.
+      /         O
+     /   (_____/   Starting REX in gui mode...
+    /_____/   U
+""")
+        # Delegate to 'rex start --mode gui' by invoking the start command
+        start(log_level="info", mode="gui")
 
 
 def main() -> None:

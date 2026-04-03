@@ -19,8 +19,8 @@ export default function LogViewer() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/health/logs?lines=${lines}&level=${level}`);
-      setLogs(res.data.logs || []);
+      const res = await api.get(`/logs?lines=${lines}&level=${level}`);
+      setLogs(res.data.lines || res.data.logs || []);
       setError(res.data.message || '');
     } catch (e) {
       setError('Cannot fetch logs. Logs may only be available in the terminal.');

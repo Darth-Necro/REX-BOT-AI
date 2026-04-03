@@ -1,7 +1,12 @@
 import React from 'react';
 import useSystemStore from '../../stores/useSystemStore';
+import useAuthStore from '../../stores/useAuthStore';
 import StatCard from '../../components/cards/StatCard';
 import RoboDogCorePanel from '../../components/chrome/RoboDogCorePanel';
+import DegradedBanner from '../../components/DegradedBanner';
+import ActionPanel from '../../components/ActionPanel';
+import ServiceStatus from '../../components/ServiceStatus';
+import RecentActions, { useActionHistory } from '../../components/RecentActions';
 import { colors, radius } from '../../theme/tokens';
 
 /* ------------------------------------------------------------------ */
@@ -129,12 +134,23 @@ export default function AdvancedOverviewPage() {
     threatsBlocked24h,
     uptimeSeconds,
     recentAlerts,
+    health,
   } = useSystemStore();
+  const token = useAuthStore((s) => s.token);
+  const { actions } = useActionHistory();
 
   const isLoading = bootstrapState === 'idle' || bootstrapState === 'loading';
 
+  // Derive degraded-service flags from health data
+  const degradedServices = health ? {
+    redis: health.redis !== 'unhealthy',
+    ollama: health.ollama !== 'unhealthy',
+  } : null;
+
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+      {/* Degraded banner */}
+      {degradedServices && <DegradedBanner services={degradedServices} />}
       {/* ------ Top Row: Health + REX Dog ------ */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left column: health summary + stat cards */}
@@ -220,6 +236,15 @@ export default function AdvancedOverviewPage() {
           </div>
         )}
       </section>
+
+      {/* ------ Service Status ------ */}
+      <ServiceStatus />
+
+      {/* ------ Quick Actions ------ */}
+      <ActionPanel token={token} />
+
+      {/* ------ Recent Actions ------ */}
+      <RecentActions actions={actions} />
 
       {/* ------ Bootstrap Error Banner ------ */}
       {bootstrapState === 'error' && (

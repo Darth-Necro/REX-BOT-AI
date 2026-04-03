@@ -277,7 +277,38 @@ The dashboard and GUI will be available at `http://localhost:8443`.
 
 ## Web GUI (Alpha)
 
-REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed for a basic installation. The GUI is functional for core operations but still under active development -- some pages may have incomplete backend wiring.
+REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed. The GUI supports core operations with Basic and Advanced modes.
+
+### Starting GUI Mode
+
+```bash
+# Auto-detects GUI mode on desktop, CLI mode on SSH/headless
+rex start
+
+# Explicit modes
+rex start --mode gui       # Start backend + open browser
+rex start --mode cli       # Start backend, no browser
+rex start --mode headless  # Start backend, no interactive output
+
+# Open browser to an already-running instance
+rex gui
+```
+
+### First Run
+
+On first launch, the GUI shows a setup wizard that:
+1. Checks your environment (Redis, Ollama, ChromaDB)
+2. Guides you through login with default credentials (`REX-BOT` / `Woof`)
+3. Prompts you to change the default password
+
+### GUI Modes
+
+| Mode | For | Shows |
+|------|-----|-------|
+| **Basic** | Normal users | Dashboard, Devices, Threats, Scheduler, Settings, Diagnostics |
+| **Advanced** | Power users | Everything above + Firewall, Plugins, Knowledge Base, Network Map |
+
+Toggle between modes using the switch in the sidebar.
 
 ### Accessing the GUI
 
@@ -355,7 +386,8 @@ docker compose down
 The CLI is the expert and automation interface. All actions available in the GUI can also be performed via CLI:
 
 ```bash
-rex start      # Start all services + open browser GUI (blocks until Ctrl+C)
+rex start      # Start all services (auto-detects GUI/CLI mode)
+rex gui        # Open dashboard in browser (starts REX if not running)
 rex stop       # Stop all services (polls for actual exit, reports if hung)
 rex setup      # First-time setup: create desktop shortcut
 rex status     # Show service health

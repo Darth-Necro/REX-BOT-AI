@@ -3,10 +3,22 @@
  *
  * Toasts auto-dismiss after a configurable duration.
  * uiMode syncs with useSystemStore.mode but provides local-first control.
+ * viewMode is persisted to localStorage independently of uiMode.
  */
 import { create } from 'zustand';
 
 let toastIdCounter = 0;
+
+const VIEW_MODE_KEY = 'rex-view-mode';
+
+/** Read persisted viewMode from localStorage, defaulting to 'basic'. */
+function _loadViewMode() {
+  try {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored === 'basic' || stored === 'advanced') return stored;
+  } catch { /* ignore */ }
+  return 'basic';
+}
 
 const TOAST_DEFAULTS = {
   success: { duration: 5000, icon: 'check' },
@@ -95,6 +107,21 @@ const useUiStore = create((set, get) => ({
 
   toggleUiMode: () =>
     set((s) => ({ uiMode: s.uiMode === 'basic' ? 'advanced' : 'basic' })),
+
+  // --- View mode (persisted to localStorage) ---
+  viewMode: _loadViewMode(), // 'basic' | 'advanced'
+
+  setViewMode: (mode) => {
+    if (mode !== 'basic' && mode !== 'advanced') return;
+    try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
+    set({ viewMode: mode });
+  },
+
+  toggleViewMode: () => {
+    const next = get().viewMode === 'basic' ? 'advanced' : 'basic';
+    try { localStorage.setItem(VIEW_MODE_KEY, next); } catch { /* ignore */ }
+    set({ viewMode: next });
+  },
 }));
 
 export default useUiStore;

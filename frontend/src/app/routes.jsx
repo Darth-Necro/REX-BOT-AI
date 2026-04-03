@@ -19,13 +19,15 @@ import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../stores/useAuthStore';
 import useSystemStore from '../stores/useSystemStore';
+import useUiStore from '../stores/useUiStore';
 import LoginPage from '../pages/auth/LoginPage';
 import AppShell from '../layouts/AppShell';
 import AlphaBanner from '../components/AlphaBanner';
 
-/* Setup wizard + change-password (lazy-loaded, only needed on first run / settings) */
+/* Setup wizard + change-password + reset-password (lazy-loaded) */
 const SetupWizard = lazy(() => import('../pages/setup/SetupWizard'));
 const ChangePasswordPage = lazy(() => import('../pages/auth/ChangePasswordPage'));
+const ResetPasswordPage = lazy(() => import('../pages/auth/ResetPasswordPage'));
 
 /* Lazy-load page components for code-splitting */
 const DevicesPage = lazy(() => import('../pages/devices/DevicesPage'));
@@ -170,8 +172,9 @@ function AuthenticatedShell() {
           <Route path="/diagnostics/services" element={<ServiceHealthPage />} />
           {/* Legacy chat route -- falls back to overview until chat page exists */}
           <Route path="/chat" element={<><AlphaBanner feature="Chat" /><AdvancedOverviewPage /></>} />
-          {/* Password change (auth-gated, inside shell) */}
+          {/* Password change / reset (auth-gated, inside shell) */}
           <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           {/* Root redirects to overview */}
           <Route path="/" element={<Navigate to="/overview" replace />} />
           {/* Catch-all */}
@@ -185,7 +188,9 @@ function AuthenticatedShell() {
 /* ---------- Overview page (mode-aware) ---------- */
 
 function OverviewPage() {
-  const mode = useSystemStore((s) => s.mode);
+  const viewMode = useUiStore((s) => s.viewMode);
+  const systemMode = useSystemStore((s) => s.mode);
+  const mode = viewMode || systemMode || 'advanced';
   return mode === 'basic' ? <BasicOverviewPage /> : <AdvancedOverviewPage />;
 }
 

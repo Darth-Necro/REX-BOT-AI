@@ -9,6 +9,7 @@ import React, { useEffect, useCallback, useMemo } from 'react';
 import useNetworkStore from '../../stores/useNetworkStore';
 import NetworkMap from '../../components/network/NetworkMap';
 import NetworkNodeCard from '../../components/network/NetworkNodeCard';
+import AlphaBanner from '../../components/AlphaBanner';
 import Badge from '../../components/primitives/Badge';
 import Button from '../../components/primitives/Button';
 import { timeAgo } from '../../lib/formatters';
@@ -94,6 +95,9 @@ export default function NetworkMapPage() {
     <div className="flex h-full">
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+        {/* Alpha banner */}
+        <AlphaBanner feature="Network Map" />
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>

@@ -14,6 +14,7 @@
 import React, { useRef, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import useModeGuard from '../hooks/useModeGuard';
+import useUiStore from '../stores/useUiStore';
 
 /* ---------- icon components ---------- */
 
@@ -129,25 +130,34 @@ function OnboardingIcon({ className }) {
  * 'basic' items appear in both modes; 'advanced' items only in advanced mode.
  */
 const NAV_ITEMS = [
-  { to: '/overview',              label: 'Overview',        Icon: OverviewIcon,       disabled: false, mode: 'basic' },
+  { to: '/overview',              label: 'Dashboard',       Icon: OverviewIcon,       disabled: false, mode: 'basic' },
+  { to: '/devices',               label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'basic' },
+  { to: '/threats',               label: 'Threats',         Icon: ThreatsIcon,        disabled: false, mode: 'basic' },
+  { to: '/scheduler',             label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'basic' },
+  { to: '/diagnostics',           label: 'Diagnostics',     Icon: DiagnosticsIcon,    disabled: false, mode: 'basic' },
+  { to: '/settings',              label: 'Settings',        Icon: SettingsIcon,       disabled: false, mode: 'basic' },
   { to: '/network',               label: 'Network',         Icon: NetworkIcon,        disabled: false, mode: 'advanced' },
-  { to: '/devices',               label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'advanced' },
-  { to: '/threats',               label: 'Threats',          Icon: ThreatsIcon,        disabled: false, mode: 'advanced' },
-  { to: '/firewall',              label: 'Firewall',         Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
+  { to: '/firewall',              label: 'Firewall',        Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
   { to: '/knowledge',             label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false, mode: 'advanced' },
-  { to: '/scheduler',             label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'advanced' },
   { to: '/plugins',               label: 'Plugins',         Icon: PluginsIcon,        disabled: false, mode: 'advanced' },
-  { to: '/diagnostics',           label: 'Diagnostics',     Icon: DiagnosticsIcon,    disabled: false, mode: 'advanced' },
   { to: '/diagnostics/services',  label: 'Services',        Icon: ServiceHealthIcon,  disabled: false, mode: 'advanced' },
   { to: '/privacy',               label: 'Privacy',         Icon: PrivacyIcon,        disabled: false, mode: 'advanced' },
-  { to: '/settings',              label: 'Settings',        Icon: SettingsIcon,       disabled: false, mode: 'basic' },
   { to: '/onboarding',            label: 'Setup',           Icon: OnboardingIcon,     disabled: false, mode: 'basic' },
 ];
 
 /* ---------- component ---------- */
 
+function ModeToggleIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+    </svg>
+  );
+}
+
 export default function SidebarNav() {
   const { mode, isBasic } = useModeGuard();
+  const toggleViewMode = useUiStore((s) => s.toggleViewMode);
   const linkRefs = useRef([]);
 
   // Filter nav items based on mode
@@ -254,14 +264,25 @@ export default function SidebarNav() {
         })}
       </div>
 
-      {/* Mode indicator for basic mode */}
-      {isBasic && (
-        <div className="px-4 py-2">
-          <span className="text-[10px] text-slate-600">
+      {/* Mode toggle button */}
+      <div className="border-t border-rex-card px-3 py-3">
+        <button
+          onClick={toggleViewMode}
+          className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-xs
+                     text-rex-muted hover:text-cyan-400 hover:bg-rex-card/30
+                     transition-colors focus-visible:outline-none focus-visible:ring-2
+                     focus-visible:ring-cyan-400 focus-visible:ring-inset"
+          title={isBasic ? 'Switch to Advanced mode' : 'Switch to Basic mode'}
+        >
+          <ModeToggleIcon className="w-4 h-4" />
+          <span className="font-medium">{isBasic ? 'Advanced mode' : 'Basic mode'}</span>
+        </button>
+        {isBasic && (
+          <p className="text-[10px] text-slate-600 mt-1 px-2">
             Basic mode -- fewer options shown
-          </span>
-        </div>
-      )}
+          </p>
+        )}
+      </div>
 
       {/* Bottom section */}
       <div className="border-t border-rex-card px-4 py-3">

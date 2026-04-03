@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
+from rex.dashboard.auth import hash_password
 from rex.dashboard.deps import get_auth, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -48,3 +50,34 @@ async def change_password(
             detail=str(exc),
         ) from exc
     return {"status": "changed"}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    new_password: str = Body(...),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Reset the admin password without requiring the old password.
+
+    Only available to an already-authenticated admin (useful when the old
+    password was forgotten but a valid session token still exists).
+    """
+    auth = get_auth()
+    if len(new_password) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 12 characters",
+        )
+    # Directly overwrite the password hash and rotate the JWT secret
+    auth._password_hash = hash_password(new_password)
+    auth._jwt_secret = secrets.token_hex(32)
+    stored = auth._store_to_secrets_manager()
+    if not stored:
+        from rex.shared.fileutil import atomic_write_json
+
+        atomic_write_json(
+            auth._creds_file,
+            {"password_hash": auth._password_hash},
+            chmod=0o600,
+        )
+    return {"status": "reset"}
