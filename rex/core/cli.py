@@ -132,6 +132,24 @@ def start(
 
     from rex.core.orchestrator import ServiceOrchestrator
 
+    # Auto-open browser after services start
+    def _open_browser_delayed() -> None:
+        """Open browser to GUI after a short delay for services to bind."""
+        import threading
+        import webbrowser
+        def _open() -> None:
+            import time
+            time.sleep(3)  # Wait for dashboard to bind
+            port = config.dashboard_port
+            url = f"http://localhost:{port}"
+            with contextlib.suppress(Exception):
+                webbrowser.open(url)
+        threading.Thread(target=_open, daemon=True).start()
+
+    _open_browser_delayed()
+    typer.echo(f"  Dashboard: http://localhost:{config.dashboard_port}")
+    typer.echo("")
+
     async def _run() -> None:
         orch = ServiceOrchestrator()
         await orch.initialize()
@@ -656,6 +674,98 @@ def privacy(
     auditor = PrivacyAuditor(config=config, pal=pal)
     report = auditor.generate_privacy_report()
     typer.echo(report)
+
+
+@app.command()
+def setup() -> None:
+    """First-time setup: create desktop shortcut and configure REX."""
+    typer.echo(r"""
+        ^
+       / \__
+      (    @\___   REX-BOT-AI Setup
+      /         O  *woof!* Let's get you set up!
+     /   (_____/
+    /_____/   U
+""")
+
+    # Ask about desktop shortcut
+    create_shortcut = typer.confirm(
+        "  Create a desktop shortcut for REX?", default=True
+    )
+    if create_shortcut:
+        _create_desktop_shortcut()
+
+    typer.echo("")
+    typer.echo("  Setup complete! Start REX with: rex start")
+    typer.echo("")
+
+
+def _create_desktop_shortcut() -> None:
+    """Create a desktop shortcut/launcher for REX."""
+    import os
+    import sys
+    from pathlib import Path
+
+    desktop = Path.home() / "Desktop"
+    if not desktop.exists():
+        # Try XDG desktop dir
+        xdg_desktop = os.environ.get("XDG_DESKTOP_DIR", "")
+        if xdg_desktop:
+            desktop = Path(xdg_desktop)
+        else:
+            desktop = Path.home() / "Desktop"
+            desktop.mkdir(exist_ok=True)
+
+    python_path = sys.executable
+    icon_path = (
+        Path(__file__).resolve().parent.parent.parent
+        / "frontend" / "dist" / "rex-icon.svg"
+    )
+    icon_path_str = str(icon_path) if icon_path.exists() else ""
+
+    import platform
+    system = platform.system()
+
+    if system == "Linux":
+        shortcut = desktop / "rex-bot-ai.desktop"
+        shortcut.write_text(f"""[Desktop Entry]
+Name=REX-BOT-AI
+Comment=Autonomous AI Security Agent
+Exec={python_path} -m rex.core.cli start
+Icon={icon_path_str}
+Terminal=true
+Type=Application
+Categories=Security;Network;System;
+Keywords=security;network;firewall;ai;
+""")
+        shortcut.chmod(0o755)
+        typer.echo(f"  Created: {shortcut}")
+
+    elif system == "Darwin":
+        # macOS: create a simple shell script on desktop
+        shortcut = desktop / "REX-BOT-AI.command"
+        shortcut.write_text(f"""#!/bin/bash
+cd "{Path.cwd()}"
+{python_path} -m rex.core.cli start
+""")
+        shortcut.chmod(0o755)
+        typer.echo(f"  Created: {shortcut}")
+
+    elif system == "Windows":
+        # Windows: create a .bat file
+        shortcut = desktop / "REX-BOT-AI.bat"
+        shortcut.write_text(f"""@echo off
+cd /d "{Path.cwd()}"
+"{python_path}" -m rex.core.cli start
+pause
+""")
+        typer.echo(f"  Created: {shortcut}")
+
+    else:
+        typer.echo("  Could not create shortcut for this platform.")
+        return
+
+    typer.echo("  *WOOF!* Desktop shortcut created!")
 
 
 def _get_token() -> str:

@@ -1,4 +1,4 @@
-import{j as e,r as y,b as O}from"./index-Bv5TY95G.js";import{b as h}from"./vendor-Bafxjlbx.js";import"./state-BPa8-Yex.js";function b({label:t,value:s,delta:a=null,icon:l=null}){let r="text-slate-400",i="";if(a!=null){const n=Number(a);n>0?(r="text-emerald-400",i="+"):n<0&&(r="text-red-400")}return e.jsxs("div",{className:`
+import{j as e,r as y,b as O}from"./index-B3iVNPXW.js";import{b as h}from"./vendor-Bafxjlbx.js";import"./state-BPa8-Yex.js";function b({label:t,value:s,delta:a=null,icon:l=null}){let r="text-slate-400",i="";if(a!=null){const n=Number(a);n>0?(r="text-emerald-400",i="+"):n<0&&(r="text-red-400")}return e.jsxs("div",{className:`
         relative overflow-hidden
         ${y.card} border border-white/[0.06]
         bg-gradient-to-br from-[#0B1020] to-[#11192C]

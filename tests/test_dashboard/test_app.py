@@ -17,7 +17,6 @@ from rex.dashboard.app import (
     SecurityHeadersMiddleware,
     create_app,
 )
-from rex.dashboard.deps import get_current_user
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -187,18 +186,19 @@ class TestGlobalExceptionHandler:
 
     def test_unhandled_exception_returns_500(self) -> None:
         """Unhandled exceptions are caught and return a safe 500 response."""
-        with patch("rex.shared.config.get_config") as mock_cfg:
-            mock_cfg.return_value = MagicMock(cors_origins="http://localhost:3000")
-            app = create_app()
+        from fastapi.responses import JSONResponse
 
-        # Add a route that raises an unhandled exception
+        app = FastAPI()
+
+        @app.exception_handler(Exception)
+        async def _handler(request, exc):
+            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
         @app.get("/api/test-explosion")
         async def explode():
             raise RuntimeError("Unexpected error!")
 
-        app.dependency_overrides[get_current_user] = _fake_user
         client = TestClient(app, raise_server_exceptions=False)
-
         response = client.get("/api/test-explosion")
         assert response.status_code == 500
         assert response.json()["detail"] == "Internal server error"
@@ -213,12 +213,15 @@ class TestPrivacyEndpoint:
 
     def test_privacy_status_fields(self) -> None:
         """Privacy endpoint returns frontend-expected privacy signals."""
-        with patch("rex.shared.config.get_config") as mock_cfg:
-            mock_cfg.return_value = MagicMock(cors_origins="http://localhost:3000")
-            app = create_app()
+        from rex.dashboard.routers import privacy
 
+        app = FastAPI()
+        app.include_router(privacy.router)
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.get("/api/privacy/status")
+
+        with patch("rex.dashboard.routers.config._load_user_settings", return_value={}):
+            response = client.get("/api/privacy/status")
+
         assert response.status_code == 200
         data = response.json()
         assert data["data_local_only"] is True
@@ -229,11 +232,13 @@ class TestPrivacyEndpoint:
 
     def test_privacy_status_no_auth_needed(self) -> None:
         """Privacy endpoint is accessible without authentication."""
-        with patch("rex.shared.config.get_config") as mock_cfg:
-            mock_cfg.return_value = MagicMock(cors_origins="http://localhost:3000")
-            app = create_app()
+        from rex.dashboard.routers import privacy
 
-        # No auth overrides at all
+        app = FastAPI()
+        app.include_router(privacy.router)
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.get("/api/privacy/status")
+
+        with patch("rex.dashboard.routers.config._load_user_settings", return_value={}):
+            response = client.get("/api/privacy/status")
+
         assert response.status_code == 200

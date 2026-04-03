@@ -415,34 +415,4 @@ def create_app() -> FastAPI:
             content={"detail": "Internal server error"},
         )
 
-    # Privacy status endpoint (no auth, limited info)
-    @app.get("/api/privacy/status")
-    async def privacy_status() -> dict:
-        """Public privacy status -- safe to expose without auth.
-
-        Returns design-level privacy signals in the shape the frontend
-        expects: ``signals``, ``retention``, ``data_local_only``,
-        ``encryption_at_rest``, ``telemetry_enabled``, ``capabilities``.
-        For a full runtime audit, use ``GET /api/privacy/audit`` (auth required).
-        """
-        # Retention days from user settings (if available)
-        try:
-            from rex.dashboard.routers.config import _load_user_settings
-            retention_days = _load_user_settings().get("data_retention_days", 90)
-        except Exception:
-            retention_days = 90
-
-        return {
-            "signals": [
-                {"key": "local_only", "label": "All data stored locally", "ok": True},
-                {"key": "llm_local", "label": "LLM runs on localhost", "ok": True},
-                {"key": "no_telemetry", "label": "No telemetry sent", "ok": True},
-            ],
-            "retention": {"policy": "local_only", "days": retention_days},
-            "data_local_only": True,
-            "encryption_at_rest": False,
-            "telemetry_enabled": False,
-            "capabilities": {"audit": True},
-        }
-
     return app

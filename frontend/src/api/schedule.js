@@ -30,3 +30,21 @@ export async function updateSchedule(schedule) {
   const res = await api.put('/schedule', schedule);
   return res.data;
 }
+
+/** POST /api/schedule/patrol - trigger or schedule a patrol */
+export async function triggerPatrol(options = {}) {
+  const res = await api.post('/schedule/patrol', options);
+  return res.data;
+}
+
+/** POST /api/schedule/sleep - request sleep mode */
+export async function requestSleep() {
+  const res = await api.post('/schedule/sleep');
+  return res.data;
+}
+
+/** POST /api/schedule/wake - request wake mode */
+export async function requestWake() {
+  const res = await api.post('/schedule/wake');
+  return res.data;
+}
