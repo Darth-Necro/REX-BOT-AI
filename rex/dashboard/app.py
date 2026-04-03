@@ -284,11 +284,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield  # App runs here
 
-    # Shutdown
+    # Shutdown -- must be cancellation-safe
     try:
         bus_instance = deps._bus_instance
         if bus_instance:
             await bus_instance.disconnect()
+    except asyncio.CancelledError:
+        logger.debug("Bus disconnect cancelled during shutdown")
     except Exception:
         logger.debug("Error disconnecting event bus during shutdown", exc_info=True)
     logger.info("Dashboard shutdown complete")

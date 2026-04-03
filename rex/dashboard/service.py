@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import socket
 from typing import Any
 
 import uvicorn
@@ -21,6 +23,17 @@ from rex.shared.service import BaseService
 logger = logging.getLogger(__name__)
 
 
+def _port_is_available(host: str, port: int) -> bool:
+    """Return True if *port* on *host* is free to bind."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
 class DashboardService(BaseService):
     """Serves the REX dashboard API and static frontend via uvicorn."""
 
@@ -31,6 +44,17 @@ class DashboardService(BaseService):
     async def _on_start(self) -> None:
         """Start uvicorn in a background task."""
         from rex.dashboard.app import create_app
+
+        host = self.config.dashboard_host
+        port = self.config.dashboard_port
+
+        # Fail fast if port is already in use
+        if not _port_is_available(host, port):
+            raise OSError(
+                f"Port {port} is already in use on {host}. "
+                f"Kill the existing process (sudo fuser -k {port}/tcp) "
+                f"or set REX_DASHBOARD_PORT to a different port."
+            )
 
         app = create_app()
 
@@ -51,8 +75,8 @@ class DashboardService(BaseService):
 
         config = uvicorn.Config(
             app,
-            host=self.config.dashboard_host,
-            port=self.config.dashboard_port,
+            host=host,
+            port=port,
             log_level=self.config.log_level,
             access_log=False,
             **ssl_kwargs,
@@ -63,15 +87,18 @@ class DashboardService(BaseService):
         scheme = "https" if ssl_kwargs else "http"
         logger.info(
             "Dashboard serving on %s://%s:%d",
-            scheme,
-            self.config.dashboard_host,
-            self.config.dashboard_port,
+            scheme, host, port,
         )
 
     async def _on_stop(self) -> None:
         """Shutdown uvicorn."""
         if hasattr(self, "_server"):
             self._server.should_exit = True
+            # Give uvicorn a moment to shut down cleanly
+            if hasattr(self, "_serve_task") and not self._serve_task.done():
+                with asyncio.timeout(5), \
+                     contextlib.suppress(asyncio.CancelledError, OSError):
+                    await self._serve_task
         logger.info("Dashboard stopped")
 
     async def _consume_loop(self) -> None:

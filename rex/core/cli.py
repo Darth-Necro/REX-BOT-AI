@@ -55,9 +55,23 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-# Default to HTTPS -- REX uses self-signed TLS on port 8443.
-# Override via REX_API_URL env var if needed.
-_DEFAULT_API_URL = _os.environ.get("REX_API_URL", "").strip() or "https://localhost:8443"
+# Default API URL.  If TLS certs are present the dashboard serves HTTPS;
+# otherwise it falls back to HTTP.  Auto-detect by checking the certs dir.
+def _detect_api_url() -> str:
+    """Return the dashboard URL, auto-detecting HTTP vs HTTPS."""
+    explicit = _os.environ.get("REX_API_URL", "").strip()
+    if explicit:
+        return explicit
+    # Check whether TLS certs exist
+    from pathlib import Path
+    data_dir = _os.environ.get("REX_DATA_DIR", "/etc/rex-bot-ai")
+    port = _os.environ.get("REX_DASHBOARD_PORT", "8443")
+    certs_dir = Path(data_dir) / "certs"
+    if (certs_dir / "cert.pem").exists() and (certs_dir / "key.pem").exists():
+        return f"https://localhost:{port}"
+    return f"http://localhost:{port}"
+
+_DEFAULT_API_URL = _detect_api_url()
 
 
 def _setup_logging(level: str = "info") -> None:

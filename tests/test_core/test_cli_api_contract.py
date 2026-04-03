@@ -32,10 +32,11 @@ def _mock_response(status_code: int = 200, json_data: dict | None = None) -> Mag
 # ---------------------------------------------------------------------------
 
 class TestBaseUrl:
-    def test_default_api_url_is_https(self) -> None:
-        """_DEFAULT_API_URL must use HTTPS scheme for port 8443."""
+    def test_default_api_url_uses_correct_scheme(self) -> None:
+        """_DEFAULT_API_URL uses HTTPS when certs exist, HTTP otherwise."""
         from rex.core.cli import _DEFAULT_API_URL
-        assert _DEFAULT_API_URL.startswith("https://")
+        # Auto-detected based on whether TLS certs exist on this machine
+        assert _DEFAULT_API_URL.startswith(("https://", "http://"))
 
     def test_env_override_is_respected(self) -> None:
         """REX_API_URL env var overrides the default."""

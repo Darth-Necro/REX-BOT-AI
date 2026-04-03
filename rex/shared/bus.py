@@ -110,11 +110,15 @@ class EventBus:
             )
 
     async def disconnect(self) -> None:
-        """Gracefully close Redis and WAL connections."""
+        """Gracefully close Redis and WAL connections.
+
+        Cancellation-safe: handles CancelledError during drain/close
+        without propagating or leaving resources open.
+        """
         self._running = False
         if self._drain_task is not None and not self._drain_task.done():
             self._drain_task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(BaseException):
                 await self._drain_task
             self._drain_task = None
         if self._redis is not None:

@@ -282,7 +282,11 @@ class ServiceOrchestrator:
         self._running = True
 
         # Write PID file for CLI `rex stop` command
-        _pid_path = "/tmp/rex-bot-ai.pid"  # noqa: S108
+        import tempfile
+        if self._config is not None:
+            _pid_path = str(self._config.data_dir / "rex-bot-ai.pid")
+        else:
+            _pid_path = tempfile.gettempdir() + "/rex-bot-ai.pid"
         try:
             import os
             with open(_pid_path, "w") as f:
