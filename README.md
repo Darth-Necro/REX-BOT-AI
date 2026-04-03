@@ -271,9 +271,56 @@ docker compose ps
 docker compose logs -f rex
 ```
 
-The dashboard will be available at `http://localhost:8443`.
+The dashboard and GUI will be available at `http://localhost:8443`.
 
-### Verify REX is running
+---
+
+## Web GUI (Default Interface)
+
+REX ships with a built-in browser-based GUI. This is the **default and recommended way** to operate REX. The GUI is served automatically by the dashboard service -- no separate build step is needed.
+
+### Accessing the GUI
+
+After starting REX, open your browser to:
+
+```
+http://localhost:8443
+```
+
+Log in with the default credentials (`REX-BOT` / `Woof`), then change your password.
+
+### GUI Pages
+
+| Page | Description |
+|------|-------------|
+| **Dashboard** | Overall status, device count, threats, protection mode, service health |
+| **Devices** | Network device inventory, trust levels, device details |
+| **Threats** | Threat events, investigations, severity breakdown |
+| **Firewall** | Active firewall rules, rule builder |
+| **Scheduler** | Patrol schedules, scan jobs, cron management |
+| **Privacy** | Privacy audit, data inventory, encryption status |
+| **Plugins** | Installed and bundled plugins |
+| **Network Map** | Visual network topology |
+| **Knowledge Base** | REX's learned knowledge, version history |
+| **Settings** | Configuration, notifications, about |
+| **Diagnostics** | Service health details, system info |
+| **Onboarding** | First-run setup wizard |
+
+### Rebuilding the Frontend (optional)
+
+The compiled GUI is included in the repository. If you modify the React source code in `frontend/src/`, rebuild with:
+
+```bash
+cd frontend
+npm install
+node node_modules/vite/bin/vite.js build
+```
+
+This produces `frontend/dist/` which the dashboard serves automatically.
+
+---
+
+## Verify REX is Running
 
 In a separate terminal:
 
@@ -287,11 +334,13 @@ python -m rex.core.cli status
 REX_API_URL=http://127.0.0.1:8443 python -m rex.core.cli status
 ```
 
+Or just open `http://localhost:8443` in your browser.
+
 ### Stopping REX
 
 ```bash
-# Graceful stop
-python -m rex.core.cli stop
+# Graceful stop (use sudo if REX was started with sudo)
+sudo .venv/bin/python -m rex.core.cli stop
 
 # Or Ctrl+C in the terminal where REX is running
 
@@ -301,7 +350,9 @@ docker compose down
 
 ---
 
-## CLI Commands
+## CLI Commands (Advanced / Headless)
+
+The CLI is the expert and automation interface. All actions available in the GUI can also be performed via CLI:
 
 ```bash
 rex start      # Start all services (blocks until Ctrl+C)
