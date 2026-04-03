@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -104,6 +105,76 @@ class TestDashboardServiceOnStop:
 
         # Should not raise
         await svc._on_stop()
+
+    @pytest.mark.asyncio
+    async def test_on_stop_uses_async_timeout(self, config, mock_bus) -> None:
+        """Regression: _on_stop must use `async with asyncio.timeout()`.
+
+        A previous bug used `with asyncio.timeout()` (sync context manager)
+        which raised TypeError at runtime and left the dashboard port bound.
+        """
+        import inspect
+
+        from rex.dashboard.service import DashboardService
+
+        source = inspect.getsource(DashboardService._on_stop)
+        # Must NOT contain bare `with asyncio.timeout` (without async)
+        # Split by lines and check each line
+        for line in source.split("\n"):
+            stripped = line.strip()
+            if "asyncio.timeout" in stripped and stripped.startswith("with "):
+                pytest.fail(
+                    "DashboardService._on_stop uses 'with asyncio.timeout()' "
+                    "instead of 'async with asyncio.timeout()'. "
+                    "This causes TypeError at runtime."
+                )
+
+    @pytest.mark.asyncio
+    async def test_on_stop_awaits_serve_task(self, config, mock_bus) -> None:
+        """_on_stop waits for the serve task to complete."""
+        from rex.dashboard.service import DashboardService
+
+        svc = DashboardService(config, mock_bus)
+        mock_server = MagicMock()
+        mock_server.should_exit = False
+        svc._server = mock_server
+
+        # Create a task that completes quickly
+        async def _quick():
+            await asyncio.sleep(0.01)
+
+        svc._serve_task = asyncio.create_task(_quick())
+        svc._tasks = [svc._serve_task]
+
+        await svc._on_stop()
+
+        assert mock_server.should_exit is True
+        assert svc._serve_task.done()
+
+    @pytest.mark.asyncio
+    async def test_on_stop_handles_slow_serve_task(self, config, mock_bus) -> None:
+        """_on_stop handles a serve task that takes longer than timeout."""
+        from rex.dashboard.service import DashboardService
+
+        svc = DashboardService(config, mock_bus)
+        mock_server = MagicMock()
+        mock_server.should_exit = False
+        svc._server = mock_server
+
+        # Create a task that would take forever
+        async def _slow():
+            await asyncio.sleep(999)
+
+        svc._serve_task = asyncio.create_task(_slow())
+        svc._tasks = [svc._serve_task]
+
+        # Should not hang -- timeout should kick in
+        await asyncio.wait_for(svc._on_stop(), timeout=10)
+
+        assert mock_server.should_exit is True
+        svc._serve_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await svc._serve_task
 
 
 # ------------------------------------------------------------------

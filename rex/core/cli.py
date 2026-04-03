@@ -194,7 +194,28 @@ def stop() -> None:
                 os.unlink(pidfile)
             return
         typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
-        typer.echo("  *woof* ... going down...")
+
+        # Poll for actual exit (up to 15 seconds)
+        import time
+        for i in range(15):
+            time.sleep(1)
+            try:
+                os.kill(pid, 0)  # Check if process exists
+            except ProcessLookupError:
+                typer.echo("  *woof* REX stopped successfully.")
+                with contextlib.suppress(OSError):
+                    os.unlink(pidfile)
+                return
+            except PermissionError:
+                pass  # Process exists but we can't signal it
+            if i == 4:
+                typer.echo("  ... still shutting down ...")
+
+        # Process didn't exit
+        typer.echo(
+            f"  *whimper* REX (PID {pid}) is still running after 15 seconds.\n"
+            f"  Force kill with: sudo kill -9 {pid}"
+        )
     else:
         typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
 

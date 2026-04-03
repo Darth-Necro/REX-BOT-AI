@@ -275,9 +275,9 @@ The dashboard and GUI will be available at `http://localhost:8443`.
 
 ---
 
-## Web GUI (Default Interface)
+## Web GUI (Alpha)
 
-REX ships with a built-in browser-based GUI. This is the **default and recommended way** to operate REX. The GUI is served automatically by the dashboard service -- no separate build step is needed.
+REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed for a basic installation. The GUI is functional for core operations but still under active development -- some pages may have incomplete backend wiring.
 
 ### Accessing the GUI
 
@@ -355,8 +355,9 @@ docker compose down
 The CLI is the expert and automation interface. All actions available in the GUI can also be performed via CLI:
 
 ```bash
-rex start      # Start all services (blocks until Ctrl+C)
-rex stop       # Stop all services gracefully
+rex start      # Start all services + open browser GUI (blocks until Ctrl+C)
+rex stop       # Stop all services (polls for actual exit, reports if hung)
+rex setup      # First-time setup: create desktop shortcut
 rex status     # Show service health
 rex scan       # Trigger manual network scan
 rex sleep      # Put REX into alert-sleep mode
@@ -389,7 +390,7 @@ rex version    # Print version string
 | Privacy/encryption module | Working -- Fernet secrets, audit tools |
 | Agent security (scope, sanitizers) | Working -- prompt injection defense (44 patterns), IP normalization, action whitelist |
 | Dashboard API (FastAPI) | Working -- 11 routers, 43 endpoints, typed event publishing |
-| Dashboard frontend (React) | **Partial** -- fetches real state on mount, WebSocket sync wired |
+| Dashboard frontend (React) | **Alpha** -- compiled and served, pages for login/devices/threats/firewall/scheduler/privacy/plugins/diagnostics/settings/network/KB/onboarding. Some pages may have incomplete backend wiring. |
 | Notification channels | **Partial** -- channel classes exist, not integration-tested |
 | Plugin system | **Minimal** -- SDK defined, sandbox is a dict not Docker |
 | Orchestrator | Working -- per-service bus ownership, health monitor, auto-restart |
