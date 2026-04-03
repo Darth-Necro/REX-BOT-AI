@@ -241,6 +241,11 @@ class EventBus:
                     count=10,
                     block=5000,
                 )
+            except (aioredis.TimeoutError, TimeoutError) as exc:
+                # Idle read timeouts are normal when no messages arrive
+                # within the block window. Log at debug, not warning.
+                logger.debug("XREADGROUP idle timeout: %s", exc)
+                continue
             except (ConnectionError, OSError, aioredis.RedisError) as exc:
                 logger.warning("XREADGROUP error: %s — retrying in 2s", exc)
                 await asyncio.sleep(2)
