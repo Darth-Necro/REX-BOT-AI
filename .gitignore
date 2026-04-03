@@ -154,7 +154,7 @@ scans/
 *.cap
 
 # Dashboard build artifacts
-frontend/dist/
+!frontend/dist/
 frontend/build/
 frontend/.next/
 
