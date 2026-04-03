@@ -84,6 +84,8 @@ class EyesService(BaseService):
 
         # Background task handles
         self._bg_tasks: list[asyncio.Task[None]] = []
+        # Concurrency guard: prevents overlapping scan cycles
+        self._scan_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
     # BaseService abstract implementation
@@ -218,7 +220,19 @@ class EyesService(BaseService):
                 await asyncio.sleep(min(30, self.config.scan_interval))
 
     async def _run_scan_cycle(self) -> None:
-        """Execute a single scan-enrich-update-publish cycle."""
+        """Execute a single scan-enrich-update-publish cycle.
+
+        Uses a lock to prevent overlapping scan cycles.  If a scan is
+        already in progress, the duplicate trigger is silently skipped.
+        """
+        if self._scan_lock.locked():
+            self._log.debug("Scan already in progress, skipping duplicate trigger")
+            return
+        async with self._scan_lock:
+            await self._run_scan_cycle_inner()
+
+    async def _run_scan_cycle_inner(self) -> None:
+        """Inner scan cycle (called under _scan_lock)."""
         assert self._scanner is not None
         assert self._fingerprinter is not None
         assert self._device_store is not None

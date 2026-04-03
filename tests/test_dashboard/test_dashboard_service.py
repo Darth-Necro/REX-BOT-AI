@@ -39,7 +39,8 @@ class TestDashboardServiceOnStart:
         mock_server.serve = AsyncMock()
 
         # create_app is imported lazily inside _on_start from rex.dashboard.app
-        with patch("rex.dashboard.app.create_app", return_value=mock_app) as mock_create, \
+        with patch("rex.dashboard.service._port_is_available", return_value=True), \
+             patch("rex.dashboard.app.create_app", return_value=mock_app) as mock_create, \
              patch("uvicorn.Config") as mock_config_cls, \
              patch("uvicorn.Server", return_value=mock_server):
 

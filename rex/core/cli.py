@@ -311,12 +311,16 @@ def scan(
         body: dict[str, str] = {"scan_type": scan_type}
         if target:
             body["target"] = target
+        headers: dict[str, str] = {}
+        token = _get_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         resp = httpx.post(
             f"{_DEFAULT_API_URL}/api/devices/scan",
             json=body,
             timeout=10,
             verify=not _DEV_INSECURE,
-            headers={"Authorization": f"Bearer {_get_token()}"},
+            headers=headers,
         )
         data = resp.json()
         typer.echo(f"  {data.get('status', 'unknown')}")
@@ -336,7 +340,7 @@ def sleep() -> None:
             f"{_DEFAULT_API_URL}/api/schedule/sleep",
             timeout=5,
             verify=not _DEV_INSECURE,
-            headers={"Authorization": f"Bearer {_get_token()}"},
+            headers=_auth_headers(),
         )
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
@@ -365,7 +369,7 @@ def wake() -> None:
             f"{_DEFAULT_API_URL}/api/schedule/wake",
             timeout=5,
             verify=not _DEV_INSECURE,
-            headers={"Authorization": f"Bearer {_get_token()}"},
+            headers=_auth_headers(),
         )
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
@@ -412,7 +416,7 @@ def junkyard() -> None:
             json={"mode": "junkyard_dog"},
             timeout=5,
             verify=not _DEV_INSECURE,
-            headers={"Authorization": f"Bearer {_get_token()}"},
+            headers=_auth_headers(),
         )
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
@@ -451,7 +455,7 @@ def patrol(
                 json={"scan_type": "deep"},
                 timeout=10,
                 verify=not _DEV_INSECURE,
-                headers={"Authorization": f"Bearer {_get_token()}"},
+                headers=_auth_headers(),
             )
             data = resp.json()
             typer.echo(f"  *ruff* Scan: {data.get('status', 'unknown')}")
@@ -461,7 +465,7 @@ def patrol(
                 f"{_DEFAULT_API_URL}/api/privacy/audit",
                 timeout=10,
                 verify=not _DEV_INSECURE,
-                headers={"Authorization": f"Bearer {_get_token()}"},
+                headers=_auth_headers(),
             )
             audit = resp2.json()
             findings = audit.get("findings_count", "?")
@@ -500,7 +504,7 @@ def patrol(
             json={"cron": schedule},
             timeout=5,
             verify=not _DEV_INSECURE,
-            headers={"Authorization": f"Bearer {_get_token()}"},
+            headers=_auth_headers(),
         )
         data = resp.json()
         typer.echo(f"  *ruff* Status: {data.get('status', 'unknown')}")
@@ -585,7 +589,7 @@ def privacy(
             resp = httpx.get(
                 f"{_DEFAULT_API_URL}/api/privacy/audit",
                 timeout=10,
-                headers={"Authorization": f"Bearer {_get_token()}"},
+                headers=_auth_headers(),
             )
             data = resp.json()
             import json
@@ -638,6 +642,14 @@ def _get_token() -> str:
     except OSError:
         return ""
     return token_file.read_text().strip()
+
+
+def _auth_headers() -> dict[str, str]:
+    """Return Authorization header dict, or empty dict if no token."""
+    token = _get_token()
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
 
 
 def main() -> None:
