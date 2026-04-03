@@ -185,9 +185,7 @@ class RexConfig(BaseSettings):
             return True
         # Under the current user's home (covers /root/ etc.)
         home = Path(os.path.expanduser("~")).resolve()
-        if str(resolved).startswith(str(home) + "/") or resolved == home:
-            return True
-        return False
+        return bool(str(resolved).startswith(str(home) + "/") or resolved == home)
 
 
 @functools.lru_cache(maxsize=1)

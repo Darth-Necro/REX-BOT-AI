@@ -175,7 +175,7 @@ def start(
         try:
             pw = pwd.getpwnam(sudo_user)
             uid, gid = pw.pw_uid, pw.pw_gid
-            for dirpath, dirnames, filenames in os.walk(str(config.data_dir)):
+            for dirpath, _dirnames, filenames in os.walk(str(config.data_dir)):
                 with contextlib.suppress(OSError):
                     shutil.chown(dirpath, user=uid, group=gid)
                 for fn in filenames:
@@ -998,7 +998,7 @@ def gui() -> None:
 
     from rex.shared.config import get_config
 
-    config = get_config()
+    get_config()
     dashboard_url = _detect_api_url()
     running, pid = _is_rex_running()
 
