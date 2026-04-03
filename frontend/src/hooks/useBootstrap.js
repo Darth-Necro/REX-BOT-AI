@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import useAuthStore from '../stores/useAuthStore';
 import useSystemStore from '../stores/useSystemStore';
 import useDeviceStore from '../stores/useDeviceStore';
 import useThreatStore from '../stores/useThreatStore';
@@ -12,10 +13,10 @@ import useThreatStore from '../stores/useThreatStore';
  *
  * Does NOT open WebSocket — that is owned by useRealtimeSync.
  *
- * Does NOT run if there is no auth token.
+ * Does NOT run if there is no auth token (checked via useAuthStore).
  */
 export default function useBootstrap() {
-  const token = useSystemStore((s) => s.token);
+  const token = useAuthStore((s) => s.token);
   const hydrateSystem = useSystemStore((s) => s.hydrateSystem);
   const didRun = useRef(false);
 

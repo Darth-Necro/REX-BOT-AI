@@ -11,6 +11,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import useSystemStore from '../stores/useSystemStore';
+import useAuthStore from '../stores/useAuthStore';
 import { ToastContainer } from '../components/chrome/ActionFeedbackToast';
 import { colors } from '../theme/tokens';
 
@@ -91,7 +92,7 @@ function CriticalAlertBanner() {
 export default function BasicShell({ children }) {
   const connected = useSystemStore((s) => s.connected);
   const version = useSystemStore((s) => s.version);
-  const logout = useSystemStore((s) => s.logout);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: colors.bg.app }}>

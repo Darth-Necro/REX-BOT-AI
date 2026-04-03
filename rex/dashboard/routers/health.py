@@ -1,21 +1,32 @@
-"""Health router -- system status endpoints."""
+"""Health router -- system status, log-tail, and diagnostics endpoints."""
 
 from __future__ import annotations
 
 import logging
+import os
+import platform
 import shutil
+import sys
+import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends, Header, Query
 
+from rex.dashboard.deps import get_current_user
 from rex.shared.constants import VERSION
 from rex.shared.utils import utc_now
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["health"])
+
+# ---------------------------------------------------------------------------
+# Process start time -- used for uptime calculation in diagnostics
+# ---------------------------------------------------------------------------
+_PROCESS_START_TIME = time.time()
 
 # ---------------------------------------------------------------------------
 # Probe cache -- prevents expensive downstream calls on every request
@@ -275,3 +286,296 @@ async def health_check() -> dict[str, str]:
         return JSONResponse(  # type: ignore[return-value]
             resp_data, status_code=503,
         )
+
+
+# ---------------------------------------------------------------------------
+# Log tail endpoint
+# ---------------------------------------------------------------------------
+
+def _find_log_file() -> Path | None:
+    """Locate the REX log file, if one exists on disk.
+
+    Checks the configured log_dir for common log file names.
+    Returns the path if found and readable, otherwise ``None``.
+    """
+    from rex.shared.config import get_config
+    config = get_config()
+
+    log_dir = config.log_dir
+    candidates = [
+        log_dir / "rex.log",
+        log_dir / "rex-bot-ai.log",
+        log_dir / "dashboard.log",
+    ]
+    for candidate in candidates:
+        if candidate.is_file() and os.access(candidate, os.R_OK):
+            return candidate
+    # Also check if the log_dir itself has any .log files
+    if log_dir.is_dir():
+        for child in sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True):
+            if os.access(child, os.R_OK):
+                return child
+    return None
+
+
+def _tail_file(path: Path, n: int) -> list[str]:
+    """Read the last *n* lines from a file efficiently."""
+    try:
+        with open(path, "rb") as f:
+            # Seek to end and read backwards
+            f.seek(0, 2)
+            size = f.tell()
+            if size == 0:
+                return []
+            # Read up to 1 MB from the end to find enough lines
+            read_size = min(size, 1024 * 1024)
+            f.seek(max(0, size - read_size))
+            data = f.read()
+        lines = data.decode("utf-8", errors="replace").splitlines()
+        return lines[-n:]
+    except (OSError, PermissionError):
+        return []
+
+
+@router.get("/logs")
+async def get_recent_logs(
+    lines: int = Query(100, ge=1, le=1000),
+    level: str = Query("info"),
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the last N lines from the REX log file.
+
+    If no log file is configured or available (logs go to stderr only),
+    returns a message indicating logs are only in the terminal.
+    """
+    valid_levels = {"debug", "info", "warning", "error", "critical", "all"}
+    level_lower = level.lower()
+    if level_lower not in valid_levels:
+        level_lower = "info"
+
+    log_file = _find_log_file()
+    if log_file is None:
+        return {
+            "available": False,
+            "message": "Logs are only available in the terminal where REX was started.",
+            "lines": [],
+            "source": "stderr",
+            "level_filter": level_lower,
+        }
+
+    raw_lines = _tail_file(log_file, lines * 3 if level_lower != "all" else lines)
+
+    # Filter by level if requested
+    if level_lower != "all":
+        level_priority = {
+            "debug": 0, "info": 1, "warning": 2, "error": 3, "critical": 4,
+        }
+        min_priority = level_priority.get(level_lower, 1)
+        filtered = []
+        for line in raw_lines:
+            line_upper = line.upper()
+            matched = False
+            for lname, lpri in level_priority.items():
+                if lname.upper() in line_upper and lpri >= min_priority:
+                    matched = True
+                    break
+            if matched or min_priority == 0:
+                filtered.append(line)
+        raw_lines = filtered[-lines:]
+    else:
+        raw_lines = raw_lines[-lines:]
+
+    return {
+        "available": True,
+        "lines": raw_lines,
+        "source": str(log_file),
+        "level_filter": level_lower,
+        "total_returned": len(raw_lines),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/diagnostics")
+async def get_diagnostics(user: dict = Depends(get_current_user)) -> dict[str, Any]:
+    """Return a comprehensive diagnostics snapshot of the REX system.
+
+    Includes Python version, OS info, service reachability, config paths,
+    TLS status, and current operational state.
+    """
+    from rex.shared.config import get_config
+    config = get_config()
+
+    # -- Python & REX version ------------------------------------------------
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+    # -- OS info via detector ------------------------------------------------
+    os_info: dict[str, Any] = {}
+    try:
+        from rex.pal.detector import detect_os
+        os_data = detect_os()
+        os_info = {
+            "name": os_data.name,
+            "version": os_data.version,
+            "codename": os_data.codename,
+            "architecture": os_data.architecture,
+            "is_wsl": os_data.is_wsl,
+            "is_docker": os_data.is_docker,
+            "is_vm": os_data.is_vm,
+            "is_raspberry_pi": os_data.is_raspberry_pi,
+        }
+    except Exception:
+        os_info = {
+            "name": platform.system(),
+            "version": platform.release(),
+            "architecture": platform.machine(),
+        }
+
+    # -- data_dir path and writability ---------------------------------------
+    data_dir_path = str(config.data_dir)
+    data_dir_writable = os.access(config.data_dir, os.W_OK) if config.data_dir.exists() else False
+
+    # -- Redis connected -----------------------------------------------------
+    redis_connected = False
+    try:
+        import redis as redis_lib
+        r = redis_lib.Redis.from_url(config.redis_url, socket_timeout=2)
+        try:
+            r.ping()
+            redis_connected = True
+        finally:
+            r.close()
+    except Exception:
+        pass
+
+    # -- Ollama reachable ----------------------------------------------------
+    ollama_reachable = False
+    try:
+        import httpx
+        resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
+        ollama_reachable = resp.status_code == 200
+    except Exception:
+        pass
+
+    # -- ChromaDB reachable --------------------------------------------------
+    chroma_reachable = False
+    try:
+        import httpx
+        resp = httpx.get(f"{config.chroma_url}/api/v1/heartbeat", timeout=3)
+        chroma_reachable = resp.status_code == 200
+    except Exception:
+        pass
+
+    # -- TLS cert status -----------------------------------------------------
+    tls_status: dict[str, Any] = {"configured": False}
+    certs_dir = config.certs_dir
+    if certs_dir.is_dir():
+        cert_files = list(certs_dir.glob("*.pem")) + list(certs_dir.glob("*.crt"))
+        key_files = list(certs_dir.glob("*.key"))
+        tls_status = {
+            "configured": len(cert_files) > 0 and len(key_files) > 0,
+            "cert_count": len(cert_files),
+            "key_count": len(key_files),
+            "certs_dir": str(certs_dir),
+        }
+
+    # -- Frontend dist present -----------------------------------------------
+    frontend_dist_present = False
+    dist_candidates = [
+        Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist",
+        config.data_dir / "frontend" / "dist",
+    ]
+    for dist_path in dist_candidates:
+        if dist_path.is_dir() and any(dist_path.iterdir()):
+            frontend_dist_present = True
+            break
+
+    # -- PID file status -----------------------------------------------------
+    pid_file_status: dict[str, Any] = {"exists": False}
+    pid_candidates = [
+        config.data_dir / "rex.pid",
+        Path("/var/run/rex-bot-ai.pid"),
+        Path(tempfile.gettempdir()) / "rex-bot-ai.pid",
+    ]
+    for pid_path in pid_candidates:
+        if pid_path.is_file():
+            try:
+                pid_val = int(pid_path.read_text().strip())
+                pid_file_status = {
+                    "exists": True,
+                    "path": str(pid_path),
+                    "pid": pid_val,
+                    "process_alive": _pid_alive(pid_val),
+                }
+                break
+            except (ValueError, OSError):
+                pid_file_status = {"exists": True, "path": str(pid_path), "error": "unreadable"}
+                break
+
+    # -- Uptime --------------------------------------------------------------
+    uptime_seconds = int(time.time() - _PROCESS_START_TIME)
+
+    # -- Current protection mode and power state -----------------------------
+    protection_mode = (
+        config.protection_mode.value
+        if hasattr(config.protection_mode, "value")
+        else str(config.protection_mode)
+    )
+    power_state = (
+        config.power_state.value
+        if hasattr(config.power_state, "value")
+        else str(config.power_state)
+    )
+
+    # -- Service count and status summary ------------------------------------
+    probes = _run_probes()
+    services: list[dict[str, Any]] = [
+        {"name": "Redis", "healthy": probes.get("redis_ok", False)},
+        {"name": "Ollama", "healthy": probes.get("ollama_ok", False)},
+        {"name": "ChromaDB", "healthy": chroma_reachable},
+    ]
+    healthy_count = sum(1 for s in services if s["healthy"])
+
+    return {
+        "python_version": python_version,
+        "rex_version": VERSION,
+        "os_info": os_info,
+        "data_dir": {
+            "path": data_dir_path,
+            "writable": data_dir_writable,
+        },
+        "services": {
+            "redis": {"connected": redis_connected, "url": config.redis_url},
+            "ollama": {"reachable": ollama_reachable, "url": config.ollama_url},
+            "chromadb": {"reachable": chroma_reachable, "url": config.chroma_url},
+        },
+        "tls": tls_status,
+        "frontend_dist_present": frontend_dist_present,
+        "pid_file": pid_file_status,
+        "uptime_seconds": uptime_seconds,
+        "protection_mode": protection_mode,
+        "power_state": power_state,
+        "service_summary": {
+            "total": len(services),
+            "healthy": healthy_count,
+            "unhealthy": len(services) - healthy_count,
+            "services": services,
+        },
+        "resources": {
+            "disk_pct": probes.get("disk_pct", 0),
+            "disk_ok": probes.get("disk_ok", False),
+            "mem_pct": probes.get("mem_pct", 0),
+            "mem_ok": probes.get("mem_ok", False),
+        },
+    }
+
+
+def _pid_alive(pid: int) -> bool:
+    """Check whether a process with the given PID is running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False

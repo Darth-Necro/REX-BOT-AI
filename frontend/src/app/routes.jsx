@@ -1,10 +1,14 @@
 /**
  * Route map for the REX dashboard.
  *
- * Public:        /login
+ * Public:        /login, /setup
  * Auth-gated:    / (redirects to /overview), /overview, /devices, /threats,
  *                /firewall, /knowledge, /scheduler, /plugins, /diagnostics,
- *                /onboarding, /settings/*, /privacy
+ *                /onboarding, /settings/*, /privacy, /change-password
+ *
+ * First-run:     If no token exists and setup has never been completed,
+ *                unauthenticated visitors are redirected to /setup instead
+ *                of /login.
  *
  * The ProtectedRoute wrapper checks for auth token and redirects
  * unauthenticated users to /login. Uses the existing AppShell layout
@@ -17,6 +21,11 @@ import useAuthStore from '../stores/useAuthStore';
 import useSystemStore from '../stores/useSystemStore';
 import LoginPage from '../pages/auth/LoginPage';
 import AppShell from '../layouts/AppShell';
+import AlphaBanner from '../components/AlphaBanner';
+
+/* Setup wizard + change-password (lazy-loaded, only needed on first run / settings) */
+const SetupWizard = lazy(() => import('../pages/setup/SetupWizard'));
+const ChangePasswordPage = lazy(() => import('../pages/auth/ChangePasswordPage'));
 
 /* Lazy-load page components for code-splitting */
 const DevicesPage = lazy(() => import('../pages/devices/DevicesPage'));
@@ -64,14 +73,22 @@ function PageLoader() {
   );
 }
 
+/* ---------- first-run detection ---------- */
+
+function isFirstRun() {
+  return !localStorage.getItem('rex_setup_complete');
+}
+
 /* ---------- auth gate ---------- */
 
 function ProtectedRoute({ children }) {
-  const authToken = useAuthStore((s) => s.token);
-  const systemToken = useSystemStore((s) => s.token);
-  const isAuthenticated = authToken || systemToken;
+  const isAuthenticated = useAuthStore((s) => s.token);
 
   if (!isAuthenticated) {
+    // First visit with no token -- send to setup wizard instead of login
+    if (isFirstRun()) {
+      return <Navigate to="/setup" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 
@@ -152,7 +169,9 @@ function AuthenticatedShell() {
           <Route path="/threats/:id/investigate" element={<InvestigationsPage />} />
           <Route path="/diagnostics/services" element={<ServiceHealthPage />} />
           {/* Legacy chat route -- falls back to overview until chat page exists */}
-          <Route path="/chat" element={<AdvancedOverviewPage />} />
+          <Route path="/chat" element={<><AlphaBanner feature="Chat" /><AdvancedOverviewPage /></>} />
+          {/* Password change (auth-gated, inside shell) */}
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           {/* Root redirects to overview */}
           <Route path="/" element={<Navigate to="/overview" replace />} />
           {/* Catch-all */}
@@ -174,19 +193,22 @@ function OverviewPage() {
 
 export default function AppRoutes() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/login" element={<LoginPage />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupWizard />} />
 
-      {/* All auth-gated routes go through the shell */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <AuthenticatedShell />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+        {/* All auth-gated routes go through the shell */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedShell />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 }

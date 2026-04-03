@@ -8,7 +8,6 @@
 import React, { useState, useCallback } from 'react';
 import { login } from '../../api/auth';
 import useAuthStore from '../../stores/useAuthStore';
-import useSystemStore from '../../stores/useSystemStore';
 
 export default function LoginForm() {
   const [password, setPassword] = useState('');
@@ -18,9 +17,6 @@ export default function LoginForm() {
   const setAuthToken = useAuthStore((s) => s.setToken);
   const beginLogin = useAuthStore((s) => s.beginLogin);
   const setAuthError = useAuthStore((s) => s.setError);
-
-  // Legacy compat: also push into system store so existing components work
-  const setSystemToken = useSystemStore((s) => s.setToken);
 
   const handleSubmit = useCallback(
     async (e) => {
@@ -34,7 +30,6 @@ export default function LoginForm() {
       try {
         const { token } = await login(password);
         setAuthToken(token);
-        setSystemToken(token);
       } catch (err) {
         const msg =
           err.response?.data?.detail ||
@@ -47,7 +42,7 @@ export default function LoginForm() {
         setPassword('');
       }
     },
-    [password, setAuthToken, setSystemToken, beginLogin, setAuthError],
+    [password, setAuthToken, beginLogin, setAuthError],
   );
 
   return (

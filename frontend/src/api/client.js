@@ -1,5 +1,4 @@
 import axios from 'axios';
-import useSystemStore from '../stores/useSystemStore';
 import useAuthStore from '../stores/useAuthStore';
 
 const api = axios.create({
@@ -8,21 +7,20 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach auth token — check both stores (authStore is authoritative, systemStore is legacy)
+// Attach auth token from the single source of truth (useAuthStore)
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token || useSystemStore.getState().token;
+  const token = useAuthStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle 401 — clear token in ALL stores so React re-renders to LoginView
+// Handle 401 — expire session so React re-renders to LoginView
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useSystemStore.getState().logout();
       useAuthStore.getState().expire();
     }
     return Promise.reject(error);

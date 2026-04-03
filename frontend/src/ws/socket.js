@@ -11,7 +11,6 @@
  */
 
 import useAuthStore from '../stores/useAuthStore';
-import useSystemStore from '../stores/useSystemStore';
 
 let ws = null;
 let reconnectTimer = null;
@@ -60,8 +59,7 @@ export function connect(token, url) {
 
     // Send auth as first message (preferred method — no JWT in URL)
     const authToken = token
-      || useAuthStore.getState().token
-      || useSystemStore.getState().token;
+      || useAuthStore.getState().token;
     if (authToken) {
       ws.send(JSON.stringify({ type: 'auth', token: authToken }));
     }
@@ -113,8 +111,7 @@ export function connect(token, url) {
         reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
         // Read the *current* token from stores so a relogin during
         // the backoff window is picked up (avoids stale closure capture).
-        const currentToken =
-          useAuthStore.getState().token || useSystemStore.getState().token;
+        const currentToken = useAuthStore.getState().token;
         connect(currentToken, url);
       }, reconnectDelay + jitter);
     }

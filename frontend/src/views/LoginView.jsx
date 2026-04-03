@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import useSystemStore from '../stores/useSystemStore';
+import useAuthStore from '../stores/useAuthStore';
 import api from '../api/client';
 
 export default function LoginView() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const setToken = useSystemStore((s) => s.setToken);
+    const setToken = useAuthStore((s) => s.setToken);
 
     const handleLogin = async (e) => {
         e.preventDefault();

@@ -1,0 +1,231 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/client';
+import { login as loginApi } from '../../api/auth';
+import useAuthStore from '../../stores/useAuthStore';
+
+const STEPS = ['welcome', 'environment', 'login', 'password', 'complete'];
+
+function StepIndicator({ current, steps }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-8">
+      {steps.map((s, i) => (
+        <div key={s} className={`w-3 h-3 rounded-full ${i <= current ? 'bg-blue-500' : 'bg-gray-600'}`} />
+      ))}
+    </div>
+  );
+}
+
+function WelcomeStep({ onNext }) {
+  return (
+    <div className="text-center">
+      <div className="text-6xl mb-4">🐕</div>
+      <h1 className="text-3xl font-bold text-white mb-2">Welcome to REX-BOT-AI</h1>
+      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+        Your autonomous AI security agent for home and small business networks.
+        Let's get you set up in a few quick steps.
+      </p>
+      <button onClick={onNext} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium">
+        Get Started
+      </button>
+    </div>
+  );
+}
+
+function EnvironmentStep({ onNext }) {
+  const [checks, setChecks] = useState({ redis: null, ollama: null, chromadb: null, api: null });
+
+  useEffect(() => {
+    const run = async () => {
+      // Check API reachability
+      try {
+        await api.get('/health');
+        setChecks(c => ({ ...c, api: true }));
+      } catch {
+        setChecks(c => ({ ...c, api: false }));
+      }
+      // Check dependencies via status
+      try {
+        const res = await api.get('/status');
+        const d = res.data;
+        setChecks(c => ({
+          ...c,
+          redis: d.services?.memory?.status === 'running',
+          ollama: d.llm_status !== 'unavailable',
+          chromadb: true, // Can't easily check from status
+        }));
+      } catch {
+        // If status fails, mark unknown
+      }
+    };
+    run();
+  }, []);
+
+  const Check = ({ label, status }) => (
+    <div className="flex items-center gap-3 py-2">
+      <span className={`w-3 h-3 rounded-full ${status === true ? 'bg-green-500' : status === false ? 'bg-red-500' : 'bg-gray-500 animate-pulse'}`} />
+      <span className="text-gray-300">{label}</span>
+      <span className="text-xs text-gray-500 ml-auto">
+        {status === true ? 'OK' : status === false ? 'Unavailable' : 'Checking...'}
+      </span>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-white mb-4">Environment Check</h2>
+      <p className="text-gray-400 mb-4 text-sm">Checking your system dependencies...</p>
+      <div className="bg-gray-800 rounded-lg p-4 mb-6">
+        <Check label="Dashboard API" status={checks.api} />
+        <Check label="Redis (event bus)" status={checks.redis} />
+        <Check label="Ollama (AI engine)" status={checks.ollama} />
+        <Check label="ChromaDB (vector memory)" status={checks.chromadb} />
+      </div>
+      {checks.redis === false && (
+        <p className="text-amber-400 text-xs mb-4">
+          Redis is not available. REX will run in degraded mode. Install with: sudo apt install redis-server
+        </p>
+      )}
+      {checks.ollama === false && (
+        <p className="text-amber-400 text-xs mb-4">
+          Ollama is not available. REX will use rules-only classification (no AI). Install from ollama.com
+        </p>
+      )}
+      <button onClick={onNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+        Continue
+      </button>
+    </div>
+  );
+}
+
+function LoginStep({ onNext }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const setToken = useAuthStore(s => s.setToken);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { token } = await loginApi(password);
+      setToken(token);
+      onNext();
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message || 'Login failed');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-white mb-4">Login</h2>
+      <div className="bg-gray-800 rounded-lg p-4 mb-4">
+        <p className="text-gray-300 text-sm mb-3">Default credentials:</p>
+        <div className="bg-gray-700 rounded p-3 font-mono text-sm mb-3">
+          <div className="text-gray-400">Username: <span className="text-white">REX-BOT</span></div>
+          <div className="text-gray-400">Password: <span className="text-white">Woof</span></div>
+        </div>
+        <p className="text-amber-400 text-xs">You should change the password after logging in.</p>
+      </div>
+      <div className="space-y-3">
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          className="w-full bg-gray-700 text-white rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {error && <p className="text-red-400 text-xs">{error}</p>}
+        <button
+          onClick={handleLogin}
+          disabled={loading || !password}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+        >
+          {loading ? 'Logging in...' : 'Login'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordStep({ onNext }) {
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = async () => {
+    if (newPw !== confirmPw) { setError('Passwords do not match'); return; }
+    if (newPw.length < 4) { setError('Password too short'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/auth/change-password', { old_password: 'Woof', new_password: newPw });
+      onNext();
+    } catch (e) {
+      setError(e?.response?.data?.detail || 'Failed to change password');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-white mb-4">Change Password</h2>
+      <p className="text-gray-400 text-sm mb-4">We recommend changing the default password.</p>
+      <div className="space-y-3">
+        <input type="password" placeholder="New password" value={newPw} onChange={e => setNewPw(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input type="password" placeholder="Confirm password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {error && <p className="text-red-400 text-xs">{error}</p>}
+        <div className="flex gap-3">
+          <button onClick={handleChange} disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50">
+            {loading ? 'Changing...' : 'Change Password'}
+          </button>
+          <button onClick={onNext} className="text-gray-400 hover:text-gray-300 text-sm">
+            Skip (not recommended)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompleteStep() {
+  const navigate = useNavigate();
+  return (
+    <div className="text-center">
+      <div className="text-6xl mb-4">🎉</div>
+      <h2 className="text-2xl font-bold text-white mb-2">REX is Ready!</h2>
+      <p className="text-gray-400 mb-6">Your network security agent is protecting your network.</p>
+      <button onClick={() => navigate('/overview')} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium">
+        Go to Dashboard
+      </button>
+    </div>
+  );
+}
+
+export default function SetupWizard() {
+  const [step, setStep] = useState(0);
+  const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
+
+  const components = [
+    <WelcomeStep onNext={next} />,
+    <EnvironmentStep onNext={next} />,
+    <LoginStep onNext={next} />,
+    <PasswordStep onNext={next} />,
+    <CompleteStep />,
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <StepIndicator current={step} steps={STEPS} />
+        {components[step]}
+      </div>
+    </div>
+  );
+}

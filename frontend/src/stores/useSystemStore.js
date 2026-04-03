@@ -37,17 +37,7 @@ const useSystemStore = create((set, get) => ({
   // --- Derived convenience (kept for backward compat) ---
   connected: false,
 
-  // --- Auth (in-memory only — never persist tokens to localStorage) ---
-  token: null,
-  setToken: (token) => {
-    // Clear any legacy localStorage token on next call
-    localStorage.removeItem('rex_token');
-    set({ token: token || null });
-  },
-  logout: () => {
-    localStorage.removeItem('rex_token');
-    set({ token: null, connected: false, apiConnection: 'disconnected', wsConnection: 'disconnected' });
-  },
+  // --- Auth has been moved to useAuthStore (single source of truth) ---
 
   // --- Recent alerts (shallow cache for overview) ---
   recentAlerts: [],

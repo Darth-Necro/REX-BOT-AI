@@ -139,12 +139,7 @@ export default function AppShell({
   const apiConnection = useSystemStore((s) => s.apiConnection);
   const wsConnection = useSystemStore((s) => s.wsConnection);
   const version = useSystemStore((s) => s.version);
-  const systemLogout = useSystemStore((s) => s.logout);
-  const authLogout = useAuthStore((s) => s.logout);
-  const logout = useCallback(() => {
-    systemLogout();
-    authLogout();
-  }, [systemLogout, authLogout]);
+  const logout = useAuthStore((s) => s.logout);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 

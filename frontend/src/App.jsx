@@ -7,23 +7,18 @@
  *   3. useRealtimeSync -- WebSocket connection + event routing to stores
  *
  * Auth flow:
- *   - useAuthStore holds the in-memory token (Batch 2)
- *   - useSystemStore still holds a localStorage token (Batch 1 compat)
- *   - Both are checked by ProtectedRoute in routes.jsx
+ *   - useAuthStore is the single source of truth for token and session state.
  */
 
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './app/routes';
-import useSystemStore from './stores/useSystemStore';
 import useAuthStore from './stores/useAuthStore';
 import useBootstrap from './hooks/useBootstrap';
 import useRealtimeSync from './hooks/useRealtimeSync';
 
 export default function App() {
-  const authToken = useAuthStore((s) => s.token);
-  const systemToken = useSystemStore((s) => s.token);
-  const token = authToken || systemToken;
+  const token = useAuthStore((s) => s.token);
 
   // 1. API hydration (system status + health fetch on auth)
   useBootstrap();

@@ -10,6 +10,7 @@
 
 import React from 'react';
 import useSystemStore from '../stores/useSystemStore';
+import useAuthStore from '../stores/useAuthStore';
 import useConnectionStatus from '../hooks/useConnectionStatus';
 
 /* ---------- sub-components ---------- */
@@ -89,7 +90,7 @@ function StatusSummary() {
  * @param {string}  props.pageLabel  Current page name to display.
  */
 export default function TopCommandBar({ pageLabel }) {
-  const logout = useSystemStore((s) => s.logout);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <header

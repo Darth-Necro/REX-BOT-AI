@@ -88,15 +88,38 @@ def _setup_logging(level: str = "info") -> None:
     )
 
 
+def _default_mode() -> str:
+    """Return 'gui' if a display server is available, otherwise 'cli'."""
+    if _os.environ.get("DISPLAY") and not _os.environ.get("SSH_CONNECTION"):
+        return "gui"
+    return "cli"
+
+
 @app.command()
 def start(
     log_level: str = typer.Option("info", help="Log level: debug, info, warning, error"),
-    no_browser: bool = typer.Option(False, "--no-browser", help="Don't auto-open browser"),
+    mode: str = typer.Option(
+        "",
+        "--mode",
+        help=(
+            "Startup mode: gui (backend + browser), "
+            "cli (backend only), headless (no output). "
+            "Default: gui if DISPLAY set, cli otherwise."
+        ),
+    ),
 ) -> None:
     """Start all REX services (blocks until Ctrl+C)."""
+    if not mode:
+        mode = _default_mode()
+    mode = mode.lower()
+    if mode not in ("gui", "cli", "headless"):
+        typer.echo(f"  *ruff?* Unknown mode '{mode}'. Choose from: gui, cli, headless")
+        raise typer.Exit(code=1)
+
     _setup_logging(log_level)
 
-    typer.echo(r"""
+    if mode != "headless":
+        typer.echo(r"""
         ^
        / \__
       (    @\___     ____  _______  __     ____   ____ _______
@@ -110,18 +133,21 @@ def start(
 
     from rex.shared.config import get_config
     config = get_config()
-    typer.echo(f"  Mode:   {config.mode.value}")
-    typer.echo(f"  Data:   {config.data_dir}")
-    typer.echo(f"  Redis:  {_redact_url(config.redis_url)}")
-    typer.echo(f"  Ollama: {config.ollama_url}")
-    typer.echo("")
+
+    if mode != "headless":
+        typer.echo(f"  Mode:   {config.mode.value}")
+        typer.echo(f"  Start:  --mode {mode}")
+        typer.echo(f"  Data:   {config.data_dir}")
+        typer.echo(f"  Redis:  {_redact_url(config.redis_url)}")
+        typer.echo(f"  Ollama: {config.ollama_url}")
+        typer.echo("")
 
     # Pre-initialize auth to show first-boot password to the user
     from rex.dashboard.auth import AuthManager
     auth_mgr = AuthManager(data_dir=config.data_dir)
 
     initial_pw = asyncio.run(auth_mgr.initialize())
-    if initial_pw:
+    if initial_pw and mode != "headless":
         # Display password on stderr only, so it is never captured in
         # stdout pipes or redirected logs.
         import sys
@@ -133,7 +159,7 @@ def start(
 
     from rex.core.orchestrator import ServiceOrchestrator
 
-    # Auto-open browser after services start
+    # Auto-open browser after services start (gui mode only)
     def _open_browser_delayed() -> None:
         """Open browser to GUI after a short delay for services to bind."""
         import threading
@@ -147,11 +173,11 @@ def start(
                 webbrowser.open(url)
         threading.Thread(target=_open, daemon=True).start()
 
-    # Only auto-open browser for interactive desktop sessions
-    if not no_browser and _os.environ.get("DISPLAY") and not _os.environ.get("SSH_CONNECTION"):
+    if mode == "gui":
         _open_browser_delayed()
-    typer.echo(f"  Dashboard: http://localhost:{config.dashboard_port}")
-    typer.echo("")
+    if mode != "headless":
+        typer.echo(f"  Dashboard: http://localhost:{config.dashboard_port}")
+        typer.echo("")
 
     async def _run() -> None:
         orch = ServiceOrchestrator()
@@ -161,7 +187,8 @@ def start(
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        typer.echo(r"""
+        if mode != "headless":
+            typer.echo(r"""
         ^
        / \__
       (  - @\___   *yaaawn* ... REX is going to sleep.
