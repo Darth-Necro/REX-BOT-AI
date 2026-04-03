@@ -250,6 +250,7 @@ class ActionValidator:
         # representations are correctly matched (fixes VULN-006).
         normalized_protected: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
         for ip_str in self.PROTECTED_IPS:
+            # Keep raw string comparison as fallback for non-IP values
             with contextlib.suppress(ValueError):
                 normalized_protected.add(ipaddress.ip_address(ip_str))
 

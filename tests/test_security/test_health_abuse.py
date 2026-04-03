@@ -17,6 +17,8 @@ from pydantic import ValidationError
 from rex.dashboard.routers import health as health_mod
 from rex.shared.config import RexConfig
 
+_tmp = tempfile.gettempdir()
+
 
 class TestProbeCaching:
     """Verify health probe caching behavior."""
@@ -46,7 +48,7 @@ class TestOllamaUrlValidation:
 
     def test_localhost_allowed(self) -> None:
         cfg = RexConfig(
-            data_dir=tempfile.gettempdir() + "/test",
+            data_dir=f"{_tmp}/test",
             ollama_url="http://localhost:11434",
             redis_url="redis://localhost:6379",
             chroma_url="http://localhost:8000",
@@ -55,7 +57,7 @@ class TestOllamaUrlValidation:
 
     def test_127_allowed(self) -> None:
         cfg = RexConfig(
-            data_dir=tempfile.gettempdir() + "/test",
+            data_dir=f"{_tmp}/test",
             ollama_url="http://127.0.0.1:11434",
             redis_url="redis://localhost:6379",
             chroma_url="http://localhost:8000",
@@ -64,7 +66,7 @@ class TestOllamaUrlValidation:
 
     def test_docker_name_allowed(self) -> None:
         cfg = RexConfig(
-            data_dir=tempfile.gettempdir() + "/test",
+            data_dir=f"{_tmp}/test",
             ollama_url="http://ollama:11434",
             redis_url="redis://localhost:6379",
             chroma_url="http://localhost:8000",
@@ -74,7 +76,7 @@ class TestOllamaUrlValidation:
     def test_remote_host_rejected(self) -> None:
         with pytest.raises(ValidationError):
             RexConfig(
-                data_dir=tempfile.gettempdir() + "/test",
+                data_dir=f"{_tmp}/test",
                 ollama_url="http://evil-server.com:11434",
                 redis_url="redis://localhost:6379",
                 chroma_url="http://localhost:8000",
@@ -83,7 +85,7 @@ class TestOllamaUrlValidation:
     def test_internal_ip_rejected(self) -> None:
         with pytest.raises(ValidationError):
             RexConfig(
-                data_dir=tempfile.gettempdir() + "/test",
+                data_dir=f"{_tmp}/test",
                 ollama_url="http://10.0.0.5:11434",
                 redis_url="redis://localhost:6379",
                 chroma_url="http://localhost:8000",

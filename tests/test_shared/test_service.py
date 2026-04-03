@@ -8,6 +8,7 @@ from rex.shared.enums import ServiceName
 from rex.shared.service import BaseService
 
 if TYPE_CHECKING:
+
     from unittest.mock import AsyncMock
 
     from rex.shared.config import RexConfig

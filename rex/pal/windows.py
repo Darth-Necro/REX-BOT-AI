@@ -50,6 +50,11 @@ _DEFAULT_SUBPROCESS_TIMEOUT = 10
 _REX_RULE_PREFIX = "REX-"
 
 
+# ---------------------------------------------------------------------------
+# Subprocess helper — centralised in rex.shared.subprocess_util
+# ---------------------------------------------------------------------------
+
+
 class WindowsAdapter(PlatformAdapter):
     """Concrete :class:`PlatformAdapter` for Microsoft Windows hosts.
 
@@ -385,8 +390,7 @@ class WindowsAdapter(PlatformAdapter):
                 if "IPv4 Address" in line or "IP Address" in line:
                     parts = line.split(":", 1)
                     if len(parts) == 2:
-                        addr = re.sub(r"\(Preferred\)$", "", parts[1].strip()).strip()
-                        addr = re.sub(r"\(.*\)", "", addr).strip()
+                        addr = re.sub(r"\(.*\)", "", parts[1].strip()).strip()
                         if re.match(r"^\d+\.\d+\.\d+\.\d+$", addr):
                             ip_addr = addr
 

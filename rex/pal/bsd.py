@@ -47,12 +47,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger("rex.pal.bsd")
 
 _DEFAULT_SUBPROCESS_TIMEOUT = 10
-_BINARY_PERMS = 0o755
+_EXECUTABLE_PERMS = 0o755
 _REX_ANCHOR = "rex"
 _REX_RULES_DIR = Path("/etc/pf.anchors")
 _REX_RULES_FILE = _REX_RULES_DIR / "rex"
 _RC_D_DIR = Path("/usr/local/etc/rc.d")
 _RESOLV_CONF = "/etc/resolv.conf"
+
+
+# ---------------------------------------------------------------------------
+# Subprocess helper — centralised in rex.shared.subprocess_util
+# ---------------------------------------------------------------------------
 
 
 class BSDAdapter(PlatformAdapter):
@@ -811,7 +816,7 @@ class BSDAdapter(PlatformAdapter):
         pps = max(kbps // 8, 1)
         rules.append(
             f"pass in quick from {ip} to any "
-            f"flags S/SA keep state "
+            "flags S/SA keep state "
             f"(max-src-conn-rate {pps}/10, overload <rex_ratelimit> flush)  "
             f"# REX:rate-limit {reason}"
         )
@@ -1108,7 +1113,6 @@ run_rc_command "$1"
         # Try using sysctl to set the ACPI wake timer (FreeBSD)
         result = _run(["sysctl", "machdep.acpi_timer_freq"])
         if result.returncode == 0 and shutil.which("at"):
-            # Use at(1) to schedule a wakeup command
                 minutes = max(seconds // 60, 1)
                 at_result = _run(
                     ["at", f"now + {minutes} minutes"],
@@ -1287,7 +1291,7 @@ run_rc_command "$1"
                 timeout=120,
             )
             if result.returncode == 0:
-                os.chmod("/usr/local/bin/ollama", _BINARY_PERMS)
+                os.chmod("/usr/local/bin/ollama", _EXECUTABLE_PERMS)
                 logger.info("Ollama binary installed to /usr/local/bin/ollama")
                 return True
 

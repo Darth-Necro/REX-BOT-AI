@@ -95,8 +95,7 @@ class TestUpdateBlocklists:
         blocker._blocked_domains = {"known.com"}
 
         with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value={"known.com"}), \
-             patch.object(blocker, "_persist_blocklist",
+                          return_value={"known.com"}), patch.object(blocker, "_persist_blocklist",
                           new_callable=AsyncMock) as mock_persist:
             await blocker.update_blocklists()
 
@@ -105,15 +104,14 @@ class TestUpdateBlocklists:
     @pytest.mark.asyncio
     async def test_update_enforces_max_size(self, blocker) -> None:
         """update_blocklists truncates when exceeding MAX_BLOCKLIST_SIZE."""
-        domains = {f"upd-{i}.test" for i in range(100)}
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50), \
-             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=domains), \
-             patch.object(blocker, "_persist_blocklist",
-                          new_callable=AsyncMock):
-            await blocker.update_blocklists()
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50):
+            domains = {f"upd-{i}.test" for i in range(100)}
+            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                              return_value=domains), patch.object(blocker, "_persist_blocklist",
+                              new_callable=AsyncMock):
+                await blocker.update_blocklists()
 
-        assert len(blocker._blocked_domains) <= 50
+            assert len(blocker._blocked_domains) <= 50
 
 
 # ------------------------------------------------------------------

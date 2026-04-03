@@ -247,6 +247,7 @@ class ThreatLog:
                     raw = archive_file.read_text("utf-8")
                     # Try to decrypt if it was previously encrypted
                     if secrets_manager is not None:
+                        # Not encrypted or different key -- treat as plaintext
                         with contextlib.suppress(Exception):
                             raw = secrets_manager.decrypt(raw)
                     existing = json.loads(raw)

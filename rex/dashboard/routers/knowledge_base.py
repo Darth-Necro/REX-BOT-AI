@@ -12,13 +12,13 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from rex.dashboard.deps import get_current_user
 from rex.shared.fileutil import atomic_write_text
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

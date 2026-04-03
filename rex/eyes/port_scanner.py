@@ -24,7 +24,6 @@ from rex.shared.utils import is_private_ip, is_valid_ipv4
 
 logger = logging.getLogger("rex.eyes.port_scanner")
 
-
 # ---------------------------------------------------------------------------
 # Well-known port -> service name mapping
 # ---------------------------------------------------------------------------

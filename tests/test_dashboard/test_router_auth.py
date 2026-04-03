@@ -47,7 +47,10 @@ def _mock_auth_manager(
             "token_type": "bearer",
             "expires_in": 14400,
         })
-    mgr.change_password = AsyncMock(side_effect=change_pw_error) if change_pw_error else AsyncMock(return_value=change_pw_result)
+    if change_pw_error:
+        mgr.change_password = AsyncMock(side_effect=change_pw_error)
+    else:
+        mgr.change_password = AsyncMock(return_value=change_pw_result)
     return mgr
 
 

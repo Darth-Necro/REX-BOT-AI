@@ -16,6 +16,8 @@ from rex.core.agent.command_executor import (
     validate_safe_path,
 )
 
+_tmp = tempfile.gettempdir()
+
 # ---- CIDR validator --------------------------------------------------------
 
 
@@ -74,7 +76,7 @@ class TestValidateSafePath:
     def test_validate_safe_path_allowed(self) -> None:
         assert validate_safe_path("/etc/rex-bot-ai/config.yaml") is True
         assert validate_safe_path("/var/log/rex-bot-ai/audit.log") is True
-        assert validate_safe_path(tempfile.gettempdir() + "/rex-scan-001") is True
+        assert validate_safe_path(f"{_tmp}/rex-scan-001") is True
 
     def test_validate_safe_path_rejected_etc_shadow(self) -> None:
         assert validate_safe_path("/etc/shadow") is False

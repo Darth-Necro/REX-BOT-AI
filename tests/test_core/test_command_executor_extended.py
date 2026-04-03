@@ -17,6 +17,8 @@ from rex.core.agent.command_executor import (
     validate_safe_path,
 )
 
+_tmp = tempfile.gettempdir()
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -111,7 +113,7 @@ class TestValidateSafePathExtended:
     def test_resolve_oserror(self) -> None:
         """OSError during resolve should return False (line 341-342)."""
         with patch("rex.core.agent.command_executor.Path.resolve", side_effect=OSError("fail")):
-            assert validate_safe_path(tempfile.gettempdir() + "/rex-test/file.txt") is False
+            assert validate_safe_path(f"{_tmp}/rex-test/file.txt") is False
 
 
 # ------------------------------------------------------------------

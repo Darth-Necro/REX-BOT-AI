@@ -259,11 +259,11 @@ class TeethService(BaseService):
             self.config.protection_mode == ProtectionMode.JUNKYARD_DOG
             and decision_action != DecisionAction.BITE
         ):
-                self._log.info(
-                    "*GRRRRR WOOF!* Junkyard Dog BITE! Escalating %s -> BITE "
-                    "for decision %s", decision_action, decision_id,
-                )
-                decision_action = DecisionAction.BITE
+            self._log.info(
+                "*GRRRRR WOOF!* Junkyard Dog BITE! Escalating %s -> BITE "
+                "for decision %s", decision_action, decision_id,
+            )
+            decision_action = DecisionAction.BITE
 
         # Map the Brain decision to a catalog action.
         action_id = _DECISION_ACTION_MAP.get(decision_action, "log_only")
@@ -327,8 +327,8 @@ class TeethService(BaseService):
                         "params": params, "enforced": True,
                         "bite": True,
                         "message": (
-                            "*GRRRRR!* REX bit the intruder!"
-                            " Blocked, quarantined, and rate-limited!"
+                            "*GRRRRR!* REX bit the intruder! "
+                            "Blocked, quarantined, and rate-limited!"
                         ),
                     },
                 )

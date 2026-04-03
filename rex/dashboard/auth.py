@@ -22,14 +22,14 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 import bcrypt
 import jwt  # PyJWT
 
 from rex.shared.audit import audit_event
 from rex.shared.fileutil import atomic_write_json
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -426,11 +426,14 @@ class AuthManager:
             if self._creds_file.exists():
                 self._creds_file.unlink()
                 logger.info(
-                    "Removed plaintext credentials file after"
-                    " migration to encrypted storage"
+                    "Removed plaintext credentials file"
+                    " after migration to encrypted storage"
                 )
         except OSError:
-            logger.warning("Failed to remove plaintext credentials file: %s", self._creds_file)
+            logger.warning(
+                "Failed to remove plaintext credentials file: %s",
+                self._creds_file,
+            )
 
     async def login(
         self, username: str, password: str, client_ip: str = "unknown",
@@ -542,7 +545,7 @@ class AuthManager:
                     jwt_secret = stored
             except Exception:
                 logger.warning(
-                    "SecretsManager read failed during token"
-                    " verification; using cached JWT secret"
+                    "SecretsManager read failed during token verification;"
+                    " using cached JWT secret"
                 )
         return verify_token_str(token, jwt_secret)

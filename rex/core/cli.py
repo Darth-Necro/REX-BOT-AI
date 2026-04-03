@@ -33,7 +33,6 @@ if _DEV_INSECURE:
     warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 
-
 def _redact_url(url: str) -> str:
     """Redact password from a URL for safe display (e.g. redis://:***@host)."""
     from urllib.parse import urlparse, urlunparse
@@ -415,7 +414,8 @@ def junkyard() -> None:
 @app.command()
 def patrol(
     schedule: str = typer.Option(
-        "", help="Cron schedule (e.g. '0 2 * * *' for 2am daily, '0 */4 * * *' every 4h)"
+        "",
+        help="Cron schedule (e.g. '0 2 * * *' for 2am daily, '0 */4 * * *' every 4h)",
     ),
     now: bool = typer.Option(False, help="Run a patrol immediately"),
 ) -> None:

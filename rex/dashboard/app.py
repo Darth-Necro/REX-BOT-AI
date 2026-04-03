@@ -423,9 +423,6 @@ def create_app() -> FastAPI:
         ``encryption_at_rest``, ``telemetry_enabled``, ``capabilities``.
         For a full runtime audit, use ``GET /api/privacy/audit`` (auth required).
         """
-        from rex.shared.config import get_config as _get_config
-
-        _get_config()
         # Retention days from user settings (if available)
         try:
             from rex.dashboard.routers.config import _load_user_settings

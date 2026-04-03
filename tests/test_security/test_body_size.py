@@ -17,10 +17,10 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from rex.dashboard.app import BodySizeLimitMiddleware
+
 if TYPE_CHECKING:
     from starlette.requests import Request
-
-from rex.dashboard.app import BodySizeLimitMiddleware
 
 _MAX_BYTES = 1024  # 1 KB for testing
 

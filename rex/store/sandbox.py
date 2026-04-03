@@ -28,6 +28,9 @@ from rex.shared.audit import audit_event
 if TYPE_CHECKING:
     from rex.shared.types import PluginId
 
+# Docker tmpfs mount spec (must reference /tmp literally for the container)
+_TMPFS_SPEC = "/tmp:rw,noexec,nosuid,size=10m"  # noqa: S108
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CPU_LIMIT = 0.5     # 50% of one core
@@ -156,7 +159,7 @@ class PluginSandbox:
             "--security-opt", "no-new-privileges",
             "--pids-limit", "256",
             "--user", "65534:65534",
-            "--tmpfs", "/tmp:rw,noexec,nosuid,size=10m",  # noqa: S108
+            "--tmpfs", _TMPFS_SPEC,
             "--label", "rex-bot-ai=plugin",
             "--label", f"rex-plugin-id={plugin_id}",
             "--restart", "no",
@@ -190,7 +193,8 @@ class PluginSandbox:
         result = _run_docker(["start", name], timeout=30)
         if result.returncode != 0:
             logger.error(
-                "Failed to start plugin container %s: %s", plugin_id, result.stderr.strip(),
+                "Failed to start plugin container %s: %s",
+                plugin_id, result.stderr.strip(),
             )
             return False
 
@@ -205,7 +209,8 @@ class PluginSandbox:
         result = _run_docker(["stop", name], timeout=30)
         if result.returncode != 0:
             logger.warning(
-                "Failed to stop plugin container %s: %s", plugin_id, result.stderr.strip(),
+                "Failed to stop plugin container %s: %s",
+                plugin_id, result.stderr.strip(),
             )
             return False
 

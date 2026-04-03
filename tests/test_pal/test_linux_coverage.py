@@ -866,14 +866,15 @@ class TestCapturePackets:
         adapter = _make_adapter()
         # CAP_NET_RAW is bit 13 = 0x2000
         cap_data = "CapEff:\t0000000000002000\n"
-        mock_sock = MagicMock()
-        mock_sock.bind.side_effect = OSError("test bind fail")
         with patch("rex.pal.linux.os.geteuid", return_value=1000), \
              patch("builtins.open", mock_open(read_data=cap_data)), \
-             patch("rex.pal.linux.socket.socket", return_value=mock_sock), \
-             pytest.raises(RexCaptureError, match="Cannot bind"):
-            gen = adapter.capture_packets("eth0")
-            next(gen)
+             patch("rex.pal.linux.socket.socket") as mock_sock_cls:
+            mock_sock = MagicMock()
+            mock_sock.bind.side_effect = OSError("test bind fail")
+            mock_sock_cls.return_value = mock_sock
+            with pytest.raises(RexCaptureError, match="Cannot bind"):
+                gen = adapter.capture_packets("eth0")
+                next(gen)
 
     def test_proc_status_oserror(self):
         """Raises RexPermissionError if /proc/self/status is unreadable (line 1106-1107)."""
@@ -902,11 +903,11 @@ class TestCapturePackets:
         mock_sock = MagicMock()
         mock_sock.bind.side_effect = OSError("bind fail")
         with patch("rex.pal.linux.os.geteuid", return_value=0), \
-             patch("rex.pal.linux.socket.socket", return_value=mock_sock), \
-             pytest.raises(RexCaptureError, match="Cannot bind"):
-            gen = adapter.capture_packets("eth0")
-            next(gen)
-        mock_sock.close.assert_called()
+             patch("rex.pal.linux.socket.socket", return_value=mock_sock):
+            with pytest.raises(RexCaptureError, match="Cannot bind"):
+                gen = adapter.capture_packets("eth0")
+                next(gen)
+            mock_sock.close.assert_called()
 
     def test_packet_parsing_ipv4_tcp(self):
         """Parses a valid IPv4/TCP packet from raw socket (line 1137-1210)."""

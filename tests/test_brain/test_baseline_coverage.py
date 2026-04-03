@@ -10,14 +10,14 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 import pytest
 
 from rex.brain.baseline import BehavioralBaseline, _domain_to_pattern, _LearningState
 from rex.shared.models import BehavioralProfile
 from rex.shared.utils import utc_now
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ===================================================================
 # Helpers

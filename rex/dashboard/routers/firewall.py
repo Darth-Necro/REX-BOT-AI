@@ -123,7 +123,8 @@ async def remove_rule(
     except Exception as e:
         logger.exception("Failed to remove firewall rule %s: %s", rule_id, e)
         raise HTTPException(
-            status_code=500, detail=f"Failed to remove firewall rule {rule_id}",
+            status_code=500,
+            detail=f"Failed to remove firewall rule {rule_id}",
         ) from e
 
 

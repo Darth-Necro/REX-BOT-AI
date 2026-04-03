@@ -19,13 +19,13 @@ import secrets
 import time
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from rex.shared.audit import audit_event
 from rex.shared.fileutil import atomic_write_json, safe_read_json
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

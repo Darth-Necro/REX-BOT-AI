@@ -13,6 +13,10 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+_tmp = tempfile.gettempdir()
+
 
 def _asyncio_run_close_coro(side_effects):
     """Return an ``asyncio.run`` replacement that closes coroutine args.
@@ -37,12 +41,11 @@ def _asyncio_run_close_coro(side_effects):
 
     return _fake_run
 
-import pytest  # noqa: E402
-
 typer = pytest.importorskip("typer", reason="typer not installed")
 
-from rex.core.cli import _get_token, _setup_logging, app  # noqa: E402  # isort: skip
 from typer.testing import CliRunner  # noqa: E402
+
+from rex.core.cli import _get_token, _setup_logging, app  # noqa: E402
 
 runner = CliRunner()
 
@@ -281,7 +284,7 @@ class TestStartCommand:
         """start should handle KeyboardInterrupt gracefully."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = tempfile.gettempdir() + "/rex-test"
+        mock_config.data_dir = f"{_tmp}/rex-test"
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -301,7 +304,7 @@ class TestStartCommand:
         """start should display admin password on first boot (shown on stderr)."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = Path(tempfile.gettempdir() + "/rex-test")
+        mock_config.data_dir = Path(f"{_tmp}/rex-test")
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -323,7 +326,7 @@ class TestStartCommand:
         """start without initial password should skip password display."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
-        mock_config.data_dir = tempfile.gettempdir() + "/rex-test"
+        mock_config.data_dir = f"{_tmp}/rex-test"
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
 
@@ -572,7 +575,7 @@ class TestBackupCommand:
 
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
-            patch("shutil.make_archive", return_value=tempfile.gettempdir() + "/backup.tar.gz"),
+            patch("shutil.make_archive", return_value=f"{_tmp}/backup.tar.gz"),
         ):
             result = runner.invoke(app, ["backup"])
 

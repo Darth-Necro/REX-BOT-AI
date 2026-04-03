@@ -28,7 +28,10 @@ _JUNKYARD_PREFIXES = {
         "*GRRRRR WOOF!* REX BITE! "
         "Intruder blocked, quarantined, and removed from network!"
     ),
-    ThreatSeverity.MEDIUM: "*GRRRRR!* REX BITE! Suspicious activity removed! Machines secured!",
+    ThreatSeverity.MEDIUM: (
+        "*GRRRRR!* REX BITE! "
+        "Suspicious activity removed! Machines secured!"
+    ),
     ThreatSeverity.LOW: (
         "*WOOF GRRR!* REX BITE! "
         "Blocked and removed -- no outside threats tolerated!"

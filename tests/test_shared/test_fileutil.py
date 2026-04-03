@@ -40,8 +40,7 @@ class TestAtomicWriteText:
         target = tmp_path / "out.txt"
         tmp_file = target.with_suffix(".tmp")
 
-        with patch("builtins.open", side_effect=OSError("fail")), \
-             pytest.raises(OSError):
+        with patch("builtins.open", side_effect=OSError("fail")), pytest.raises(OSError):
             atomic_write_text(target, "data")
 
         assert not tmp_file.exists()

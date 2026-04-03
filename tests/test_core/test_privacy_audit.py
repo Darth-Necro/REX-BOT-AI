@@ -170,12 +170,6 @@ class TestAuditOutboundConnections:
     def test_audit_outbound_connections_parses_proc(self, auditor) -> None:
         """audit_outbound_connections parses /proc/net/tcp."""
         # Mock /proc/net/tcp to return a known connection
-        _mock_tcp_content = (
-            "  sl  local_address rem_address   st tx_queue rx_queue "
-            "tr tm->when retrnsmt   uid  timeout inode\n"
-            "   0: 0100007F:0050 0100007F:C354 01 00000000:00000000 "
-            "00:00000000 00000000     0        0 12345 1 0000000000000000 100 0 0 10 0\n"
-        )
 
         with patch("builtins.open", side_effect=OSError("no /proc")):
             result = auditor.audit_outbound_connections()

@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from rex.dashboard.deps import get_current_user
 from rex.shared.fileutil import atomic_write_json, safe_read_json
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 logger = logging.getLogger(__name__)
@@ -233,13 +233,13 @@ async def update_config(
             errors["data_retention_days"] = "Must be a positive integer"
 
     if "telemetry_enabled" in updates and not isinstance(updates["telemetry_enabled"], bool):
-            errors["telemetry_enabled"] = "Must be a boolean"
+        errors["telemetry_enabled"] = "Must be a boolean"
 
     if "sleep_time" in updates and not isinstance(updates["sleep_time"], str):
-            errors["sleep_time"] = "Must be a time string (HH:MM)"
+        errors["sleep_time"] = "Must be a time string (HH:MM)"
 
     if "wake_time" in updates and not isinstance(updates["wake_time"], str):
-            errors["wake_time"] = "Must be a time string (HH:MM)"
+        errors["wake_time"] = "Must be a time string (HH:MM)"
 
     if errors:
         raise HTTPException(status_code=422, detail=f"Validation failed: {errors}")

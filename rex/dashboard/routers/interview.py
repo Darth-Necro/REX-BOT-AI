@@ -102,9 +102,12 @@ async def chat(
             result = await client.generate(
                 prompt=message,
                 system_prompt=(
-                    "You are REX, a friendly and knowledgeable cyber-security guard dog AI. "
-                    "Answer questions about network security, devices, and threats. "
-                    "Keep responses concise and helpful. Use a friendly dog persona."
+                    "You are REX, a friendly and knowledgeable "
+                    "cyber-security guard dog AI. "
+                    "Answer questions about network security, "
+                    "devices, and threats. "
+                    "Keep responses concise and helpful. "
+                    "Use a friendly dog persona."
                 ),
             )
             reply = result.get("response", "") if isinstance(result, dict) else str(result)

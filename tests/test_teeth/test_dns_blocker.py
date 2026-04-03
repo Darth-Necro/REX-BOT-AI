@@ -342,30 +342,29 @@ class TestMaxBlocklistEnforcement:
     async def test_load_blocklists_enforces_max_size(self, blocker):
         """load_blocklists truncates to MAX_BLOCKLIST_SIZE via the real path."""
         # Use a smaller MAX for speed
-        domains = {f"dom-{i}.test" for i in range(200)}
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 100), \
-             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=domains), \
-             patch.object(blocker, "_load_bundled_blocklist",
-                          new_callable=AsyncMock), \
-             patch.object(blocker, "_persist_blocklist",
-                          new_callable=AsyncMock):
-            count = await blocker.load_blocklists()
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 100):
+            domains = {f"dom-{i}.test" for i in range(200)}
+            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                              return_value=domains), \
+                 patch.object(blocker, "_load_bundled_blocklist",
+                              new_callable=AsyncMock), \
+                 patch.object(blocker, "_persist_blocklist",
+                              new_callable=AsyncMock):
+                count = await blocker.load_blocklists()
 
-        assert count <= 100
+            assert count <= 100
 
     @pytest.mark.asyncio
     async def test_update_blocklists_enforces_max_size(self, blocker):
         """update_blocklists also enforces MAX_BLOCKLIST_SIZE."""
-        domains = {f"upd-{i}.test" for i in range(100)}
-        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50), \
-             patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
-                          return_value=domains), \
-             patch.object(blocker, "_persist_blocklist",
-                          new_callable=AsyncMock):
-            await blocker.update_blocklists()
+        with patch("rex.teeth.dns_blocker.MAX_BLOCKLIST_SIZE", 50):
+            domains = {f"upd-{i}.test" for i in range(100)}
+            with patch.object(blocker, "_fetch_hosts_file", new_callable=AsyncMock,
+                              return_value=domains), patch.object(blocker, "_persist_blocklist",
+                              new_callable=AsyncMock):
+                await blocker.update_blocklists()
 
-        assert len(blocker._blocked_domains) <= 50
+            assert len(blocker._blocked_domains) <= 50
 
 
 # ------------------------------------------------------------------

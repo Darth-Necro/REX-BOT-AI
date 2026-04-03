@@ -109,12 +109,11 @@ class TestInitialize:
         fw.config.data_dir = tmp_path
         fw.pal.create_rex_chains.side_effect = RuntimeError("nft broken")
 
-        with patch("socket.socket") as mock_sock_cls:
+        with patch("socket.socket") as mock_sock_cls, \
+             pytest.raises(RuntimeError, match="nft broken"):
             mock_sock_inst = mock_sock_cls.return_value
             mock_sock_inst.getsockname.return_value = ("192.168.1.42", 0)
-
-            with pytest.raises(RuntimeError, match="nft broken"):
-                await fw.initialize()
+            await fw.initialize()
 
     @pytest.mark.asyncio
     async def test_initialize_loads_persisted_rules(self, fw, tmp_path) -> None:
@@ -396,6 +395,7 @@ class TestPersistEdgeCases:
         # Make the teeth dir unwritable by patching write_text
         teeth_dir = tmp_path / "teeth"
         teeth_dir.mkdir(parents=True, exist_ok=True)
+        teeth_dir / "firewall_rules.json"
 
         with patch.object(Path, "write_text", side_effect=OSError("read-only filesystem")):
             # Should not raise
