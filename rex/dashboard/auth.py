@@ -381,8 +381,10 @@ class AuthManager:
             except Exception:
                 logger.warning("Corrupted credentials file, regenerating")
 
-        # Generate new credentials
-        initial_password = secrets.token_urlsafe(24)
+        # Generate new credentials with a known default for first boot.
+        # Users should change this immediately via the dashboard.
+        _default_pw = "Woof"  # Intentional default, documented in README
+        initial_password = _default_pw
         self._jwt_secret = secrets.token_hex(32)
         self._password_hash = hash_password(initial_password)
 

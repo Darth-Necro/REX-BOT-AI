@@ -249,7 +249,7 @@ def version() -> None:
 
 @app.command()
 def login(
-    username: str = typer.Option("admin", help="Username"),
+    username: str = typer.Option("REX-BOT", help="Username"),
     password: str = typer.Option(..., prompt=True, hide_input=True, help="Password"),
 ) -> None:
     """Authenticate with the REX API and save token for future CLI commands."""
@@ -322,6 +322,9 @@ def scan(
             verify=not _DEV_INSECURE,
             headers=headers,
         )
+        if resp.status_code == 401:
+            typer.echo("  Not logged in. Run 'rex login' first.")
+            return
         data = resp.json()
         typer.echo(f"  {data.get('status', 'unknown')}")
         if data.get("delivered"):
@@ -342,6 +345,8 @@ def sleep() -> None:
             verify=not _DEV_INSECURE,
             headers=_auth_headers(),
         )
+        if not _check_auth_response(resp):
+            return
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
@@ -371,6 +376,8 @@ def wake() -> None:
             verify=not _DEV_INSECURE,
             headers=_auth_headers(),
         )
+        if not _check_auth_response(resp):
+            return
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("delivered"):
@@ -418,6 +425,8 @@ def junkyard() -> None:
             verify=not _DEV_INSECURE,
             headers=_auth_headers(),
         )
+        if not _check_auth_response(resp):
+            return
         data = resp.json()
         typer.echo(f"  Status: {data.get('status', 'unknown')}")
         if data.get("mode") == "junkyard_dog":
@@ -457,6 +466,8 @@ def patrol(
                 verify=not _DEV_INSECURE,
                 headers=_auth_headers(),
             )
+            if not _check_auth_response(resp):
+                return
             data = resp.json()
             typer.echo(f"  *ruff* Scan: {data.get('status', 'unknown')}")
 
@@ -467,6 +478,8 @@ def patrol(
                 verify=not _DEV_INSECURE,
                 headers=_auth_headers(),
             )
+            if not _check_auth_response(resp2):
+                return
             audit = resp2.json()
             findings = audit.get("findings_count", "?")
             typer.echo(f"  *ruff ruff* Audit findings: {findings}")
@@ -506,6 +519,8 @@ def patrol(
             verify=not _DEV_INSECURE,
             headers=_auth_headers(),
         )
+        if not _check_auth_response(resp):
+            return
         data = resp.json()
         typer.echo(f"  *ruff* Status: {data.get('status', 'unknown')}")
         if data.get("scheduled"):
@@ -591,6 +606,8 @@ def privacy(
                 timeout=10,
                 headers=_auth_headers(),
             )
+            if not _check_auth_response(resp):
+                return
             data = resp.json()
             import json
             typer.echo(json.dumps(data, indent=2))
@@ -650,6 +667,15 @@ def _auth_headers() -> dict[str, str]:
     if token:
         return {"Authorization": f"Bearer {token}"}
     return {}
+
+
+def _check_auth_response(resp: object) -> bool:
+    """Check if response indicates auth failure. Returns True if OK."""
+    status_code = getattr(resp, "status_code", 200)
+    if status_code == 401:
+        typer.echo("  Not logged in. Run 'rex login' first.")
+        return False
+    return True
 
 
 def main() -> None:

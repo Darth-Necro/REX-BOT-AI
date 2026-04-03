@@ -226,11 +226,34 @@ sudo .venv/bin/python -m rex.core.cli start
 
 REX will:
 1. Load configuration from `.env` and environment variables
-2. Generate a login password on first boot (printed to terminal)
-3. Start all 10 services in order: Memory, Eyes, Scheduler, Interview, Brain, Bark, Teeth, Federation, Store, Dashboard
-4. Begin monitoring your network
+2. Start all 10 services in order: Memory, Eyes, Scheduler, Interview, Brain, Bark, Teeth, Federation, Store, Dashboard
+3. Begin monitoring your network
 
-**Save the generated password** -- you need it to log into the dashboard.
+### Default credentials
+
+On first boot, REX creates a default admin account:
+
+| Field | Value |
+|-------|-------|
+| **Username** | `REX-BOT` |
+| **Password** | `Woof` |
+
+Log in via CLI:
+
+```bash
+rex login
+# Username: REX-BOT (default)
+# Password: Woof
+```
+
+**Change the default password** after first login:
+
+```bash
+curl -X POST http://localhost:8443/api/auth/change-password \
+  -H "Authorization: Bearer $(cat ~/.rex-token)" \
+  -H "Content-Type: application/json" \
+  -d '{"old_password": "Woof", "new_password": "your-new-secure-password"}'
+```
 
 ### Option B: Docker Compose (full stack)
 

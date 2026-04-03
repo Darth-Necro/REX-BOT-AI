@@ -17,7 +17,7 @@ async def login(request: Request, password: str = Body(..., embed=True)) -> dict
     auth = get_auth()
     client_ip = request.client.host if request.client else "unknown"
     try:
-        result = await auth.login(username="admin", password=password, client_ip=client_ip)
+        result = await auth.login(username="REX-BOT", password=password, client_ip=client_ip)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
