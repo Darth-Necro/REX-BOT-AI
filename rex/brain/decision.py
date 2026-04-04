@@ -79,7 +79,7 @@ class DecisionEngine:
             decision = await asyncio.wait_for(
                 self._pipeline(event), timeout=DEFAULT_LLM_TIMEOUT
             )
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041
             logger.warning("Pipeline timed out for %s — L1/L2 fallback", event.event_id)
             self._llm_timeouts += 1
             decision = self._fallback_decision(event)
@@ -243,7 +243,7 @@ class DecisionEngine:
                 )
                 resp = await self._llm.security_query(prompt, SYSTEM_PROMPT)
                 return self._parse_llm(event, resp)
-            except TimeoutError:
+            except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041
                 self._llm_timeouts += 1
                 return None
             except Exception:

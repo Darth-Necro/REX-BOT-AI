@@ -12,9 +12,11 @@ import logging
 import os
 import socket
 import struct
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from rex.shared.datetime_compat import UTC
 
 if TYPE_CHECKING:
     from rex.pal.base import PlatformAdapter

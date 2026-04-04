@@ -238,6 +238,8 @@ On first boot, REX creates a default admin account:
 | **Username** | `REX-BOT` |
 | **Password** | `Woof` |
 
+This password is per instance/data directory. If you reset credentials or point `REX_DATA_DIR` to a different directory, that instance may have different credentials.
+
 Log in via CLI:
 
 ```bash
@@ -250,10 +252,12 @@ rex login
 
 ```bash
 curl -X POST http://localhost:8443/api/auth/change-password \
-  -H "Authorization: Bearer $(cat ~/.rex-token)" \
+  -H "Authorization: Bearer $(jq -r 'to_entries[0].value' ~/.rex-tokens.json)" \
   -H "Content-Type: application/json" \
   -d '{"old_password": "Woof", "new_password": "your-new-secure-password"}'
 ```
+
+CLI tokens are instance-aware and stored in `~/.rex-tokens.json` (keyed by API URL). Legacy single-instance `~/.rex-token` is only used as fallback.
 
 ### Option B: Docker Compose (full stack)
 
@@ -277,7 +281,7 @@ The dashboard and GUI will be available at `http://localhost:8443`.
 
 ## Web GUI (Alpha)
 
-REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed. The GUI supports core operations with Basic and Advanced modes.
+REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed. This GUI is alpha: some features depend on optional services (Redis/Ollama/system firewall tools) and may be degraded.
 
 ### Starting GUI Mode
 
@@ -309,6 +313,7 @@ On first launch, the GUI shows a setup wizard that:
 | **Advanced** | Power users | Everything above + Firewall, Plugins, Knowledge Base, Network Map |
 
 Toggle between modes using the switch in the sidebar.
+Pages that are not complete for alpha are explicitly labeled in-UI with an **Alpha** banner.
 
 ### Accessing the GUI
 
@@ -320,7 +325,7 @@ http://localhost:8443
 
 Log in with the default credentials (`REX-BOT` / `Woof`), then change your password.
 
-### GUI Pages
+### GUI Pages (Alpha)
 
 | Page | Description |
 |------|-------------|
@@ -336,6 +341,8 @@ Log in with the default credentials (`REX-BOT` / `Woof`), then change your passw
 | **Settings** | Configuration, notifications, about |
 | **Diagnostics** | Service health details, system info |
 | **Onboarding** | First-run setup wizard |
+
+If a page/feature is incomplete in the current alpha build, the UI should label it with an **Alpha** banner.
 
 ### Rebuilding the Frontend (optional)
 
@@ -398,7 +405,7 @@ rex junkyard   # Activate JUNKYARD DOG mode (BITE! removes threats)
 rex patrol     # Schedule security patrols (--now or --schedule "cron")
 rex login      # Authenticate with the REX API
 rex diag       # Full diagnostic dump
-rex backup     # Create data backup
+rex backup     # Create atomic data backup (fails cleanly, no partial archive left behind)
 rex privacy    # Run privacy audit
 rex version    # Print version string
 ```

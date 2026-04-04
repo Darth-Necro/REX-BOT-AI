@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -11,6 +11,7 @@ import pytest
 
 from rex.memory.threat_log import ThreatLog
 from rex.shared.config import RexConfig
+from rex.shared.datetime_compat import UTC
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
 from rex.shared.utils import generate_id, utc_now

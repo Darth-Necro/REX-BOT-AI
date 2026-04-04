@@ -10,10 +10,12 @@ import json
 import socket
 import struct
 import subprocess
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+
+from rex.shared.datetime_compat import UTC
 
 # ---------------------------------------------------------------------------
 # Helpers

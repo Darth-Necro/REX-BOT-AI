@@ -26,13 +26,14 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
     PlatformAdapter,
 )
+from rex.shared.datetime_compat import UTC
 from rex.shared.errors import RexPlatformNotSupportedError
 from rex.shared.models import (
     FirewallRule,

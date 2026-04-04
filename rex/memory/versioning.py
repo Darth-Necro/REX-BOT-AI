@@ -11,8 +11,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
+
+from rex.shared.datetime_compat import UTC
 
 if TYPE_CHECKING:
     from pathlib import Path

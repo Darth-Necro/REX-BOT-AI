@@ -301,7 +301,7 @@ rex scan --target 192.168.1.50  # Scan specific IP only
 rex sleep                  # Enter low-power mode (lightweight monitoring)
 rex wake                   # Return to full monitoring
 rex diag                   # Diagnostic dump (OS, CPU, RAM, GPU, Docker)
-rex backup                 # Backup data to /etc/rex-bot-ai/backups/
+rex backup                 # Atomic backup; command fails if any file is unreadable
 rex privacy                # Run privacy audit
 rex version                # Print version
 ```

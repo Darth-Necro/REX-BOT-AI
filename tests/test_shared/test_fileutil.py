@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from rex.shared.datetime_compat import UTC
 from rex.shared.fileutil import atomic_write_json, atomic_write_text, safe_read_json
 
 

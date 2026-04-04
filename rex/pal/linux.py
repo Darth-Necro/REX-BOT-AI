@@ -26,11 +26,12 @@ import shutil
 import socket
 import struct
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.config import get_config
+from rex.shared.datetime_compat import UTC
 from rex.shared.enums import DeviceStatus
 from rex.shared.errors import (
     RexCaptureError,

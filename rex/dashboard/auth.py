@@ -19,13 +19,14 @@ import json
 import logging
 import secrets
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import bcrypt
 import jwt  # PyJWT
 
 from rex.shared.audit import audit_event
+from rex.shared.datetime_compat import UTC
 from rex.shared.fileutil import atomic_write_json
 
 if TYPE_CHECKING:

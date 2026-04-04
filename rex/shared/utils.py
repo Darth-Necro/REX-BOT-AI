@@ -13,7 +13,9 @@ import math
 import re
 import uuid
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import datetime
+
+from rex.shared.datetime_compat import UTC
 
 # Pre-compiled patterns for MAC validation / normalisation
 _MAC_SEP_RE = re.compile(r"^([0-9a-fA-F]{2}[:\-]){5}[0-9a-fA-F]{2}$")
