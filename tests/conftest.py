@@ -6,6 +6,7 @@ Everything is mocked.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
@@ -19,6 +20,38 @@ from rex.shared.utils import generate_id, utc_now
 if TYPE_CHECKING:
     from pathlib import Path
 
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register local asyncio marker for environments without pytest-asyncio."""
+    config.addinivalue_line("markers", "asyncio: run test in an event loop")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
+    """Fallback async test runner if pytest-asyncio is unavailable.
+
+    Executes coroutine test functions (or tests marked ``@pytest.mark.asyncio``)
+    with ``asyncio.run``.
+    """
+    test_fn = pyfuncitem.obj
+    is_async = asyncio.iscoroutinefunction(test_fn)
+    wants_asyncio = pyfuncitem.get_closest_marker("asyncio") is not None
+    if not is_async and not wants_asyncio:
+        return None
+
+    kwargs = {
+        name: pyfuncitem.funcargs[name]
+        for name in pyfuncitem._fixtureinfo.argnames
+        if name in pyfuncitem.funcargs
+    }
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(test_fn(**kwargs))
+    finally:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    return True
 
 @pytest.fixture
 def config(tmp_path: Path) -> RexConfig:

@@ -174,7 +174,7 @@ async def run_subprocess_async(
                 tag, rc, stderr[:200],
             )
         return rc, stdout, stderr
-    except TimeoutError:
+    except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041 (Py3.10 runtime)
         logger.warning("[SUBPROCESS-ASYNC] %s timed out after %.0fs", tag, timeout)
         if proc is not None and proc.returncode is None:
             proc.kill()

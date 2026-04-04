@@ -7,6 +7,7 @@ shape matches the backend's actual contract.
 
 from __future__ import annotations
 
+import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -62,7 +63,7 @@ class TestLoginContract:
     def test_login_sends_password_only(self, tmp_path) -> None:
         from typer.testing import CliRunner
 
-        from rex.core.cli import app
+        from rex.core import cli as cli_mod
 
         runner = CliRunner()
         mock_resp = _mock_response(200, {
@@ -73,9 +74,9 @@ class TestLoginContract:
 
         with (
             patch("httpx.post", return_value=mock_resp) as mock_post,
-            patch("os.path.expanduser", return_value=str(tmp_path / ".rex-token")),
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".rex-tokens.json"),
         ):
-            runner.invoke(app, ["login", "--password", "secret123"])
+            runner.invoke(cli_mod.app, ["login", "--password", "secret123"])
 
         # Verify the request payload
         call_kwargs = mock_post.call_args
@@ -86,7 +87,7 @@ class TestLoginContract:
     def test_login_reads_access_token(self, tmp_path) -> None:
         from typer.testing import CliRunner
 
-        from rex.core.cli import app
+        from rex.core import cli as cli_mod
 
         runner = CliRunner()
         mock_resp = _mock_response(200, {
@@ -95,32 +96,32 @@ class TestLoginContract:
             "expires_in": 14400,
         })
 
-        token_path = str(tmp_path / ".rex-token")
+        token_path = tmp_path / ".rex-tokens.json"
         with (
             patch("httpx.post", return_value=mock_resp),
-            patch("os.path.expanduser", return_value=token_path),
+            patch.object(cli_mod, "_TOKENS_DB_PATH", token_path),
+            patch.object(cli_mod, "_DEFAULT_API_URL", "http://localhost:8443"),
         ):
-            runner.invoke(app, ["login", "--password", "secret"])
+            runner.invoke(cli_mod.app, ["login", "--password", "secret"])
 
         # Token should be saved
-        assert os.path.exists(token_path)
-        with open(token_path) as f:
-            saved = f.read().strip()
+        assert token_path.exists()
+        saved = json.loads(token_path.read_text())["http://localhost:8443"]
         assert saved == "jwt-token-456"
 
     def test_login_uses_tls_verify(self, tmp_path) -> None:
         from typer.testing import CliRunner
 
-        from rex.core.cli import app
+        from rex.core import cli as cli_mod
 
         runner = CliRunner()
         mock_resp = _mock_response(200, {"access_token": "tok", "token_type": "bearer", "expires_in": 14400})
 
         with (
             patch("httpx.post", return_value=mock_resp) as mock_post,
-            patch("os.path.expanduser", return_value=str(tmp_path / ".rex-token")),
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".rex-tokens.json"),
         ):
-            runner.invoke(app, ["login", "--password", "pw"])
+            runner.invoke(cli_mod.app, ["login", "--password", "pw"])
 
         # verify param should be present
         call_kwargs = mock_post.call_args
@@ -151,13 +152,9 @@ class TestStatusContract:
             "services": {},
         })
 
-        token_file = tmp_path / ".rex-token"
-        token_file.write_text("my-token")
-        token_file.chmod(0o600)
-
         with (
             patch("httpx.get", return_value=mock_resp) as mock_get,
-            patch("os.path.expanduser", return_value=str(token_file)),
+            patch("rex.core.cli._get_token", return_value="my-token"),
         ):
             runner.invoke(app, ["status"])
 
@@ -207,13 +204,9 @@ class TestScanContract:
         runner = CliRunner()
         mock_resp = _mock_response(200, {"status": "scan_requested", "delivered": True})
 
-        token_file = tmp_path / ".rex-token"
-        token_file.write_text("tok")
-        token_file.chmod(0o600)
-
         with (
             patch("httpx.post", return_value=mock_resp) as mock_post,
-            patch("os.path.expanduser", return_value=str(token_file)),
+            patch("rex.core.cli._get_token", return_value="tok"),
         ):
             runner.invoke(app, ["scan", "--no-quick"])
 
@@ -229,13 +222,9 @@ class TestScanContract:
         runner = CliRunner()
         mock_resp = _mock_response(200, {"status": "scan_requested", "delivered": True})
 
-        token_file = tmp_path / ".rex-token"
-        token_file.write_text("tok")
-        token_file.chmod(0o600)
-
         with (
             patch("httpx.post", return_value=mock_resp) as mock_post,
-            patch("os.path.expanduser", return_value=str(token_file)),
+            patch("rex.core.cli._get_token", return_value="tok"),
         ):
             runner.invoke(app, ["scan", "--target", "192.168.1.50"])
 

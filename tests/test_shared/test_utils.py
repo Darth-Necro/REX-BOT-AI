@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime
 
 import pytest
 
+from rex.shared.datetime_compat import UTC
 from rex.shared.utils import (
     entropy,
     generate_id,

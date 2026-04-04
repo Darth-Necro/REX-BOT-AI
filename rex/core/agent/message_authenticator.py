@@ -23,9 +23,10 @@ import json
 import logging
 import secrets
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from rex.shared.datetime_compat import UTC
 from rex.shared.utils import generate_id, utc_now
 
 if TYPE_CHECKING:

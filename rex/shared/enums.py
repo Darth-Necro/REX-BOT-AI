@@ -7,7 +7,18 @@ JSON, Redis streams, and Pydantic models without any custom encoder.
 
 from __future__ import annotations
 
-from enum import StrEnum
+try:
+    from enum import StrEnum
+except ImportError:  # Python 3.10 fallback
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        """Backport of enum.StrEnum for Python < 3.11."""
+
+        def __str__(self) -> str:
+            """Match stdlib StrEnum behavior by returning the raw value."""
+            return str(self.value)
+
 
 
 # ---------------------------------------------------------------------------

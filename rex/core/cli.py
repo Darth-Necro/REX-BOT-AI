@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 
 # TLS verification is ENABLED by default.  For local development with
@@ -18,11 +19,13 @@ import logging
 import os as _os
 import sys
 import warnings
-from datetime import UTC
+from pathlib import Path
 
+import click
 import typer
 
 from rex.shared.constants import VERSION
+from rex.shared.datetime_compat import UTC
 
 _DEV_INSECURE = _os.environ.get("REX_DEV_INSECURE", "").strip() in ("1", "true", "yes")
 if _DEV_INSECURE:
@@ -50,6 +53,29 @@ def _redact_url(url: str) -> str:
         pass
     return url
 
+
+def _install_click_metavar_compat() -> None:
+    """Patch Click 8.3+ metavar API for older Typer rich-help calls.
+
+    Typer versions that still call ``make_metavar()`` with no ``ctx`` argument
+    crash against Click versions where ``ctx`` is required.  This shim keeps
+    help output working by supplying a minimal context when omitted.
+    """
+    command = click.Command("rex")
+
+    for cls in (click.core.Parameter, click.core.Option, click.core.Argument):
+        original = cls.make_metavar
+
+        def _patched(self, ctx=None, _orig=original):  # type: ignore[no-untyped-def]
+            if ctx is None:
+                ctx = click.Context(command)
+            return _orig(self, ctx)
+
+        cls.make_metavar = _patched  # type: ignore[assignment]
+
+
+_install_click_metavar_compat()
+
 app = typer.Typer(
     name="rex",
     help="REX-BOT-AI -- Open-source autonomous AI security agent.",
@@ -73,6 +99,8 @@ def _detect_api_url() -> str:
     return f"http://localhost:{port}"
 
 _DEFAULT_API_URL = _detect_api_url()
+_LEGACY_TOKEN_PATH = Path(_os.path.expanduser("~/.rex-token"))
+_TOKENS_DB_PATH = Path(_os.path.expanduser("~/.rex-tokens.json"))
 
 
 def _setup_logging(level: str = "info") -> None:
@@ -233,53 +261,102 @@ def start(
 @app.command()
 def stop() -> None:
     """Stop all REX services gracefully (sends SIGTERM to running instance)."""
-    import os
+    import errno
     import signal
+    import socket
+    import time
 
     from rex.shared.config import get_config
-    pidfile = str(get_config().data_dir / "rex-bot-ai.pid")
-    if os.path.exists(pidfile):
-        with open(pidfile) as f:
-            pid = int(f.read().strip())
+    config = get_config()
+    pidfile = config.data_dir / "rex-bot-ai.pid"
+    if not pidfile.exists():
+        typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
+        raise typer.Exit(code=1)
+
+    try:
+        pid = int(pidfile.read_text().strip())
+    except (OSError, ValueError) as exc:
+        typer.echo(f"  *whimper* PID file is unreadable or invalid: {pidfile} ({exc})")
+        raise typer.Exit(code=1) from exc
+
+    def _pid_exists(target_pid: int) -> bool:
+        stat_path = Path(f"/proc/{target_pid}/stat")
+        if stat_path.exists():
+            with contextlib.suppress(OSError, IndexError):
+                fields = stat_path.read_text().split()
+                if len(fields) > 2 and fields[2] == "Z":
+                    return False
         try:
-            os.kill(pid, signal.SIGTERM)
-        except PermissionError:
-            typer.echo(
-                f"  *whimper* Cannot stop REX (PID {pid}): permission denied.\n"
-                "  REX was started with elevated privileges.\n"
-                "  Rerun with: sudo rex stop"
-            )
-            return
+            _os.kill(target_pid, 0)
+            return True
         except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+
+    def _port_is_bound(host: str, port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            return sock.connect_ex((host, port)) == 0
+
+    if not _pid_exists(pid):
+        typer.echo("  *whimper* REX process not found (stale PID file).")
+        with contextlib.suppress(OSError):
+            pidfile.unlink()
+        raise typer.Exit(code=1)
+
+    try:
+        _os.kill(pid, signal.SIGTERM)
+        typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
+    except PermissionError as exc:
+        typer.echo(
+            f"  *whimper* Cannot stop REX (PID {pid}): permission denied.\n"
+            "  REX appears to be owned by another user (often root).\n"
+            "  Rerun with: sudo rex stop"
+        )
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        if exc.errno == errno.ESRCH:
             typer.echo("  *whimper* REX process not found (stale PID file).")
             with contextlib.suppress(OSError):
-                os.unlink(pidfile)
-            return
-        typer.echo(f"  *ruff* Sent stop signal to REX (PID {pid})")
+                pidfile.unlink()
+            raise typer.Exit(code=1) from exc
+        typer.echo(f"  *whimper* Failed to signal REX (PID {pid}): {exc}")
+        raise typer.Exit(code=1) from exc
 
-        # Poll for actual exit (up to 15 seconds)
-        import time
-        for i in range(15):
-            time.sleep(1)
-            try:
-                os.kill(pid, 0)  # Check if process exists
-            except ProcessLookupError:
-                typer.echo("  *woof* REX stopped successfully.")
-                with contextlib.suppress(OSError):
-                    os.unlink(pidfile)
-                return
-            except PermissionError:
-                pass  # Process exists but we can't signal it
-            if i == 4:
-                typer.echo("  ... still shutting down ...")
+    # Wait for process termination and dashboard port release.
+    for idx in range(30):
+        time.sleep(0.5)
+        if idx == 9:
+            typer.echo("  ... still shutting down ...")
+        if not _pid_exists(pid):
+            break
 
-        # Process didn't exit
+    still_alive = _pid_exists(pid)
+    port_still_bound = _port_is_bound("127.0.0.1", config.dashboard_port)
+
+    if still_alive:
+        with contextlib.suppress(OSError, PermissionError):
+            _os.kill(pid, signal.SIGKILL)
+        for _ in range(10):
+            time.sleep(0.2)
+            if not _pid_exists(pid):
+                break
+        still_alive = _pid_exists(pid)
+        port_still_bound = _port_is_bound("127.0.0.1", config.dashboard_port)
+
+    if still_alive or port_still_bound:
         typer.echo(
-            f"  *whimper* REX (PID {pid}) is still running after 15 seconds.\n"
-            f"  Force kill with: sudo kill -9 {pid}"
+            "  *whimper* Stop was not clean:"
+            f" process_alive={still_alive}, port_{config.dashboard_port}_bound={port_still_bound}"
         )
-    else:
-        typer.echo("  *whimper* REX does not appear to be running (no PID file found).")
+        if still_alive:
+            typer.echo(f"  Force kill with: sudo kill -9 {pid}")
+        raise typer.Exit(code=1)
+
+    with contextlib.suppress(OSError):
+        pidfile.unlink()
+    typer.echo("  *woof* REX stopped successfully.")
 
 
 @app.command()
@@ -355,8 +432,6 @@ def login(
     password: str = typer.Option(..., prompt=True, hide_input=True, help="Password"),
 ) -> None:
     """Authenticate with the REX API and save token for future CLI commands."""
-    import os
-
     import httpx
 
     try:
@@ -370,24 +445,39 @@ def login(
             data = resp.json()
             token = data.get("access_token", "") or data.get("token", "")
             if token:
-                token_file = os.path.expanduser("~/.rex-token")
-                with open(token_file, "w") as f:
-                    f.write(token)
-                os.chmod(token_file, 0o600)
+                _save_token_for_instance(_DEFAULT_API_URL, token)
                 typer.echo(r"""
         ^
        / \__
       (    @\___   *WOOF WOOF!* Login successful!
-      /         O  Token saved to ~/.rex-token
+      /         O  Token saved for """ + _DEFAULT_API_URL + r"""
      /   (_____/
     /_____/   U
 """)
             else:
                 typer.echo("  *ruff?* Login response did not contain a token.")
+                raise typer.Exit(code=1)
+        elif resp.status_code == 401:
+            detail = ""
+            with contextlib.suppress(Exception):
+                detail = str(resp.json().get("detail", "")).strip()
+            typer.echo(f"  *GRRR* Login failed (wrong password): {detail or 'Unauthorized'}")
+            raise typer.Exit(code=1)
+        elif resp.status_code == 503:
+            typer.echo("  *whimper* Instance is not initialized yet. Start REX and complete setup.")
+            raise typer.Exit(code=1)
         else:
             typer.echo(f"  *GRRR* Login failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        typer.echo(f"  *whimper* Cannot reach REX API: {e}")
+            raise typer.Exit(code=1)
+    except httpx.ConnectError as exc:
+        typer.echo(f"  *whimper* Cannot reach REX API at {_DEFAULT_API_URL}: {exc}")
+        raise typer.Exit(code=1) from exc
+    except httpx.TimeoutException as exc:
+        typer.echo(f"  *whimper* Timed out contacting REX API at {_DEFAULT_API_URL}: {exc}")
+        raise typer.Exit(code=1) from exc
+    except httpx.HTTPError as exc:
+        typer.echo(f"  *whimper* HTTP error contacting REX API at {_DEFAULT_API_URL}: {exc}")
+        raise typer.Exit(code=1) from exc
 
 
 @app.command()
@@ -735,34 +825,33 @@ def backup() -> None:
     backup_dir = config.data_dir / "backups"
     try:
         backup_dir.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        typer.echo(f"  *whimper* Cannot create backup directory: {backup_dir}")
+    except OSError as exc:
+        typer.echo(f"  *whimper* Cannot create backup directory: {backup_dir} ({exc})")
         typer.echo("  Check permissions or run with sudo.")
-        return
+        raise typer.Exit(code=1) from exc
 
     ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     archive_path = backup_dir / f"rex-backup-{ts}.tar.gz"
+    temp_archive_path = backup_dir / f".rex-backup-{ts}.partial.tar.gz"
 
     # Exclude the backups directory itself to avoid recursion
     exclude_dirs = {"backups", ".git", "__pycache__"}
 
     try:
-        with tarfile.open(str(archive_path), "w:gz") as tar:
+        with tarfile.open(str(temp_archive_path), "w:gz") as tar:
             for item in sorted(config.data_dir.iterdir()):
                 if item.name in exclude_dirs:
                     continue
-                try:
-                    tar.add(str(item), arcname=item.name)
-                except PermissionError:
-                    typer.echo(f"  (skipped unreadable: {item.name})")
-                except OSError as exc:
-                    typer.echo(f"  (skipped {item.name}: {exc})")
+                tar.add(str(item), arcname=item.name)
+        temp_archive_path.replace(archive_path)
     except Exception as exc:
         typer.echo(f"  *whimper* Backup failed: {exc}")
-        # Clean up partial archive
+        # Clean up partial archive and prevent false-success artifacts.
+        with contextlib.suppress(OSError):
+            temp_archive_path.unlink()
         with contextlib.suppress(OSError):
             archive_path.unlink()
-        return
+        raise typer.Exit(code=1) from exc
 
     size_kb = archive_path.stat().st_size // 1024
     typer.echo(f"  *WOOF!* Backup created: {archive_path} ({size_kb} KB)")
@@ -913,31 +1002,16 @@ pause
 
 
 def _get_token() -> str:
-    """Read cached auth token from ~/.rex-token.
+    """Read cached auth token for the currently targeted instance.
 
-    Validates file permissions: the token file must not be readable by
-    group or others (mode must be 0o600 or stricter).  If permissions
-    are too open the file is ignored and a warning is printed.
+    New storage: ~/.rex-tokens.json keyed by API URL.
+    Legacy fallback: ~/.rex-token (single-instance).
     """
-    import os
-    import stat
-    from pathlib import Path
+    token = _load_instance_tokens().get(_normalize_instance_key(_DEFAULT_API_URL), "")
+    if token:
+        return token
 
-    token_file = Path(os.path.expanduser("~/.rex-token"))
-    if not token_file.exists():
-        return ""
-    try:
-        mode = token_file.stat().st_mode
-        if mode & (stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH):
-            logging.getLogger(__name__).warning(
-                "Ignoring %s: file permissions too open (mode %o). "
-                "Run: chmod 600 %s",
-                token_file, stat.S_IMODE(mode), token_file,
-            )
-            return ""
-    except OSError:
-        return ""
-    return token_file.read_text().strip()
+    return _load_legacy_token()
 
 
 def _auth_headers() -> dict[str, str]:
@@ -955,6 +1029,66 @@ def _check_auth_response(resp: object) -> bool:
         typer.echo("  Not logged in. Run 'rex login' first.")
         return False
     return True
+
+
+def _normalize_instance_key(api_url: str) -> str:
+    return api_url.strip().rstrip("/")
+
+
+def _load_legacy_token() -> str:
+    import stat
+
+    token_file = _LEGACY_TOKEN_PATH
+    if not token_file.exists():
+        return ""
+    try:
+        mode = token_file.stat().st_mode
+        if mode & (stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH):
+            logging.getLogger(__name__).warning(
+                "Ignoring %s: file permissions too open (mode %o). "
+                "Run: chmod 600 %s",
+                token_file, stat.S_IMODE(mode), token_file,
+            )
+            return ""
+    except OSError:
+        return ""
+    return token_file.read_text().strip()
+
+
+def _load_instance_tokens() -> dict[str, str]:
+    import stat
+
+    if not _TOKENS_DB_PATH.exists():
+        return {}
+    try:
+        mode = _TOKENS_DB_PATH.stat().st_mode
+        if mode & (stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH):
+            logging.getLogger(__name__).warning(
+                "Ignoring %s: file permissions too open (mode %o). "
+                "Run: chmod 600 %s",
+                _TOKENS_DB_PATH, stat.S_IMODE(mode), _TOKENS_DB_PATH,
+            )
+            return {}
+        raw = json.loads(_TOKENS_DB_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    normalized: dict[str, str] = {}
+    for key, value in raw.items():
+        if isinstance(key, str) and isinstance(value, str) and value.strip():
+            normalized[_normalize_instance_key(key)] = value.strip()
+    return normalized
+
+
+def _save_token_for_instance(api_url: str, token: str) -> None:
+    import stat
+
+    key = _normalize_instance_key(api_url)
+    tokens = _load_instance_tokens()
+    tokens[key] = token.strip()
+    _TOKENS_DB_PATH.write_text(json.dumps(tokens, indent=2, sort_keys=True) + "\n")
+    _TOKENS_DB_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
 def _is_rex_running() -> tuple[bool, int | None]:
@@ -978,6 +1112,12 @@ def _is_rex_running() -> tuple[bool, int | None]:
         if pidfile.exists():
             try:
                 pid = int(pidfile.read_text().strip())
+                stat_path = Path(f"/proc/{pid}/stat")
+                if stat_path.exists():
+                    with contextlib.suppress(OSError, IndexError):
+                        fields = stat_path.read_text().split()
+                        if len(fields) > 2 and fields[2] == "Z":
+                            continue
                 # Check if the process is actually alive
                 os.kill(pid, 0)
                 return True, pid

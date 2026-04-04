@@ -207,7 +207,7 @@ class ConfirmationManager:
         # Wait for resolution or timeout.
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout_seconds)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041 (Py3.10 runtime)
             # Timeout reached -- decide based on threat severity.
             return self._handle_timeout(confirmation)
         finally:

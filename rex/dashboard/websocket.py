@@ -263,8 +263,19 @@ class WebSocketManager:
                 msg = json.loads(raw)
                 if msg.get("type") == "auth" and isinstance(msg.get("token"), str):
                     token = msg["token"]
-            except (TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
-                pass
+            except Exception as exc:
+                if isinstance(
+                    exc,
+                    (
+                        TimeoutError,
+                        asyncio.TimeoutError,
+                        json.JSONDecodeError,
+                        WebSocketDisconnect,
+                    ),
+                ):
+                    pass
+                else:
+                    raise
 
             if not token:
                 audit_event("ws_reject", client_ip=client_ip, detail="Missing auth token")
