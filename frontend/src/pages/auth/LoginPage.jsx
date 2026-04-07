@@ -5,10 +5,21 @@
  * connection hint. No fake data.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import LoginForm from '../../components/auth/LoginForm';
+import api from '../../api/client';
+
+const _apiBase = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default function LoginPage() {
+  const [version, setVersion] = useState(null);
+
+  useEffect(() => {
+    api.get('/status').then(res => {
+      if (res.data?.version) setVersion(res.data.version);
+    }).catch(() => { /* backend unreachable */ });
+  }, []);
+
   return (
     <div className="min-h-screen bg-rex-bg flex items-center justify-center px-4">
       {/* Subtle background grid */}
@@ -44,9 +55,14 @@ export default function LoginPage() {
           <LoginForm />
 
           {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-rex-card/50 flex items-center justify-between">
-            <span className="text-[10px] text-rex-muted/50 font-mono">v0.1.0-alpha</span>
-            <span className="text-[10px] text-rex-muted/50">Local auth only</span>
+          <div className="mt-6 pt-4 border-t border-rex-card/50 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-rex-muted/50 font-mono">{version || 'loading...'}</span>
+              <span className="text-[10px] text-rex-muted/50">Local auth only</span>
+            </div>
+            <div className="text-[10px] text-rex-muted/40 font-mono truncate" title={_apiBase}>
+              {_apiBase}
+            </div>
           </div>
         </div>
 

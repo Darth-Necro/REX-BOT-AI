@@ -103,7 +103,7 @@ export default function NetworkMapPage() {
           <div>
             <h1 className="text-xl font-bold text-slate-100">Network Map</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Topology derived from discovered devices
+              Derived view — assembled from device scan data, not live network telemetry
             </p>
           </div>
           <Button

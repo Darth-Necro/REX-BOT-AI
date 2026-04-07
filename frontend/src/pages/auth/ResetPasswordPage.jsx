@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="max-w-md mx-auto mt-12 p-6">
-      <h1 className="text-xl font-bold text-white mb-2">Reset Password</h1>
+      <h1 className="text-xl font-bold text-white mb-2">Reset Password (Admin)</h1>
       <p className="text-sm text-rex-muted mb-6">
         Set a new password without entering the old one. You will be logged out
         after the reset and must sign in with the new password.

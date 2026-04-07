@@ -56,9 +56,6 @@ const ThreatDetailsPage = lazy(() => import('../pages/threats/ThreatDetailsPage'
 const InvestigationsPage = lazy(() => import('../pages/threats/InvestigationsPage'));
 const ServiceHealthPage = lazy(() => import('../pages/diagnostics/ServiceHealthPage'));
 
-/* Fallback for legacy basic mode */
-const BasicView = lazy(() => import('../views/BasicView'));
-
 /* ---------- loading fallback ---------- */
 
 function PageLoader() {

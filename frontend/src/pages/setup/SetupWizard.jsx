@@ -50,9 +50,9 @@ function EnvironmentStep({ onNext }) {
         const d = res.data;
         setChecks(c => ({
           ...c,
-          redis: d.services?.memory?.status === 'running',
-          ollama: d.llm_status !== 'unavailable',
-          chromadb: true, // Can't easily check from status
+          redis: d.services?.redis?.healthy ?? null,
+          ollama: d.services?.ollama?.healthy ?? null,
+          chromadb: null, // Not available from /status; shown as unknown
         }));
       } catch {
         // If status fails, mark unknown
@@ -98,7 +98,7 @@ function EnvironmentStep({ onNext }) {
   );
 }
 
-function LoginStep({ onNext }) {
+function LoginStep({ onNext, onPasswordCapture }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -110,6 +110,7 @@ function LoginStep({ onNext }) {
     try {
       const { token } = await loginApi(password);
       setToken(token);
+      onPasswordCapture(password);
       onNext();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || 'Login failed');
@@ -121,10 +122,12 @@ function LoginStep({ onNext }) {
     <div>
       <h2 className="text-xl font-bold text-white mb-4">Login</h2>
       <div className="bg-gray-800 rounded-lg p-4 mb-4">
-        <p className="text-gray-300 text-sm mb-3">Default credentials:</p>
+        <p className="text-gray-300 text-sm mb-3">
+          Enter the initial admin password shown in your terminal when REX first started.
+        </p>
         <div className="bg-gray-700 rounded p-3 font-mono text-sm mb-3">
           <div className="text-gray-400">Username: <span className="text-white">REX-BOT</span></div>
-          <div className="text-gray-400">Password: <span className="text-white">Woof</span></div>
+          <div className="text-gray-400">Password: <span className="text-white italic">check terminal output</span></div>
         </div>
         <p className="text-amber-400 text-xs">You should change the password after logging in.</p>
       </div>
@@ -150,7 +153,7 @@ function LoginStep({ onNext }) {
   );
 }
 
-function PasswordStep({ onNext }) {
+function PasswordStep({ onNext, loginPassword }) {
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [error, setError] = useState('');
@@ -162,7 +165,7 @@ function PasswordStep({ onNext }) {
     setLoading(true);
     setError('');
     try {
-      await api.post('/auth/change-password', { old_password: 'Woof', new_password: newPw });
+      await api.post('/auth/change-password', { old_password: loginPassword, new_password: newPw });
       onNext();
     } catch (e) {
       setError(e?.response?.data?.detail || 'Failed to change password');
@@ -196,12 +199,16 @@ function PasswordStep({ onNext }) {
 
 function CompleteStep() {
   const navigate = useNavigate();
+  const handleFinish = () => {
+    localStorage.setItem('rex_setup_complete', Date.now().toString());
+    navigate('/overview');
+  };
   return (
     <div className="text-center">
       <div className="text-6xl mb-4">🎉</div>
       <h2 className="text-2xl font-bold text-white mb-2">REX is Ready!</h2>
       <p className="text-gray-400 mb-6">Your network security agent is protecting your network.</p>
-      <button onClick={() => navigate('/overview')} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium">
+      <button onClick={handleFinish} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium">
         Go to Dashboard
       </button>
     </div>
@@ -210,13 +217,14 @@ function CompleteStep() {
 
 export default function SetupWizard() {
   const [step, setStep] = useState(0);
+  const [loginPassword, setLoginPassword] = useState('');
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
 
   const components = [
     <WelcomeStep onNext={next} />,
     <EnvironmentStep onNext={next} />,
-    <LoginStep onNext={next} />,
-    <PasswordStep onNext={next} />,
+    <LoginStep onNext={next} onPasswordCapture={setLoginPassword} />,
+    <PasswordStep onNext={next} loginPassword={loginPassword} />,
     <CompleteStep />,
   ];
 

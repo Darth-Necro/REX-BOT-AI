@@ -145,6 +145,27 @@ class TestHealthRouter:
         assert "active_threats" in data
         assert isinstance(data["active_threats"], int)
 
+    def test_status_uptime_is_process_uptime(self, client: TestClient) -> None:
+        """GET /api/status uptime_seconds must reflect real process uptime.
+
+        Regression: previously returned time.monotonic() raw value which is
+        not process uptime.  The correct value is time.time() - _PROCESS_START_TIME
+        which should be a small positive number in tests (seconds, not hours).
+        """
+        with patch.object(deps, "_auth_manager", _mock_auth_manager()):
+            response = client.get(
+                "/api/status", headers={"Authorization": "Bearer test-token"}
+            )
+        data = response.json()
+        assert "uptime_seconds" in data
+        uptime = data["uptime_seconds"]
+        assert isinstance(uptime, int)
+        # Process uptime in a test should be well under 1 hour.
+        # The old bug returned time.monotonic() which could be thousands of seconds.
+        assert 0 <= uptime < 3600, (
+            f"uptime_seconds={uptime} looks like raw monotonic clock, not process uptime"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Privacy endpoint tests

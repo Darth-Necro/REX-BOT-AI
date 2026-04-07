@@ -214,7 +214,7 @@ async def get_status(authorization: str = Header(default="")) -> dict[str, Any]:
     result["status"] = probes["status"]
 
     # Uptime
-    uptime_seconds = int(time.monotonic())
+    uptime_seconds = int(time.time() - _PROCESS_START_TIME)
 
     # LLM status
     llm_status = "ready" if probes["ollama_ok"] else "offline"

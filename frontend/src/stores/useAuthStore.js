@@ -101,11 +101,15 @@ const useAuthStore = create((set, get) => ({
   /**
    * Mark session as expired (e.g. 401 interceptor).
    */
-  expire: () => set({
-    token: null,
-    sessionState: SESSION_STATES.EXPIRED,
-    error: 'Session expired. Please log in again.',
-  }),
+  expire: () => {
+    localStorage.removeItem('rex_token');
+    try { localStorage.removeItem(_tokenKey()); } catch { /* ignore */ }
+    set({
+      token: null,
+      sessionState: SESSION_STATES.EXPIRED,
+      error: 'Session expired. Please log in again.',
+    });
+  },
 
   /**
    * Returns true if the current token's `exp` claim is in the past.
@@ -117,14 +121,6 @@ const useAuthStore = create((set, get) => ({
     const exp = _getExpiry(token);
     if (!exp) return false;
     return Date.now() / 1000 > exp;
-  },
-
-  /**
-   * Placeholder for token refresh. Implementations should call the refresh
-   * endpoint and feed the new token to setToken().
-   */
-  refreshToken: async () => {
-    // TODO: call /api/auth/refresh and store the new token
   },
 
   /** Convenience selectors */

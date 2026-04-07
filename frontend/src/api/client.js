@@ -28,10 +28,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-export const getStatus = () => api.get('/status');
-export const getDevices = () => api.get('/devices/');
-export const getThreats = (params) => api.get('/threats/', { params });
-export const login = (password) => api.post('/auth/login', { password });
-export const triggerScan = () => api.post('/devices/scan');
-export const panicButton = () => api.post('/firewall/panic');
