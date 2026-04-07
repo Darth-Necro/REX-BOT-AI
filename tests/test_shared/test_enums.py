@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from enum import StrEnum
 
 from rex.shared.enums import (
     DecisionAction,
@@ -15,6 +14,7 @@ from rex.shared.enums import (
     PowerState,
     ProtectionMode,
     ServiceName,
+    StrEnum,
     ThreatCategory,
     ThreatSeverity,
 )

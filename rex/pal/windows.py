@@ -25,12 +25,13 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import UTC
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from rex.pal.base import (
     PlatformAdapter,
 )
+from rex.shared.datetime_compat import UTC
 from rex.shared.errors import RexPlatformNotSupportedError
 from rex.shared.models import (
     FirewallRule,
@@ -237,8 +238,6 @@ class WindowsAdapter(PlatformAdapter):
                 "Windows capture_packets requires tshark (Wireshark/Npcap). "
                 "Install from https://www.wireshark.org/",
             )
-
-        from datetime import UTC, datetime
 
         cmd: list[str] = [
             tshark, "-i", interface, "-l",

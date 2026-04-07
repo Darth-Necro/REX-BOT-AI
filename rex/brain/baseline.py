@@ -19,9 +19,10 @@ import contextlib
 import json
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from rex.shared.datetime_compat import UTC
 from rex.shared.models import BehavioralProfile
 from rex.shared.utils import utc_now
 

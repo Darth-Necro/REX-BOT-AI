@@ -45,7 +45,7 @@ typer = pytest.importorskip("typer", reason="typer not installed")
 
 from typer.testing import CliRunner  # noqa: E402
 
-from rex.core.cli import _get_token, _setup_logging, app  # noqa: E402
+from rex.core.cli import _setup_logging, app  # noqa: E402
 
 runner = CliRunner()
 
@@ -350,12 +350,14 @@ class TestStartCommand:
 class TestStopCommand:
     """Test the 'stop' command."""
 
-    def test_stop_no_pidfile(self) -> None:
+    def test_stop_no_pidfile(self, tmp_path) -> None:
         """stop should report no running instance when PID file missing."""
-        with patch("os.path.exists", return_value=False):
+        mock_config = MagicMock()
+        mock_config.data_dir = tmp_path / "missing-rex-data-dir"
+        with patch("rex.shared.config.get_config", return_value=mock_config):
             result = runner.invoke(app, ["stop"])
 
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert "does not appear to be running" in result.output
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -363,22 +365,24 @@ class TestStopCommand:
         """stop should send SIGTERM to the PID from the PID file."""
         pid_file = tmp_path / "rex-bot-ai.pid"  # type: ignore[operator]
         pid_file.write_text("12345\n")
+        mock_config = MagicMock()
+        mock_config.data_dir = tmp_path  # type: ignore[assignment]
+        mock_config.dashboard_port = 8443
+        state = {"terminated": False}
 
-        # Patch open so that reads of the pidfile go to our temp file
-        # but all other open() calls pass through (CliRunner needs real open).
-        # NOTE: patching builtins.open can trigger an unawaited-coroutine warning
-        # from Typer's command introspection; this is test infrastructure noise.
-        original_open = open
-
-        def _patched_open(path, *args, **kwargs):
-            if isinstance(path, str) and "rex-bot-ai.pid" in path:
-                return original_open(str(pid_file), *args, **kwargs)
-            return original_open(path, *args, **kwargs)
+        def _kill(pid: int, sig: int) -> None:
+            if sig == 15:  # SIGTERM
+                state["terminated"] = True
+                return
+            if sig == 0 and state["terminated"]:
+                raise ProcessLookupError
+            return
 
         with (
-            patch("os.path.exists", return_value=True),
-            patch("builtins.open", side_effect=_patched_open),
-            patch("os.kill"),
+            patch("rex.shared.config.get_config", return_value=mock_config),
+            patch("rex.core.cli._os.kill", side_effect=_kill),
+            patch("socket.socket.connect_ex", return_value=1),
+            patch("time.sleep", return_value=None),
         ):
             result = runner.invoke(app, ["stop"])
 
@@ -505,35 +509,51 @@ class TestGetTokenExtended:
 
     def test_returns_empty_when_file_missing(self) -> None:
         """_get_token returns empty string when token file does not exist."""
-        with patch("os.path.expanduser", return_value="/nonexistent/.rex-token"):
-            result = _get_token()
+        from rex.core import cli as cli_mod
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", Path("/nonexistent/.rex-tokens.json")),
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", Path("/nonexistent/.rex-token")),
+        ):
+            result = cli_mod._get_token()
         assert result == ""
 
     def test_reads_token_from_file(self, tmp_path: object) -> None:
         """_get_token reads and strips token from file."""
+        from rex.core import cli as cli_mod
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("my-token-value\n")
         token_file.chmod(0o600)
-        with patch("os.path.expanduser", return_value=str(token_file)):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),  # type: ignore[operator]
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", token_file),
+        ):
+            result = cli_mod._get_token()
         assert result == "my-token-value"
 
     def test_strips_whitespace_and_newlines(self, tmp_path: object) -> None:
         """_get_token strips all leading/trailing whitespace."""
+        from rex.core import cli as cli_mod
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("  \n  tok-123  \n  ")
         token_file.chmod(0o600)
-        with patch("os.path.expanduser", return_value=str(token_file)):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),  # type: ignore[operator]
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", token_file),
+        ):
+            result = cli_mod._get_token()
         assert result == "tok-123"
 
     def test_rejects_world_readable_token_file(self, tmp_path: object) -> None:
         """_get_token ignores token files with too-open permissions."""
+        from rex.core import cli as cli_mod
         token_file = tmp_path / ".rex-token"  # type: ignore[operator]
         token_file.write_text("secret-token\n")
         token_file.chmod(0o644)  # group/other readable
-        with patch("os.path.expanduser", return_value=str(token_file)):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),  # type: ignore[operator]
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", token_file),
+        ):
+            result = cli_mod._get_token()
         assert result == ""
 
 

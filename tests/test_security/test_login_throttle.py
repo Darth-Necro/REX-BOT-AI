@@ -96,7 +96,7 @@ class TestAuthManagerErrorMessages:
     """Verify login error messages do not leak security-sensitive details."""
 
     @pytest.fixture
-    async def auth_manager(self, data_dir: Path) -> AuthManager:
+    def auth_manager(self, data_dir: Path) -> AuthManager:
         mgr = AuthManager(data_dir=data_dir)
         mgr._secrets_manager = None
         # Pre-set a known password

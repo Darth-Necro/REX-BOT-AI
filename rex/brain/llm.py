@@ -24,13 +24,13 @@ import logging
 import re
 import time
 from abc import ABC, abstractmethod
-from enum import StrEnum
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
 from rex.pal.detector import detect_hardware, recommend_llm_model
+from rex.shared.enums import StrEnum
 from rex.shared.errors import RexLLMUnavailableError, RexTimeoutError
 
 logger = logging.getLogger(__name__)

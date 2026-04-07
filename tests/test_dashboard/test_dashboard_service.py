@@ -176,6 +176,27 @@ class TestDashboardServiceOnStop:
         with contextlib.suppress(asyncio.CancelledError):
             await svc._serve_task
 
+    @pytest.mark.asyncio
+    async def test_on_stop_suppresses_runtimeerror_during_teardown(self, config, mock_bus) -> None:
+        """Regression: event-loop teardown RuntimeError should not bubble from _on_stop."""
+        from rex.dashboard.service import DashboardService
+
+        svc = DashboardService(config, mock_bus)
+        mock_server = MagicMock()
+        mock_server.should_exit = False
+        svc._server = mock_server
+
+        async def _boom() -> None:
+            raise RuntimeError("Event loop is closed")
+
+        svc._serve_task = asyncio.create_task(_boom())
+        svc._tasks = [svc._serve_task]
+        with contextlib.suppress(RuntimeError):
+            await svc._serve_task
+
+        # Should not re-raise RuntimeError
+        await svc._on_stop()
+
 
 # ------------------------------------------------------------------
 # _consume_loop

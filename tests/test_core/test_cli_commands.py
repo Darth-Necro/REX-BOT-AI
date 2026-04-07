@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from unittest.mock import patch
 
 import pytest
@@ -42,38 +41,46 @@ class TestCliAppExists:
 class TestGetToken:
     def test_returns_empty_when_no_file(self, tmp_path) -> None:
         """_get_token returns '' when ~/.rex-token does not exist."""
-        from rex.core.cli import _get_token
+        from rex.core import cli as cli_mod
 
-        fake_home = str(tmp_path / "nonexistent-home")
-        with patch.dict(os.environ, {"HOME": fake_home}):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", tmp_path / ".missing-token"),
+        ):
+            result = cli_mod._get_token()
 
         assert isinstance(result, str)
         assert result == ""
 
     def test_returns_token_from_file(self, tmp_path) -> None:
         """_get_token reads the token from ~/.rex-token when it exists."""
-        from rex.core.cli import _get_token
+        from rex.core import cli as cli_mod
 
         token_file = tmp_path / ".rex-token"
         token_file.write_text("my-secret-token\n")
         token_file.chmod(0o600)
 
-        with patch("os.path.expanduser", return_value=str(token_file)):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", token_file),
+        ):
+            result = cli_mod._get_token()
 
         assert result == "my-secret-token"
 
     def test_strips_whitespace(self, tmp_path) -> None:
         """_get_token strips trailing whitespace/newlines."""
-        from rex.core.cli import _get_token
+        from rex.core import cli as cli_mod
 
         token_file = tmp_path / ".rex-token"
         token_file.write_text("  token-with-spaces  \n\n")
         token_file.chmod(0o600)
 
-        with patch("os.path.expanduser", return_value=str(token_file)):
-            result = _get_token()
+        with (
+            patch.object(cli_mod, "_TOKENS_DB_PATH", tmp_path / ".missing-tokens.json"),
+            patch.object(cli_mod, "_LEGACY_TOKEN_PATH", token_file),
+        ):
+            result = cli_mod._get_token()
 
         assert result == "token-with-spaces"
 

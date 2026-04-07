@@ -10,8 +10,10 @@ import hashlib
 import logging
 import re
 import secrets
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
+
+from rex.shared.datetime_compat import UTC
 
 logger = logging.getLogger(__name__)
 

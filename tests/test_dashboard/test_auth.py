@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import jwt as pyjwt
@@ -17,6 +17,7 @@ from rex.dashboard.auth import (
     verify_password,
     verify_token_str,
 )
+from rex.shared.datetime_compat import UTC
 
 # ------------------------------------------------------------------
 # hash / verify password

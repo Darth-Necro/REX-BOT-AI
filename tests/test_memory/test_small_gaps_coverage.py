@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -15,6 +15,7 @@ import pytest
 from rex.memory.threat_log import ThreatLog
 from rex.memory.versioning import GitManager
 from rex.shared.config import RexConfig
+from rex.shared.datetime_compat import UTC
 from rex.shared.enums import ThreatCategory, ThreatSeverity
 from rex.shared.models import ThreatEvent
 from rex.shared.utils import generate_id, utc_now

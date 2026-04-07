@@ -9,11 +9,12 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from rex.bark.formatter import MessageFormatter
 from rex.shared.constants import MAX_NOTIFICATIONS_PER_HOUR
+from rex.shared.datetime_compat import UTC
 from rex.shared.enums import ThreatSeverity
 
 if TYPE_CHECKING:

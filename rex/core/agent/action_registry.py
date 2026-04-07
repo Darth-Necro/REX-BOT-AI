@@ -11,7 +11,8 @@ The registry is initialised once at startup and is immutable thereafter.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+
+from rex.shared.enums import StrEnum
 
 
 # ---------------------------------------------------------------------------

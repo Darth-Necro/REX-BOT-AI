@@ -16,10 +16,12 @@ import json
 import logging
 import os
 import platform
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
+
+from rex.shared.datetime_compat import UTC
 
 logger = logging.getLogger(__name__)
 

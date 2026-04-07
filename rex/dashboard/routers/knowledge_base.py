@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from rex.dashboard.deps import get_current_user
+from rex.shared.datetime_compat import UTC
 from rex.shared.fileutil import atomic_write_text
 
 if TYPE_CHECKING:

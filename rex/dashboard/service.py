@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import socket
 from typing import Any
@@ -101,17 +102,17 @@ class DashboardService(BaseService):
         # Step 2: wait for serve task with timeout
         if hasattr(self, "_serve_task") and not self._serve_task.done():
             try:
-                async with asyncio.timeout(5):
-                    await self._serve_task
-            except TimeoutError:
+                await asyncio.wait_for(self._serve_task, timeout=5)
+            except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041 (Py3.10 runtime)
                 # Step 3: force exit if graceful didn't work
                 logger.warning("Dashboard graceful shutdown timed out, forcing exit")
                 self._server.force_exit = True
-                import contextlib
                 self._serve_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, OSError):
                     await self._serve_task
-            except (asyncio.CancelledError, OSError):
+            except (asyncio.CancelledError, OSError, RuntimeError):
+                # RuntimeError can occur during interpreter teardown/event-loop close.
+                logger.debug("Dashboard serve task ended during loop teardown", exc_info=True)
                 pass
 
         logger.info("Dashboard stopped")

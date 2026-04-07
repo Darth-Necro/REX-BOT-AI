@@ -12,10 +12,11 @@ import contextlib
 import json
 import logging
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from rex.shared.constants import MAX_THREAT_LOG_ROWS
+from rex.shared.datetime_compat import UTC
 from rex.shared.utils import iso_timestamp
 
 ARCHIVE_RETENTION_DAYS: int = 90

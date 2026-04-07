@@ -11,8 +11,10 @@ import ipaddress
 import logging
 import socket
 import struct
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
+
+from rex.shared.datetime_compat import UTC
 
 if TYPE_CHECKING:
     from rex.pal.base import PlatformAdapter
