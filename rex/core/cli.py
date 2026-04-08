@@ -117,10 +117,10 @@ def _setup_logging(level: str = "info") -> None:
 
 
 def _default_mode() -> str:
-    """Return 'gui' if a display server is available, otherwise 'cli'."""
-    if _os.environ.get("DISPLAY") and not _os.environ.get("SSH_CONNECTION"):
-        return "gui"
-    return "cli"
+    """Return 'gui' by default. Fall back to 'cli' only over SSH with no display."""
+    if _os.environ.get("SSH_CONNECTION") and not _os.environ.get("DISPLAY"):
+        return "cli"
+    return "gui"
 
 
 @app.command()
@@ -130,9 +130,9 @@ def start(
         "",
         "--mode",
         help=(
-            "Startup mode: gui (backend + browser), "
+            "Startup mode: gui (backend + browser, default), "
             "cli (backend only), headless (no output). "
-            "Default: gui if DISPLAY set, cli otherwise."
+            "Falls back to cli only over SSH with no display."
         ),
     ),
 ) -> None:
