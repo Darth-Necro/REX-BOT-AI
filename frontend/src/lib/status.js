@@ -3,6 +3,7 @@
  *
  * Ensures every field the stores expect is present with a sane default,
  * regardless of what shape the backend actually returns.
+ * Validates enum values and clamps numeric counts to >= 0.
  */
 
 const STATUS_DEFAULTS = {
@@ -17,29 +18,45 @@ const STATUS_DEFAULTS = {
   _timestamp: null,
 };
 
+const VALID_STATUS = new Set(['operational', 'degraded', 'critical', 'maintenance', 'unknown']);
+const VALID_POWER = new Set(['awake', 'alert_sleep', 'deep_sleep', 'off', 'unknown']);
+const VALID_LLM = new Set(['ready', 'loading', 'error', 'disabled', 'unknown']);
+
 const HEALTH_DEFAULTS = {
   api: 'unknown',
   ws: 'unknown',
   db: 'unknown',
 };
 
+function clampCount(val) {
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return n;
+}
+
+function validateEnum(val, validSet, fallback) {
+  if (typeof val !== 'string') return fallback;
+  return validSet.has(val) ? val : fallback;
+}
+
 /**
  * Normalise a raw /api/status (or WS status.update) payload.
  * Missing keys are filled with safe defaults; unexpected keys are passed through.
+ * Unrecognised enum values become 'unknown'. Negative counts become 0.
  */
 export function normalizeStatus(raw) {
   if (!raw || typeof raw !== 'object') return { ...STATUS_DEFAULTS };
 
   return {
     ...STATUS_DEFAULTS,
-    status: String(raw.status ?? STATUS_DEFAULTS.status),
-    powerState: String(raw.power_state ?? raw.powerState ?? STATUS_DEFAULTS.powerState),
-    llmStatus: String(raw.llm_status ?? raw.llmStatus ?? STATUS_DEFAULTS.llmStatus),
-    deviceCount: Number(raw.device_count ?? raw.deviceCount ?? STATUS_DEFAULTS.deviceCount) || 0,
-    activeThreats: Number(raw.active_threats ?? raw.activeThreats ?? STATUS_DEFAULTS.activeThreats) || 0,
-    threatsBlocked24h: Number(raw.threats_blocked_24h ?? raw.threatsBlocked24h ?? STATUS_DEFAULTS.threatsBlocked24h) || 0,
-    uptimeSeconds: Number(raw.uptime_seconds ?? raw.uptimeSeconds ?? STATUS_DEFAULTS.uptimeSeconds) || 0,
-    version: raw.version ?? STATUS_DEFAULTS.version,
+    status: validateEnum(raw.status, VALID_STATUS, 'unknown'),
+    powerState: validateEnum(raw.power_state ?? raw.powerState, VALID_POWER, 'unknown'),
+    llmStatus: validateEnum(raw.llm_status ?? raw.llmStatus, VALID_LLM, 'unknown'),
+    deviceCount: clampCount(raw.device_count ?? raw.deviceCount ?? 0),
+    activeThreats: clampCount(raw.active_threats ?? raw.activeThreats ?? 0),
+    threatsBlocked24h: clampCount(raw.threats_blocked_24h ?? raw.threatsBlocked24h ?? 0),
+    uptimeSeconds: clampCount(raw.uptime_seconds ?? raw.uptimeSeconds ?? 0),
+    version: typeof raw.version === 'string' ? raw.version : null,
     _timestamp: raw._timestamp ?? raw.timestamp ?? null,
   };
 }
@@ -50,9 +67,13 @@ export function normalizeStatus(raw) {
 export function normalizeHealth(raw) {
   if (!raw || typeof raw !== 'object') return { ...HEALTH_DEFAULTS };
 
+  // Handle boolean healthy/api fields
+  const apiVal = raw.api ?? raw.healthy ?? raw.status ?? HEALTH_DEFAULTS.api;
+  const apiStr = apiVal === true ? 'healthy' : apiVal === false ? 'critical' : String(apiVal);
+
   return {
     ...HEALTH_DEFAULTS,
-    api: String(raw.api ?? raw.status ?? HEALTH_DEFAULTS.api),
+    api: apiStr,
     ws: String(raw.ws ?? raw.websocket ?? HEALTH_DEFAULTS.ws),
     db: String(raw.db ?? raw.database ?? HEALTH_DEFAULTS.db),
   };
@@ -61,15 +82,15 @@ export function normalizeHealth(raw) {
 /**
  * Derive threat posture from normalised status data.
  *
- * Returns one of: 'critical' | 'elevated' | 'guarded' | 'normal' | 'unknown'.
+ * Returns one of: 'critical' | 'elevated' | 'nominal' | 'unknown'.
  */
 export function derivePosture(data) {
   if (!data || data.status === 'unknown') return 'unknown';
 
   const threats = data.activeThreats ?? 0;
+  const status = data.status;
 
-  if (threats >= 5) return 'critical';
-  if (threats >= 2) return 'elevated';
-  if (threats >= 1) return 'guarded';
-  return 'normal';
+  if (status === 'critical' || threats >= 5) return 'critical';
+  if (status === 'degraded' || threats >= 1) return 'elevated';
+  return 'nominal';
 }
