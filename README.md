@@ -1,18 +1,16 @@
 # REX-BOT-AI
 
 ```
-       /\_____/\
-      /  o   o  \      ____  _______  __     ____   ____ _______
-     ( ==  Y  == )    |  _ \| ____\ \/ /    | __ ) / __ \__   __|
-      )         (     | |_) |  _|  \  / ____|  _ \| |  | | | |
-     (   )   (   )    |  _ <| |___ /  \|____| |_) | |  | | | |
-    ( ___/   \___ )   |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
-   /               \
-  '--.__       __.--'    Your Black Great Dane Guard Dog
-        ```````
+    ^
+   / \__
+  (    @\___     ____  _______  __     ____   ____ _______
+  /         O   |  _ \| ____\ \/ /    | __ ) / __ \__   __|
+ /   (_____/    | |_) |  _|  \  / ____|  _ \| |  | | | |
+/_____/   U     |  _ <| |___ /  \|____| |_) | |  | | | |
+                |_| \_\_____|/_/\_\   |____/ \____/  |_|  AI
 ```
 
-**v0.1.0-alpha** -- Local-first autonomous network security agent powered by AI. REX is a Black Great Dane that guards your home or small business network 24/7. He watches for threats, blocks attackers, and reports everything to you.
+**v0.1.0-alpha** -- Local-first autonomous network security agent powered by AI. REX is a Great Dane guard dog that watches your home or small business network 24/7. He detects threats, blocks attackers, and reports everything to you.
 
 > This project is under active development and is **not ready for production use**. Do not rely on it as your sole network security solution.
 
