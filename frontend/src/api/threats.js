@@ -36,3 +36,25 @@ export async function getThreat(id) {
   const res = await api.get(`/threats/${encodeURIComponent(id)}`);
   return res.data;
 }
+
+/**
+ * Mark a threat as resolved.
+ * @param {string} id  Threat identifier.
+ * @returns {Promise<Object>}
+ */
+export async function resolveThreat(id) {
+  if (!id) throw new Error('Threat ID is required');
+  const res = await api.put(`/threats/${encodeURIComponent(id)}/resolve`);
+  return res.data;
+}
+
+/**
+ * Mark a threat as a false positive.
+ * @param {string} id  Threat identifier.
+ * @returns {Promise<Object>}
+ */
+export async function markFalsePositive(id) {
+  if (!id) throw new Error('Threat ID is required');
+  const res = await api.put(`/threats/${encodeURIComponent(id)}/false-positive`);
+  return res.data;
+}

@@ -117,7 +117,13 @@ export default function PrivacyPage() {
     auditResult,
     auditing,
     auditError,
+    connections,
+    inventory,
+    encryption,
     fetchPrivacyState,
+    fetchConnections,
+    fetchInventory,
+    fetchEncryption,
     runAudit,
   } = usePrivacyStore();
 
@@ -125,7 +131,10 @@ export default function PrivacyPage() {
 
   useEffect(() => {
     fetchPrivacyState();
-  }, [fetchPrivacyState]);
+    fetchConnections();
+    fetchInventory();
+    fetchEncryption();
+  }, [fetchPrivacyState, fetchConnections, fetchInventory, fetchEncryption]);
 
   const { mutate: handleAudit, isPending } = useSafeMutation(
     runAudit,
@@ -236,6 +245,76 @@ export default function PrivacyPage() {
           <AuditResultPanel result={auditResult} />
         </div>
       </section>
+
+      {/* Outbound Connections */}
+      <section>
+        <SectionHeader
+          title="Outbound Connections"
+          subtitle={connections.length > 0 ? `${connections.length} connection${connections.length !== 1 ? 's' : ''} detected` : 'No outbound connections detected'}
+        />
+        {connections.length > 0 ? (
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-500 text-left">
+                  <th className="pb-2 pr-4">Remote</th>
+                  <th className="pb-2 pr-4">Port</th>
+                  <th className="pb-2 pr-4">PID</th>
+                  <th className="pb-2">Status</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-300">
+                {connections.map((c, i) => (
+                  <tr key={i} className="border-t border-white/[0.04]">
+                    <td className="py-1.5 pr-4 font-mono">{c.remote_address || c.remote || '--'}</td>
+                    <td className="py-1.5 pr-4 font-mono">{c.port ?? c.remote_port ?? '--'}</td>
+                    <td className="py-1.5 pr-4 font-mono">{c.pid ?? '--'}</td>
+                    <td className="py-1.5">{c.status || '--'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-6 text-sm text-slate-600">
+            No outbound connections detected.
+          </div>
+        )}
+      </section>
+
+      {/* Data Inventory */}
+      {inventory && typeof inventory === 'object' && Object.keys(inventory).length > 1 && (
+        <section>
+          <SectionHeader title="Data Inventory" subtitle="Data stores managed by REX" />
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 space-y-2">
+            {Object.entries(inventory).filter(([k]) => k !== 'status').map(([key, val]) => (
+              <div key={key} className="flex justify-between items-center text-sm">
+                <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                <span className="text-slate-200 font-mono text-xs">
+                  {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Encryption Status */}
+      {encryption && typeof encryption === 'object' && Object.keys(encryption).length > 1 && (
+        <section>
+          <SectionHeader title="Encryption Status" subtitle="Encryption-at-rest compliance" />
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 space-y-2">
+            {Object.entries(encryption).filter(([k]) => k !== 'status').map(([key, val]) => (
+              <div key={key} className="flex justify-between items-center text-sm">
+                <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                <span className={`text-xs font-mono ${val === true ? 'text-emerald-300' : val === false ? 'text-red-300' : 'text-slate-200'}`}>
+                  {typeof val === 'boolean' ? (val ? 'Yes' : 'No') : String(val)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -52,3 +52,31 @@ export async function runPrivacyAudit() {
     ranAt: raw.ran_at ?? raw.ranAt ?? new Date().toISOString(),
   };
 }
+
+/**
+ * GET /api/privacy/connections -- outbound network connections.
+ */
+export async function getConnections() {
+  const res = await api.get('/privacy/connections');
+  const d = res.data || {};
+  return {
+    connections: Array.isArray(d.connections) ? d.connections : [],
+    count: d.count ?? 0,
+  };
+}
+
+/**
+ * GET /api/privacy/inventory -- data inventory.
+ */
+export async function getInventory() {
+  const res = await api.get('/privacy/inventory');
+  return res.data || {};
+}
+
+/**
+ * GET /api/privacy/encryption -- encryption status details.
+ */
+export async function getEncryption() {
+  const res = await api.get('/privacy/encryption');
+  return res.data || {};
+}

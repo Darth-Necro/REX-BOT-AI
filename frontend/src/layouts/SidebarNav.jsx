@@ -123,6 +123,30 @@ function OnboardingIcon({ className }) {
   );
 }
 
+function ChatIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+    </svg>
+  );
+}
+
+function FederationIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+    </svg>
+  );
+}
+
+function AgentIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  );
+}
+
 /* ---------- nav items ---------- */
 
 /**
@@ -131,6 +155,7 @@ function OnboardingIcon({ className }) {
  */
 const NAV_ITEMS = [
   { to: '/overview',              label: 'Dashboard',       Icon: OverviewIcon,       disabled: false, mode: 'basic' },
+  { to: '/chat',                  label: 'REX Chat',        Icon: ChatIcon,           disabled: false, mode: 'basic' },
   { to: '/devices',               label: 'Devices',         Icon: DevicesIcon,        disabled: false, mode: 'basic' },
   { to: '/threats',               label: 'Threats',         Icon: ThreatsIcon,        disabled: false, mode: 'basic' },
   { to: '/scheduler',             label: 'Scheduler',       Icon: SchedulerIcon,      disabled: false, mode: 'basic' },
@@ -140,6 +165,8 @@ const NAV_ITEMS = [
   { to: '/firewall',              label: 'Firewall',        Icon: FirewallIcon,       disabled: false, mode: 'advanced' },
   { to: '/knowledge',             label: 'Knowledge Base',  Icon: KnowledgeBaseIcon,  disabled: false, mode: 'advanced' },
   { to: '/plugins',               label: 'Plugins',         Icon: PluginsIcon,        disabled: false, mode: 'advanced' },
+  { to: '/federation',            label: 'Federation',      Icon: FederationIcon,     disabled: false, mode: 'advanced' },
+  { to: '/agent',                 label: 'Agent Actions',   Icon: AgentIcon,          disabled: false, mode: 'advanced' },
   { to: '/diagnostics/services',  label: 'Services',        Icon: ServiceHealthIcon,  disabled: false, mode: 'advanced' },
   { to: '/privacy',               label: 'Privacy',         Icon: PrivacyIcon,        disabled: false, mode: 'advanced' },
   { to: '/onboarding',            label: 'Setup',           Icon: OnboardingIcon,     disabled: false, mode: 'basic' },

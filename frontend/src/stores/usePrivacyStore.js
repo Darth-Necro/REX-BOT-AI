@@ -8,6 +8,9 @@ import { create } from 'zustand';
 import {
   getPrivacySummary,
   runPrivacyAudit as apiRunAudit,
+  getConnections as apiGetConnections,
+  getInventory as apiGetInventory,
+  getEncryption as apiGetEncryption,
 } from '../api/privacy';
 
 const usePrivacyStore = create((set, get) => ({
@@ -53,6 +56,33 @@ const usePrivacyStore = create((set, get) => ({
       });
       return null;
     }
+  },
+
+  /* ---------- sub-endpoint hydration ---------- */
+
+  connections: [],
+  inventory: null,
+  encryption: null,
+
+  fetchConnections: async () => {
+    try {
+      const data = await apiGetConnections();
+      set({ connections: data.connections });
+    } catch (_) { /* non-critical */ }
+  },
+
+  fetchInventory: async () => {
+    try {
+      const data = await apiGetInventory();
+      set({ inventory: data });
+    } catch (_) { /* non-critical */ }
+  },
+
+  fetchEncryption: async () => {
+    try {
+      const data = await apiGetEncryption();
+      set({ encryption: data });
+    } catch (_) { /* non-critical */ }
   },
 
   /* ---------- local setters ---------- */

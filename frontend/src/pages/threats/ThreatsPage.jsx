@@ -96,8 +96,49 @@ function ThreatDetailPanel({ threat, onClose }) {
             <span className="text-xs text-rex-muted font-mono break-all">{threat.id}</span>
           </Section>
         )}
+
+        {/* Resolve / False Positive buttons */}
+        {!isResolved && threat.id && (
+          <DetailPanelActions threatId={threat.id} />
+        )}
       </div>
     </div>
+  );
+}
+
+function DetailPanelActions({ threatId }) {
+  const { resolveThreat, markFalsePositive } = useThreatStore();
+  const [acting, setActing] = useState(null);
+
+  const handle = async (action) => {
+    setActing(action);
+    try {
+      if (action === 'resolve') await resolveThreat(threatId);
+      else await markFalsePositive(threatId);
+    } finally {
+      setActing(null);
+    }
+  };
+
+  return (
+    <Section label="Actions">
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => handle('resolve')}
+          disabled={!!acting}
+          className="w-full px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-medium border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-40 transition-colors"
+        >
+          {acting === 'resolve' ? 'Resolving...' : 'Resolve'}
+        </button>
+        <button
+          onClick={() => handle('fp')}
+          disabled={!!acting}
+          className="w-full px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-medium border border-amber-500/30 hover:bg-amber-500/30 disabled:opacity-40 transition-colors"
+        >
+          {acting === 'fp' ? 'Marking...' : 'False Positive'}
+        </button>
+      </div>
+    </Section>
   );
 }
 
@@ -207,9 +248,21 @@ export default function ThreatsPage() {
         />
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel -- sidebar on desktop */}
       {selectedThreat && (
-        <ThreatDetailPanel threat={selectedThreat} onClose={clearSelection} />
+        <div className="hidden md:block">
+          <ThreatDetailPanel threat={selectedThreat} onClose={clearSelection} />
+        </div>
+      )}
+
+      {/* Detail panel -- bottom sheet on mobile */}
+      {selectedThreat && (
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto bg-rex-surface border-t border-rex-card rounded-t-2xl shadow-2xl">
+          <div className="flex justify-center pt-2 pb-1">
+            <span className="w-10 h-1 rounded-full bg-slate-600" />
+          </div>
+          <ThreatDetailPanel threat={selectedThreat} onClose={clearSelection} />
+        </div>
       )}
     </div>
   );

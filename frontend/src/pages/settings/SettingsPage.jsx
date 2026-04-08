@@ -12,6 +12,13 @@ import useModeGuard from '../../hooks/useModeGuard';
 
 const SETTINGS_SECTIONS = [
   {
+    path: '/settings/system',
+    label: 'System Configuration',
+    description: 'Scan interval, protection mode, schedule, and data retention.',
+    icon: 'cog',
+    mode: 'advanced',
+  },
+  {
     path: '/settings/notifications',
     label: 'Notifications',
     description: 'Configure Discord, Telegram, Email, and Matrix alerts.',
@@ -81,6 +88,12 @@ function SectionIcon({ type }) {
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      );
+    case 'cog':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 0015 0m-15 0a7.5 7.5 0 1115 0m-15 0H3m16.5 0H21m-1.645-6.536l-1.298.75m-10.814 6.25l-1.298.75m13.41-1.5l-1.298-.75M5.943 6.214l-1.298-.75m15.71 0l-1.298.75M5.943 17.786l-1.298.75M12 3.75V2.25m0 19.5V20.25" />
         </svg>
       );
     default:

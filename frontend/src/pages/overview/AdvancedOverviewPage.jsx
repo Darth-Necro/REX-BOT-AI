@@ -1,12 +1,16 @@
 import React from 'react';
 import useSystemStore from '../../stores/useSystemStore';
 import useAuthStore from '../../stores/useAuthStore';
+import useThreatStore from '../../stores/useThreatStore';
 import StatCard from '../../components/cards/StatCard';
 import RoboDogCorePanel from '../../components/chrome/RoboDogCorePanel';
 import DegradedBanner from '../../components/DegradedBanner';
 import ActionPanel from '../../components/ActionPanel';
 import ServiceStatus from '../../components/ServiceStatus';
 import RecentActions, { useActionHistory } from '../../components/RecentActions';
+import ThreatTrendChart from '../../components/charts/ThreatTrendChart';
+import SeverityBreakdownChart from '../../components/charts/SeverityBreakdownChart';
+import { SkeletonCard } from '../../components/primitives/Skeleton';
 import { colors, radius } from '../../theme/tokens';
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +141,7 @@ export default function AdvancedOverviewPage() {
     health,
   } = useSystemStore();
   const token = useAuthStore((s) => s.token);
+  const threats = useThreatStore((s) => s.threats);
   const { actions } = useActionHistory();
 
   const isLoading = bootstrapState === 'idle' || bootstrapState === 'loading';
@@ -163,7 +168,7 @@ export default function AdvancedOverviewPage() {
           </div>
 
           {/* Stat card grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <StatCard
               label="Devices"
               value={isLoading ? '--' : deviceCount}
@@ -216,6 +221,30 @@ export default function AdvancedOverviewPage() {
           />
         </div>
       </div>
+
+      {/* ------ Threat Trends ------ */}
+      <section>
+        <SectionHeader
+          title="Threat Trends"
+          subtitle="Last 24 hours"
+        />
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2"><SkeletonCard /></div>
+            <SkeletonCard />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+              <ThreatTrendChart threats={threats} />
+            </div>
+            <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+              <p className="text-xs font-bold tracking-widest uppercase text-slate-400 mb-3">By Severity</p>
+              <SeverityBreakdownChart threats={threats} />
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* ------ Recent Alerts ------ */}
       <section>

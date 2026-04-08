@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import { getThreats } from '../api/threats';
+import { getThreats, resolveThreat as apiResolve, markFalsePositive as apiMarkFP } from '../api/threats';
 
 const useThreatStore = create((set, get) => ({
   threats: [],
@@ -77,12 +77,27 @@ const useThreatStore = create((set, get) => ({
 
   setThreats: (threats, total) => set({ threats, total: total ?? threats.length }),
 
-  resolveThreat: (id) =>
+  resolveThreat: async (id) => {
+    try {
+      await apiResolve(id);
+    } catch (_) { /* update local state regardless */ }
     set((s) => ({
       threats: s.threats.map((t) =>
         t.id === id ? { ...t, resolved: true, status: 'resolved' } : t
       ),
-    })),
+    }));
+  },
+
+  markFalsePositive: async (id) => {
+    try {
+      await apiMarkFP(id);
+    } catch (_) { /* update local state regardless */ }
+    set((s) => ({
+      threats: s.threats.map((t) =>
+        t.id === id ? { ...t, resolved: true, status: 'false_positive' } : t
+      ),
+    }));
+  },
 
   /* ---------- selection ---------- */
 

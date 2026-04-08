@@ -1,25 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Guard dog head - geometric/minimal style -->
-  <!-- Ears -->
-  <polygon points="10,26 18,4 26,22" fill="#3b82f6" opacity="0.9"/>
-  <polygon points="54,26 46,4 38,22" fill="#3b82f6" opacity="0.9"/>
-  <!-- Head shape -->
-  <ellipse cx="32" cy="34" rx="22" ry="20" fill="#1a1a2e"/>
-  <ellipse cx="32" cy="34" rx="20" ry="18" fill="#16213e"/>
-  <!-- Eyes -->
-  <circle cx="23" cy="30" r="4" fill="#0f3460"/>
-  <circle cx="41" cy="30" r="4" fill="#0f3460"/>
-  <circle cx="24" cy="29" r="2" fill="#3b82f6"/>
-  <circle cx="42" cy="29" r="2" fill="#3b82f6"/>
+  <!-- Black Great Dane head -->
+  <!-- Ears - tall and pointed like a Great Dane -->
+  <polygon points="8,28 16,2 24,24" fill="#1a1a1a"/>
+  <polygon points="56,28 48,2 40,24" fill="#1a1a1a"/>
+  <!-- Ear inner -->
+  <polygon points="12,26 16,8 22,24" fill="#2a2a2a"/>
+  <polygon points="52,26 48,8 42,24" fill="#2a2a2a"/>
+  <!-- Head shape - black Great Dane -->
+  <ellipse cx="32" cy="34" rx="22" ry="20" fill="#111111"/>
+  <ellipse cx="32" cy="34" rx="20" ry="18" fill="#1a1a1a"/>
+  <!-- Muzzle - Great Danes have a distinctive long muzzle -->
+  <ellipse cx="32" cy="42" rx="10" ry="8" fill="#111111"/>
+  <!-- Eyes - alert, intelligent -->
+  <circle cx="23" cy="30" r="4" fill="#0a0a0a"/>
+  <circle cx="41" cy="30" r="4" fill="#0a0a0a"/>
+  <circle cx="24" cy="29" r="2.2" fill="#22d3ee"/>
+  <circle cx="42" cy="29" r="2.2" fill="#22d3ee"/>
   <!-- Eye shine -->
-  <circle cx="25" cy="28" r="0.8" fill="#e2e8f0"/>
-  <circle cx="43" cy="28" r="0.8" fill="#e2e8f0"/>
-  <!-- Nose -->
-  <ellipse cx="32" cy="39" rx="4" ry="3" fill="#0f3460"/>
-  <ellipse cx="32" cy="38" rx="3" ry="2" fill="#1a1a2e"/>
+  <circle cx="25" cy="28" r="0.9" fill="#e2e8f0"/>
+  <circle cx="43" cy="28" r="0.9" fill="#e2e8f0"/>
+  <!-- Nose - large, black -->
+  <ellipse cx="32" cy="40" rx="4.5" ry="3.5" fill="#0a0a0a"/>
+  <ellipse cx="31" cy="39" rx="1.2" ry="0.8" fill="#333"/>
+  <ellipse cx="33" cy="39" rx="1.2" ry="0.8" fill="#333"/>
   <!-- Mouth -->
-  <path d="M28 43 Q32 47 36 43" fill="none" stroke="#0f3460" stroke-width="1.5" stroke-linecap="round"/>
-  <!-- Shield badge on chest -->
-  <path d="M32 50 L26 53 L26 58 Q26 62 32 64 Q38 62 38 58 L38 53 Z" fill="#3b82f6" opacity="0.8"/>
-  <path d="M30 55 L32 58 L36 53" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 45 Q32 49 37 45" fill="none" stroke="#0a0a0a" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Shield badge on chest - cyan accent -->
+  <path d="M32 52 L26 55 L26 60 Q26 63 32 64 Q38 63 38 60 L38 55 Z" fill="#22d3ee" opacity="0.85"/>
+  <path d="M30 57 L32 60 L36 55" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

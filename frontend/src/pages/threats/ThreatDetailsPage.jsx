@@ -10,6 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getThreat } from '../../api/threats';
+import useThreatStore from '../../stores/useThreatStore';
 import Badge from '../../components/primitives/Badge';
 import Button from '../../components/primitives/Button';
 import EmptyState from '../../components/primitives/EmptyState';
@@ -181,6 +182,9 @@ export default function ThreatDetailsPage() {
             No automated action has been taken for this threat.
           </p>
         )}
+        {!isResolved && (
+          <ThreatActions threatId={threat.id || id} onResolved={(t) => setThreat({ ...threat, ...t })} />
+        )}
         {threat.recommended_actions && threat.recommended_actions.length > 0 && (
           <div>
             <span className="text-xs text-rex-muted block mb-2">Recommended Actions</span>
@@ -207,6 +211,45 @@ export default function ThreatDetailsPage() {
 }
 
 /* ---------- sub-components ---------- */
+
+function ThreatActions({ threatId, onResolved }) {
+  const { resolveThreat, markFalsePositive } = useThreatStore();
+  const [acting, setActing] = useState(null);
+
+  const handle = async (action) => {
+    setActing(action);
+    try {
+      if (action === 'resolve') {
+        await resolveThreat(threatId);
+        onResolved({ resolved: true, status: 'resolved' });
+      } else {
+        await markFalsePositive(threatId);
+        onResolved({ resolved: true, status: 'false_positive' });
+      }
+    } finally {
+      setActing(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2 pt-2">
+      <button
+        onClick={() => handle('resolve')}
+        disabled={!!acting}
+        className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-medium border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {acting === 'resolve' ? 'Resolving...' : 'Resolve'}
+      </button>
+      <button
+        onClick={() => handle('false_positive')}
+        disabled={!!acting}
+        className="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-medium border border-amber-500/30 hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {acting === 'false_positive' ? 'Marking...' : 'Mark False Positive'}
+      </button>
+    </div>
+  );
+}
 
 function Field({ label, value, mono, capitalize: cap }) {
   return (

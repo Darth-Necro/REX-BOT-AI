@@ -56,6 +56,12 @@ const ThreatDetailsPage = lazy(() => import('../pages/threats/ThreatDetailsPage'
 const InvestigationsPage = lazy(() => import('../pages/threats/InvestigationsPage'));
 const ServiceHealthPage = lazy(() => import('../pages/diagnostics/ServiceHealthPage'));
 
+/* Batch 6 -- chat, federation, agent, system settings */
+const ChatPage = lazy(() => import('../pages/chat/ChatPage'));
+const FederationPage = lazy(() => import('../pages/federation/FederationPage'));
+const AgentActionsPage = lazy(() => import('../pages/agent/AgentActionsPage'));
+const SystemSettingsPage = lazy(() => import('../pages/settings/SystemSettingsPage'));
+
 /* ---------- loading fallback ---------- */
 
 function PageLoader() {
@@ -113,7 +119,10 @@ const PAGE_ID_FROM_PATH = {
   '/settings':              'settings',
   '/settings/notifications': 'settings',
   '/settings/about':        'settings',
+  '/settings/system':       'settings',
   '/privacy':               'privacy',
+  '/federation':            'federation',
+  '/agent':                 'agent',
 };
 
 /* ---------- shell wrapper that hooks AppShell to routes ---------- */
@@ -138,6 +147,8 @@ function AuthenticatedShell() {
       onboarding: '/onboarding',
       settings: '/settings',
       privacy: '/privacy',
+      federation: '/federation',
+      agent: '/agent',
     }[id];
     if (route) navigate(route);
   };
@@ -167,8 +178,11 @@ function AuthenticatedShell() {
           <Route path="/threats/:id" element={<ThreatDetailsPage />} />
           <Route path="/threats/:id/investigate" element={<InvestigationsPage />} />
           <Route path="/diagnostics/services" element={<ServiceHealthPage />} />
-          {/* Legacy chat route -- falls back to overview until chat page exists */}
-          <Route path="/chat" element={<><AlphaBanner feature="Chat" /><AdvancedOverviewPage /></>} />
+          {/* Chat, Federation, Agent */}
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/federation" element={<FederationPage />} />
+          <Route path="/agent" element={<AgentActionsPage />} />
+          <Route path="/settings/system" element={<SystemSettingsPage />} />
           {/* Password change / reset (auth-gated, inside shell) */}
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

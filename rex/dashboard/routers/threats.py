@@ -49,7 +49,22 @@ async def get_threat(
     threat_id: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Return details for a specific threat."""
-    raise HTTPException(status_code=404, detail=f"Threat {threat_id} not found")
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Threat log not initialized",
+        )
+
+    record = await threat_log.get_by_id(threat_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Threat {threat_id} not found",
+        )
+    return record
 
 
 @router.put("/{threat_id}/resolve")
@@ -58,11 +73,21 @@ async def resolve_threat(
     resolution: str = "resolved",
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Mark a threat as resolved. Currently no threat store to update."""
+    """Mark a threat as resolved."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Threat log not initialized",
+        )
+
+    applied = await threat_log.resolve(threat_id, resolution)
     return {
         "threat_id": threat_id,
-        "applied": False,
-        "note": "Threat store not yet wired; resolution not persisted",
+        "applied": applied,
+        "resolution": resolution,
     }
 
 
@@ -70,9 +95,19 @@ async def resolve_threat(
 async def mark_false_positive(
     threat_id: str, user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Mark a threat as a false positive. Currently no threat store to update."""
+    """Mark a threat as a false positive."""
+    from rex.dashboard.data_registry import get_threat_log
+
+    threat_log = get_threat_log()
+    if threat_log is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Threat log not initialized",
+        )
+
+    applied = await threat_log.resolve(threat_id, "false_positive")
     return {
         "threat_id": threat_id,
-        "applied": False,
-        "note": "Threat store not yet wired; false-positive not persisted",
+        "applied": applied,
+        "resolution": "false_positive",
     }
