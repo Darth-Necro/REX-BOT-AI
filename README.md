@@ -282,149 +282,346 @@ The dashboard and GUI will be available at `http://localhost:8443`.
 
 ## Web GUI & Dashboard
 
-REX includes a full browser-based dashboard served by the built-in FastAPI backend. The compiled frontend is included in the repository -- no separate build step is needed. The dashboard gives you everything you need to monitor your network, manage threats, and interact with REX without touching the terminal.
+REX includes a browser-based dashboard -- a web page that runs on your computer and lets you control REX using your mouse and keyboard instead of typing commands. Think of it like a control panel you open in Chrome, Firefox, or any web browser. No coding knowledge is needed to use it.
 
-### Step-by-Step: Accessing the GUI
+> **What is a "Web GUI"?** GUI stands for "Graphical User Interface." A web GUI is just a website that runs locally on your computer (not on the internet). You open it in your browser like any other website, but it only works on your machine or local network.
 
-#### Step 1: Install REX
+---
 
-If you haven't already, clone and set up the project:
+### Step-by-Step: Getting the Dashboard Running
+
+Follow these steps in order. Each step explains exactly what to do and what you should see.
+
+---
+
+#### Step 1: Open a Terminal
+
+A terminal (also called "command line" or "console") is where you type text commands.
+
+- **Ubuntu/Debian Linux**: Press `Ctrl + Alt + T` to open a terminal
+- **macOS**: Open Spotlight (`Cmd + Space`), type `Terminal`, press Enter
+- **Windows**: Open PowerShell or install [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) for Linux support
+
+You should see a blinking cursor waiting for you to type. This is where you'll run all the commands below.
+
+---
+
+#### Step 2: Download REX
+
+Copy and paste this into your terminal, then press Enter:
 
 ```bash
 git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+```
+
+**What this does:** Downloads the entire REX project to your computer.
+
+**What you should see:** Text scrolling showing files being downloaded. When it's done, you'll see your cursor again.
+
+Now move into the project folder:
+
+```bash
 cd REX-BOT-AI
+```
+
+---
+
+#### Step 3: Set Up Python Environment
+
+REX runs on Python. These commands create an isolated environment so REX doesn't conflict with other software:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 pip install -r requirements.txt
 ```
 
-#### Step 2: Start Required Services
+**Run each line one at a time.** After the `source` command, you should see `(.venv)` appear at the beginning of your terminal prompt -- this means you're in the REX environment.
 
-Make sure Redis is running (required) and Ollama if you want AI chat features:
+> **Troubleshooting:** If `python3` is not found, install it: `sudo apt install python3 python3-venv python3-pip` (Ubuntu/Debian)
+
+---
+
+#### Step 4: Start Redis (Required Service)
+
+Redis is a background service REX uses to communicate between its internal components. Start it:
 
 ```bash
-# Start Redis
 sudo systemctl start redis-server
-# or: redis-server --daemonize yes
+```
 
-# Optional: Start Ollama for AI features
+**What you should see:** Nothing (silence means success). If you get an error, install Redis first: `sudo apt install redis-server`
+
+To check if Redis is running:
+
+```bash
+redis-cli ping
+```
+
+**You should see:** `PONG` -- this means Redis is working.
+
+---
+
+#### Step 5: Start Ollama (Optional -- for AI Chat)
+
+Ollama runs a local AI model that powers REX's chat feature. This is optional -- REX works without it, but the "REX Chat" page won't be able to respond.
+
+```bash
+# Install Ollama (if not already installed)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start Ollama
 ollama serve &
 ```
 
-#### Step 3: Start REX
+**What you should see:** Ollama prints some startup messages. The `&` at the end runs it in the background so you can keep using the terminal.
+
+---
+
+#### Step 6: Start REX
+
+Now start REX itself. You need `sudo` because REX monitors network traffic, which requires administrator permissions:
 
 ```bash
-source .venv/bin/activate
-
-# Auto-detects GUI mode on desktop, CLI mode on SSH/headless
 sudo .venv/bin/python -m rex.core.cli start
-
-# Or explicitly choose a mode:
-rex start --mode gui       # Start backend + auto-open browser
-rex start --mode cli       # Start backend only, no browser
-rex start --mode headless  # Start backend, no interactive output
-
-# If REX is already running, just open the browser:
-rex gui
 ```
 
-REX starts all 10 services in order (Memory, Eyes, Scheduler, Interview, Brain, Bark, Teeth, Federation, Store, Dashboard) and the dashboard becomes available.
+**What you should see:** REX prints a startup banner with a Black Great Dane ASCII art, then starts its 10 services one by one:
 
-#### Step 4: Open the Dashboard
+```
+[1/10] Starting Memory...        OK
+[2/10] Starting Eyes...           OK
+[3/10] Starting Scheduler...      OK
+...
+[10/10] Starting Dashboard...     OK
 
-Open your browser and navigate to:
+Dashboard available at: http://localhost:8443
+```
+
+> **Alternative start commands:**
+> ```bash
+> rex start --mode gui       # Starts REX AND automatically opens your browser
+> rex start --mode cli       # Starts REX without opening a browser
+> rex start --mode headless  # Starts REX with minimal output (for servers)
+> ```
+
+---
+
+#### Step 7: Open the Dashboard in Your Browser
+
+Now the exciting part. Open your web browser (Chrome, Firefox, Edge, Safari -- any will work) and type this into the address bar at the top:
 
 ```
 http://localhost:8443
 ```
 
-If you used `rex start --mode gui`, the browser opens automatically.
+Then press Enter.
 
-#### Step 5: First-Time Setup
+> **What is `localhost`?** It means "this computer." You're not going to a website on the internet -- you're connecting to REX running on your own machine. `8443` is the port number (think of it like a door number on your computer).
 
-On your first visit, REX shows a **Setup Wizard** that:
+**What you should see:** The REX login page with a Black Great Dane icon.
 
-1. **Checks your environment** -- verifies Redis, Ollama, ChromaDB, and system dependencies
-2. **Shows you what's available** -- tells you honestly which features work and which are degraded
-3. **Prompts you to log in** with the default credentials:
+---
 
-| Field | Value |
-|-------|-------|
+#### Step 8: First-Time Setup Wizard
+
+If this is your first time, REX shows a **Setup Wizard** instead of the login page. It walks you through everything:
+
+1. **Environment Check** -- REX tests your system and shows green checkmarks for what's working:
+   - Redis: Should show a green checkmark
+   - Ollama: Green if you started it in Step 5, yellow/red if not (that's OK)
+   - ChromaDB: Optional, yellow is fine
+   - API: Should show green
+
+2. **Click "Continue"** to proceed through each step
+
+3. **Login screen** appears when the wizard is done
+
+---
+
+#### Step 9: Log In
+
+On the login page, enter these default credentials:
+
+| Field | What to Type |
+|-------|-------------|
 | **Username** | `REX-BOT` |
 | **Password** | `Woof` |
 
-4. **Asks you to change your password** -- do this immediately for security
+Click the **"Log In"** button.
 
-#### Step 6: Explore the Dashboard
+**What you should see:** The main dashboard loads, showing REX (the Black Great Dane) and your network status.
 
-Once logged in, you'll see the main dashboard with REX (a Black Great Dane) guarding your network. Use the **sidebar navigation** on the left to access all features.
+> **Important:** Change your password right away! Go to **Settings** (in the left sidebar) > **Change Password**.
 
-### Dashboard Pages
+---
 
-#### Basic Mode (shown to all users)
+#### Step 10: You're In! Navigating the Dashboard
 
-| Page | What You Can Do |
-|------|-----------------|
-| **Dashboard** | See overall network status, active threats, blocked attacks (24h), uptime, threat trend charts, and severity breakdown |
-| **REX Chat** | Talk to REX directly -- ask about your network, devices, threats, or tell him to run a scan. Requires Ollama |
-| **Devices** | Browse all discovered network devices, view details (IP, MAC, vendor, trust level), trust or block devices |
-| **Threats** | View all detected threats with severity filters, resolve threats or mark false positives, investigate threat timelines |
-| **Scheduler** | Set up patrol schedules, view scan job history, manage power states (wake/sleep) |
-| **Diagnostics** | System info, dependency status, service health, resource usage, log viewer |
-| **Settings** | Hub for all configuration -- system settings, notifications, password change, about page |
+You're now looking at the REX dashboard. Here's how to use it:
 
-#### Advanced Mode (toggle via sidebar switch)
+**The Sidebar (left side of the screen):**
+This is your main navigation menu. Click any item to go to that page. The currently active page is highlighted in cyan/blue.
 
-| Page | What You Can Do |
-|------|-----------------|
-| **Network Map** | Visual topology of your network with device grouping by segment |
-| **Firewall** | View and create firewall rules, activate panic mode to block all traffic |
-| **Knowledge Base** | Read and edit REX's learned knowledge, view version history, revert changes |
-| **Plugins** | Browse installed and available plugins, install or remove extensions |
-| **Federation** | Enable peer-to-peer threat sharing between REX instances, view connected peers |
-| **Agent Actions** | Browse all whitelisted actions REX can execute, filtered by domain and risk level |
-| **Services** | Detailed health view of each running service with dependency chains |
-| **Privacy** | Privacy signals, outbound connections, data inventory, encryption status, run audits |
-| **System Config** | Configure scan interval, protection mode, sleep/wake schedule, data retention, telemetry |
+**The Main Area (center/right of the screen):**
+This shows the content for whichever page you selected in the sidebar.
+
+**REX the Guard Dog (top right of Dashboard page):**
+The animated Black Great Dane shows REX's current state. His expression and color change based on threat level:
+- **Cyan/Blue eyes** = All clear, no threats
+- **Amber/Yellow eyes** = Something suspicious detected
+- **Red eyes** = Active threat detected
+- **Orange + chains** = Junkyard Dog mode (maximum protection)
+
+---
+
+### What Each Page Does
+
+#### Basic Mode Pages
+
+These pages are always visible. They cover the essentials:
+
+| Sidebar Item | What It Does | How to Use It |
+|-------------|-------------|---------------|
+| **Dashboard** | Your home base. Shows device count, active threats, blocked attacks (last 24 hours), uptime, threat trend charts, and severity breakdown. | Just look at it -- it updates automatically. Click on any alert to see details. |
+| **REX Chat** | Talk to REX in plain English. Ask questions about your network or tell him to do things like "scan my network" or "what devices are connected?" | Type a message in the text box at the bottom and press Enter. REX responds like a chatbot. Requires Ollama to be running. |
+| **Devices** | Shows every device REX has found on your network (phones, laptops, smart TVs, etc.) | Click any device to see its details (IP address, manufacturer, when it was first seen). Use the search bar to find specific devices. |
+| **Threats** | Lists all security threats REX has detected, sorted by severity (Critical, High, Medium, Low, Info). | Click the colored filter chips at the top to show only certain severity levels. Click any threat to see full details. Use the **Resolve** or **False Positive** buttons to manage threats. |
+| **Scheduler** | Control when REX runs scans and when it sleeps/wakes up. | Set wake and sleep times, view past scan history, or click "Patrol Now" to run a scan immediately. |
+| **Diagnostics** | Technical information about REX's health -- which services are running, system resources, logs. | Useful for troubleshooting. The "Copy Diagnostics" button copies everything to your clipboard for sharing. |
+| **Settings** | Central hub for all configuration. Links to sub-pages for system config, notifications, password change, and more. | Click any card to go to that settings area. |
+
+#### Advanced Mode Pages
+
+To see these pages, click the **mode toggle** at the very bottom of the sidebar. It says "Advanced mode" -- click it. More items appear in the sidebar:
+
+| Sidebar Item | What It Does | How to Use It |
+|-------------|-------------|---------------|
+| **Network Map** | Visual diagram of your network showing all devices grouped by network segment. | Click any device node to see its details. Use the refresh button to re-scan. |
+| **Firewall** | View and manage firewall rules that block or allow network traffic. | Click "Add Rule" to create a new firewall rule. Fill in the IP address, direction (inbound/outbound), and action (block/allow). The **Panic Mode** button blocks all traffic in an emergency. |
+| **Knowledge Base** | REX's learned knowledge stored as Markdown text. Like REX's notebook. | Read what REX has learned. Edit the text and click Save. View version history and revert to older versions if needed. |
+| **Plugins** | Extensions that add features to REX. Shows installed and available plugins. | Click "Install" on any available plugin. Click "Remove" to uninstall. |
+| **Federation** | Connect multiple REX instances together to share threat intelligence. | Click "Enable Federation" to turn it on. Connected peers appear in the list below. Useful if you have REX running on multiple networks. |
+| **Agent Actions** | Shows every action REX is allowed to take, organized by category. | Browse actions to understand what REX can do. Filter by domain (network, firewall, system, etc.) using the tab buttons. Shows risk level and whether confirmation is required. |
+| **Services** | Detailed view of each internal REX service and its health status. | Green = healthy, amber = degraded, red = error. Shows dependency chains (which services depend on which). |
+| **Privacy** | Everything about your data privacy -- where data is stored, what goes in/out, encryption status. | Scroll down to see outbound connections, data inventory, and encryption compliance. Click "Run Audit" for a privacy score. |
+| **System Config** | Fine-tune REX's behavior -- how often it scans, what protection mode to use, sleep/wake schedule. | Adjust the settings and click "Save Changes." Changes take effect immediately. |
+
+---
 
 ### Switching Between Basic and Advanced Mode
 
-Click the **mode toggle** at the bottom of the sidebar to switch:
-- **Basic mode** -- simplified view, fewer options, ideal for everyday monitoring
-- **Advanced mode** -- full access to all pages including firewall, plugins, federation, and network map
+At the very bottom of the left sidebar, you'll see a button that says either **"Advanced mode"** or **"Basic mode"**:
 
-### Docker Setup (Alternative)
+- **Click it** to toggle between the two views
+- **Basic mode** shows fewer pages -- ideal if you just want to monitor your network without complexity
+- **Advanced mode** shows all pages -- for power users who want full control
 
-If you prefer Docker, this starts everything in one command:
+The mode you choose is remembered, so you don't need to switch every time you log in.
+
+---
+
+### Common Tasks Walk-Through
+
+#### "I want to see what devices are on my network"
+1. Click **Devices** in the sidebar
+2. Wait a moment for the list to populate
+3. Each row shows a device with its IP address, MAC address, and manufacturer
+4. Click any device to see full details in a panel on the right
+
+#### "I want to check if there are any threats"
+1. Click **Threats** in the sidebar
+2. The list shows all detected threats, newest first
+3. Use the colored filter buttons (Critical, High, Medium, etc.) to narrow the list
+4. Click any threat to see what happened and what REX did about it
+5. Use **Resolve** to mark a threat as handled, or **False Positive** if it's not a real threat
+
+#### "I want to talk to REX"
+1. Click **REX Chat** in the sidebar
+2. Type a message like "What devices are on my network?" or "Run a scan"
+3. Press Enter or click the send button
+4. REX responds in the chat (requires Ollama to be running)
+
+#### "I want to change how often REX scans"
+1. Click **Settings** in the sidebar
+2. Click the **System Configuration** card
+3. Change the "Scan Interval" value (in seconds -- e.g., 60 = every minute)
+4. Click **Save Changes**
+
+#### "I want to block a device"
+1. Click **Devices** in the sidebar
+2. Find the device you want to block
+3. Click on it to open its details
+4. Click the **Block** button
+
+#### "I want to change my password"
+1. Click **Settings** in the sidebar
+2. Click the **Change Password** card
+3. Enter your current password and new password
+4. Click **Change Password**
+
+---
+
+### Accessing the Dashboard from Another Device
+
+You can open the REX dashboard from any device on the same network (your phone, tablet, another computer):
+
+1. **Find your computer's IP address:**
+   ```bash
+   hostname -I
+   ```
+   This shows something like `192.168.1.100`
+
+2. **On the other device**, open a browser and go to:
+   ```
+   http://192.168.1.100:8443
+   ```
+   (Replace `192.168.1.100` with your actual IP address)
+
+3. **Log in** with the same username and password
+
+> **Security note:** REX is designed for local network use only. Never expose port 8443 to the public internet. If you need remote access, use a VPN.
+
+---
+
+### Docker Setup (Alternative -- for Experienced Users)
+
+If you prefer Docker, this starts everything (Redis, Ollama, ChromaDB, and REX) in one command:
 
 ```bash
-# Set your Redis password
+# Set a Redis password
 echo "REDIS_PASSWORD=$(openssl rand -base64 32)" > .env
 
-# Start the full stack (Redis + Ollama + ChromaDB + REX)
+# Start the full stack
 docker compose up -d
 
-# Open dashboard
-open http://localhost:8443   # macOS
-xdg-open http://localhost:8443  # Linux
+# Open the dashboard
+xdg-open http://localhost:8443    # Linux
+open http://localhost:8443         # macOS
 ```
 
-### Accessing REX Remotely
+Stop everything with: `docker compose down`
 
-To access the dashboard from another device on your network, use the host machine's IP address instead of `localhost`:
+---
 
-```
-http://<your-machine-ip>:8443
-```
+### Troubleshooting the GUI
 
-For example: `http://192.168.1.100:8443`
+| Problem | Solution |
+|---------|----------|
+| **Browser shows "Connection refused"** | REX isn't running. Go back to Step 6 and start it. Check that the Dashboard service started successfully. |
+| **Browser shows "Page not found" or blank page** | Make sure you typed `http://localhost:8443` exactly (not `https`, not a different port). |
+| **Login page appears but login fails** | Make sure you're using the correct credentials: username `REX-BOT`, password `Woof` (capital W). If you changed the password and forgot it, see the CLI `rex` reset options. |
+| **Dashboard loads but shows "Waiting for backend connection"** | Redis might not be running. Open a terminal and run: `redis-cli ping` -- you should see `PONG`. |
+| **REX Chat says "brain isn't connected"** | Ollama isn't running. Start it with: `ollama serve &` |
+| **Pages show "--" or "No data"** | This is normal on first start. REX needs a few minutes to scan your network and populate data. Click "Patrol Now" on the Scheduler page to trigger a scan. |
+| **Cannot access from phone/tablet** | Make sure both devices are on the same WiFi network. Use your computer's IP address (not `localhost`). Check that no firewall is blocking port 8443. |
 
-> **Security note:** REX is designed for local network use. Do not expose port 8443 to the public internet without additional security measures (VPN, reverse proxy with TLS, etc.).
+---
 
-### Rebuilding the Frontend (optional)
+### Rebuilding the Frontend (for Developers Only)
 
-The compiled GUI is included in the repository. If you modify the React source code in `frontend/src/`, rebuild with:
+The compiled GUI is included in the repository. Most users never need to do this. If you modify the React source code in `frontend/src/`, rebuild with:
 
 ```bash
 cd frontend
