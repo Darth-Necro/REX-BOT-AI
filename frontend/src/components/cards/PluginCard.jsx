@@ -10,7 +10,7 @@ function StateBadge({ state }) {
     active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
     enabled: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
     disabled: 'bg-slate-700/40 text-slate-400 border-slate-600',
-    available: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    available: 'bg-red-500/15 text-red-300 border-red-500/30',
     error: 'bg-red-500/15 text-red-300 border-red-500/30',
   };
   const cls = styles[(state || '').toLowerCase()] || 'bg-slate-700/40 text-slate-400 border-slate-600';
@@ -35,7 +35,7 @@ export default function PluginCard({
   const permissions = plugin.permissions ?? plugin.required_permissions ?? [];
 
   return (
-    <div className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-3 transition-shadow hover:shadow-[0_0_24px_rgba(34,211,238,0.06)]">
+    <div className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-3 transition-shadow hover:shadow-[0_0_24px_rgba(220,38,38,0.06)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -92,8 +92,8 @@ export default function PluginCard({
             onClick={() => onInstall?.(plugin.id)}
             disabled={!canInstall || actionInProgress}
             className="w-full px-3 py-2 text-xs font-medium rounded-xl
-                       bg-cyan-500/10 text-cyan-300 border border-cyan-500/30
-                       hover:bg-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed
+                       bg-red-500/10 text-red-300 border border-red-500/30
+                       hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed
                        transition-colors"
           >
             {actionInProgress ? 'Installing...' : 'Install'}

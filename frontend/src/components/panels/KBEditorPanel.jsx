@@ -49,8 +49,8 @@ export default function KBEditorPanel({
         <button
           onClick={handleSave}
           disabled={!dirty || saving || disabled}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500 text-white
-                     hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed
+          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500 text-white
+                     hover:bg-red-400 disabled:opacity-40 disabled:cursor-not-allowed
                      transition-colors"
         >
           {saving ? 'Saving...' : 'Save'}

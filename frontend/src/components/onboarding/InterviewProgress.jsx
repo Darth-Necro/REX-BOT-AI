@@ -47,7 +47,7 @@ export default function InterviewProgress() {
             isCompleted
               ? 'bg-emerald-400'
               : pct > 0
-                ? 'bg-cyan-400'
+                ? 'bg-red-400'
                 : 'bg-slate-700'
           }`}
           style={{ width: `${isCompleted ? 100 : pct}%` }}

@@ -65,7 +65,7 @@ export default function SystemSettingsPage() {
     <div className="p-6 lg:p-8 max-w-2xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="text-xs text-rex-muted">
-        <Link to="/settings" className="hover:text-cyan-400 transition-colors">Settings</Link>
+        <Link to="/settings" className="hover:text-red-400 transition-colors">Settings</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">System Configuration</span>
       </nav>
@@ -81,7 +81,7 @@ export default function SystemSettingsPage() {
         </div>
       )}
 
-      <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-6 space-y-5">
+      <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-6 space-y-5">
         {/* Scan Interval */}
         <div className="space-y-1.5">
           <label className="text-xs text-slate-400 font-medium" htmlFor="scan_interval">
@@ -93,7 +93,7 @@ export default function SystemSettingsPage() {
             min={10}
             value={form.scan_interval}
             onChange={(e) => handleChange('scan_interval', parseInt(e.target.value, 10) || 10)}
-            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-red-500/50 transition-colors"
           />
           <p className="text-[10px] text-slate-600">Minimum 10 seconds between scans.</p>
         </div>
@@ -107,7 +107,7 @@ export default function SystemSettingsPage() {
             id="protection_mode"
             value={form.protection_mode}
             onChange={(e) => handleChange('protection_mode', e.target.value)}
-            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-red-500/50 transition-colors"
           >
             {PROTECTION_MODES.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -126,7 +126,7 @@ export default function SystemSettingsPage() {
               type="time"
               value={form.sleep_time}
               onChange={(e) => handleChange('sleep_time', e.target.value)}
-              className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-cyan-500/50 transition-colors"
+              className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-red-500/50 transition-colors"
             />
           </div>
           <div className="space-y-1.5">
@@ -138,7 +138,7 @@ export default function SystemSettingsPage() {
               type="time"
               value={form.wake_time}
               onChange={(e) => handleChange('wake_time', e.target.value)}
-              className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-cyan-500/50 transition-colors"
+              className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-red-500/50 transition-colors"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export default function SystemSettingsPage() {
             min={1}
             value={form.data_retention_days}
             onChange={(e) => handleChange('data_retention_days', parseInt(e.target.value, 10) || 1)}
-            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text focus:outline-none focus:border-red-500/50 transition-colors"
           />
         </div>
 
@@ -167,7 +167,7 @@ export default function SystemSettingsPage() {
           <button
             onClick={() => handleChange('telemetry_enabled', !form.telemetry_enabled)}
             className={`relative w-11 h-6 rounded-full transition-colors ${
-              form.telemetry_enabled ? 'bg-cyan-500' : 'bg-rex-card'
+              form.telemetry_enabled ? 'bg-red-500' : 'bg-rex-card'
             }`}
             role="switch"
             aria-checked={form.telemetry_enabled}
@@ -184,7 +184,7 @@ export default function SystemSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30 hover:bg-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-2.5 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

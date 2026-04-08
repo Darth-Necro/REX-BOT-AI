@@ -49,7 +49,7 @@ export default function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-5 w-full">
       {/* Password field */}
       <div className="relative group">
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/20 to-blue-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm" />
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-500/20 to-blue-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm" />
         <input
           type="password"
           value={password}
@@ -57,7 +57,7 @@ export default function LoginForm() {
           placeholder="Enter admin password"
           autoComplete="current-password"
           autoFocus
-          className="relative w-full px-4 py-3 bg-rex-bg/80 border border-rex-card rounded-lg text-rex-text placeholder-rex-muted/60 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 focus:outline-none transition-all text-sm tracking-wide"
+          className="relative w-full px-4 py-3 bg-rex-bg/80 border border-rex-card rounded-lg text-rex-text placeholder-rex-muted/60 focus:border-red-500 focus:ring-1 focus:ring-red-500/30 focus:outline-none transition-all text-sm tracking-wide"
         />
       </div>
 
@@ -78,9 +78,9 @@ export default function LoginForm() {
         className="relative w-full py-3 rounded-lg font-medium text-sm tracking-wide transition-all disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden group"
       >
         {/* Gradient background */}
-        <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 group-hover:from-cyan-500 group-hover:to-blue-500 transition-all" />
+        <span className="absolute inset-0 bg-gradient-to-r from-red-600 to-blue-600 group-hover:from-red-500 group-hover:to-blue-500 transition-all" />
         {/* Glow overlay */}
-        <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-cyan-400/20 to-blue-400/20 blur-xl" />
+        <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-red-400/20 to-blue-400/20 blur-xl" />
         {/* Label */}
         <span className="relative flex items-center justify-center gap-2 text-white">
           {loading ? (

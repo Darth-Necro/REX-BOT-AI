@@ -103,11 +103,11 @@ export default function Tabs({
             onClick={() => !isDisabled && select(tab.id)}
             className={`
               relative px-4 py-2.5 text-sm font-medium transition-colors
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-rex-bg
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-rex-bg
               ${isDisabled
                 ? 'text-slate-600 cursor-not-allowed'
                 : isActive
-                  ? 'text-cyan-300'
+                  ? 'text-red-300'
                   : 'text-rex-muted hover:text-slate-200'
               }
             `}
@@ -115,7 +115,7 @@ export default function Tabs({
             {tab.label}
             {/* Active indicator bar */}
             {isActive && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-cyan-400" />
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-red-400" />
             )}
           </button>
         );

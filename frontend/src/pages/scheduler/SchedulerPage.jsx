@@ -67,8 +67,8 @@ export default function SchedulerPage() {
           <button
             onClick={handlePatrolNow}
             disabled={patrolling}
-            className="px-4 py-2.5 text-sm font-medium rounded-xl bg-cyan-500/10 text-cyan-300
-                       border border-cyan-500/30 hover:bg-cyan-500/20 disabled:opacity-40
+            className="px-4 py-2.5 text-sm font-medium rounded-xl bg-red-500/10 text-red-300
+                       border border-red-500/30 hover:bg-red-500/20 disabled:opacity-40
                        disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {patrolling ? (

@@ -9,10 +9,10 @@ const POSTURE_CONFIG = {
   nominal: {
     label: 'ALL CLEAR',
     bark: '*woof* All clear!',
-    glowColor: 'rgba(34,211,238,0.12)',
-    borderColor: 'border-cyan-500/20',
-    accentColor: 'text-cyan-400',
-    eyeColor: '#22D3EE',
+    glowColor: 'rgba(220,38,38,0.12)',
+    borderColor: 'border-red-500/20',
+    accentColor: 'text-red-400',
+    eyeColor: '#DC2626',
     breathe: true,
     alert: false,
   },
@@ -263,7 +263,7 @@ export default function RoboDogCorePanel({
       className={`
         relative overflow-hidden
         ${radius.panel} border ${cfg.borderColor}
-        bg-gradient-to-b from-[#0B1020] to-[#050816]
+        bg-gradient-to-b from-[#0a0a0a] to-[#050505]
         p-6 flex flex-col items-center gap-4
         transition-all duration-500
       `}
@@ -311,7 +311,7 @@ export default function RoboDogCorePanel({
           {powerLabel}
         </span>
         <span className="text-slate-700">|</span>
-        <span className={llmStatus === 'ready' ? 'text-cyan-400' : llmStatus === 'error' ? 'text-red-400' : 'text-slate-500'}>
+        <span className={llmStatus === 'ready' ? 'text-red-400' : llmStatus === 'error' ? 'text-red-400' : 'text-slate-500'}>
           {llmLabel}
         </span>
         <span className="text-slate-700">|</span>

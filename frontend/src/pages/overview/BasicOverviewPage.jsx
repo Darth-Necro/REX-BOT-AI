@@ -108,7 +108,7 @@ function PostureBanner({ posture }) {
 
 function MetricCard({ label, value, isLoading }) {
   return (
-    <div className="rounded-2xl sm:rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-4 sm:p-5 flex flex-col gap-1">
+    <div className="rounded-2xl sm:rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-4 sm:p-5 flex flex-col gap-1">
       <span className="text-[11px] sm:text-xs font-medium tracking-wide uppercase text-slate-500">
         {label}
       </span>
@@ -124,7 +124,7 @@ function RecentAlertItem({ alert }) {
     critical: 'text-red-400',
     high: 'text-orange-400',
     medium: 'text-amber-300',
-    low: 'text-cyan-300',
+    low: 'text-red-300',
   };
   const color = severityColors[alert.severity] || 'text-slate-400';
 
@@ -199,7 +199,7 @@ export default function BasicOverviewPage() {
 
       {/* Recent alerts in plain language */}
       {recentAlerts.length > 0 && (
-        <div className="rounded-2xl sm:rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-4 sm:p-5">
+        <div className="rounded-2xl sm:rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-4 sm:p-5">
           <h2 className="text-xs font-bold tracking-widest uppercase text-slate-500 mb-2">
             Recent Alerts
           </h2>

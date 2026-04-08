@@ -35,7 +35,7 @@ function ActionCard({ action }) {
 
       <div className="flex flex-wrap items-center gap-2">
         {action.domain && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/20">
             {action.domain}
           </span>
         )}
@@ -53,7 +53,7 @@ function ActionCard({ action }) {
         <div>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors"
+            className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
           >
             {expanded ? 'Hide parameters' : 'Show parameters'}
           </button>
@@ -113,8 +113,8 @@ export default function AgentActionsPage() {
 
       {/* Scope info */}
       {scope && (
-        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-2">
-          <p className="text-sm text-cyan-200">{scope.description || 'Agent scope information'}</p>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-2">
+          <p className="text-sm text-red-200">{scope.description || 'Agent scope information'}</p>
           <div className="flex gap-4 text-xs text-slate-400">
             <span>{scope.securityKeywordsCount} security keywords</span>
             <span>{scope.outOfScopePatternsCount} out-of-scope patterns</span>
@@ -136,7 +136,7 @@ export default function AgentActionsPage() {
             onClick={() => filterByDomain(null)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               !domainFilter
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                 : 'bg-rex-surface text-slate-400 border border-white/[0.06] hover:text-slate-200'
             }`}
           >
@@ -148,7 +148,7 @@ export default function AgentActionsPage() {
               onClick={() => filterByDomain(domain)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 domainFilter === domain
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                   : 'bg-rex-surface text-slate-400 border border-white/[0.06] hover:text-slate-200'
               }`}
             >

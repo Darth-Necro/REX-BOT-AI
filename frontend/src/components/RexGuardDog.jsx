@@ -3,7 +3,7 @@ import useSystemStore from '../stores/useSystemStore';
 
 const stateColors = {
   awake: 'text-rex-safe',
-  patrol: 'text-cyan-400',
+  patrol: 'text-red-400',
   alert_sleep: 'text-rex-warn',
   deep_sleep: 'text-rex-muted',
   off: 'text-rex-muted',

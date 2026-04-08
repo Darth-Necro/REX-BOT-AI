@@ -3,7 +3,7 @@
  *
  * Mode-aware: basic mode shows a reduced set of items.
  * Advanced mode shows all items including settings sub-pages.
- * Active state uses cyan highlight bar + text.
+ * Active state uses red highlight bar + text.
  * Disabled state for pages not yet implemented (grayed, no click).
  *
  * Keyboard navigation: Arrow Up/Down to move between items, Home/End
@@ -232,7 +232,7 @@ export default function SidebarNav() {
     >
       {/* Brand */}
       <div className="h-16 flex items-center gap-2 px-4 border-b border-rex-card">
-        <span className="text-cyan-400 font-bold text-lg tracking-wider">REX</span>
+        <span className="text-red-400 font-bold text-lg tracking-wider">REX</span>
         <span className="text-[10px] text-rex-muted font-mono bg-rex-card/50 px-1.5 py-0.5 rounded">
           {isBasic ? 'basic' : 'v0.1'}
         </span>
@@ -268,10 +268,10 @@ export default function SidebarNav() {
               onKeyDown={(e) => handleKeyDown(e, enabledIndex)}
               className={({ isActive }) =>
                 `relative flex items-center gap-3 px-4 py-2.5 transition-colors group
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-inset
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-inset
                  ${
                   isActive
-                    ? 'text-cyan-400 bg-cyan-500/10'
+                    ? 'text-red-400 bg-red-500/10'
                     : 'text-rex-muted hover:text-rex-text hover:bg-rex-card/30'
                 }`
               }
@@ -280,9 +280,9 @@ export default function SidebarNav() {
                 <>
                   {/* Active indicator bar */}
                   {isActive && (
-                    <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r bg-cyan-400" />
+                    <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r bg-red-400" />
                   )}
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-red-400' : ''}`} />
                   <span className="text-sm font-medium">{label}</span>
                 </>
               )}
@@ -296,9 +296,9 @@ export default function SidebarNav() {
         <button
           onClick={toggleViewMode}
           className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-xs
-                     text-rex-muted hover:text-cyan-400 hover:bg-rex-card/30
+                     text-rex-muted hover:text-red-400 hover:bg-rex-card/30
                      transition-colors focus-visible:outline-none focus-visible:ring-2
-                     focus-visible:ring-cyan-400 focus-visible:ring-inset"
+                     focus-visible:ring-red-400 focus-visible:ring-inset"
           title={isBasic ? 'Switch to Advanced mode' : 'Switch to Basic mode'}
         >
           <ModeToggleIcon className="w-4 h-4" />

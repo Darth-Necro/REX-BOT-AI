@@ -150,11 +150,11 @@ export default function SettingsPage() {
             <Link
               key={section.path}
               to={section.path}
-              className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 hover:border-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.04)] transition-all group"
+              className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5 hover:border-red-500/20 hover:shadow-[0_0_24px_rgba(220,38,38,0.04)] transition-all group"
             >
               <div className="flex items-center gap-3 mb-2">
                 <SectionIcon type={section.icon} />
-                <span className="text-sm font-medium text-slate-200 group-hover:text-cyan-300 transition-colors">
+                <span className="text-sm font-medium text-slate-200 group-hover:text-red-300 transition-colors">
                   {section.label}
                 </span>
               </div>

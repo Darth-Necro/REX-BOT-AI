@@ -68,7 +68,7 @@ export default function ThreatDetailsPage() {
           heading="Threat not found"
           description={error || `Could not load threat ${id}.`}
           action={
-            <Link to="/threats" className="text-xs text-cyan-400 hover:underline">
+            <Link to="/threats" className="text-xs text-red-400 hover:underline">
               Back to Threats
             </Link>
           }
@@ -85,7 +85,7 @@ export default function ThreatDetailsPage() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-rex-muted">
-        <Link to="/threats" className="hover:text-cyan-400 transition-colors">
+        <Link to="/threats" className="hover:text-red-400 transition-colors">
           Threats
         </Link>
         <span className="mx-2">/</span>
@@ -191,7 +191,7 @@ export default function ThreatDetailsPage() {
             <ul className="space-y-1">
               {threat.recommended_actions.map((action, i) => (
                 <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                  <span className="text-cyan-400 mt-1 shrink-0" aria-hidden="true">-</span>
+                  <span className="text-red-400 mt-1 shrink-0" aria-hidden="true">-</span>
                   {action}
                 </li>
               ))}
@@ -273,7 +273,7 @@ function formatConfidence(value) {
 
 function ObservedIcon() {
   return (
-    <svg className="w-4 h-4 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+    <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>

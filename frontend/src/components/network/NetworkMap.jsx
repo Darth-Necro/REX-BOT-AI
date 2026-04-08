@@ -19,7 +19,7 @@ import EmptyState from '../primitives/EmptyState';
 
 const TRUST_RING_COLORS = {
   trusted: 'ring-emerald-400/60 border-emerald-500/30',
-  known: 'ring-cyan-400/60 border-cyan-500/30',
+  known: 'ring-red-400/60 border-red-500/30',
   new: 'ring-amber-400/60 border-amber-500/30',
   untrusted: 'ring-orange-400/60 border-orange-500/30',
   blocked: 'ring-red-400/60 border-red-500/30',
@@ -155,17 +155,17 @@ export default function NetworkMap({ onSelectNode, selectedNodeId, className = '
                       relative flex flex-col items-center gap-2 p-3 rounded-xl
                       border ring-2 cursor-pointer
                       transition-all duration-200
-                      focus-visible:outline-none focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-rex-bg
+                      focus-visible:outline-none focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-rex-bg
                       hover:bg-slate-700/20
                       ${ringCls}
-                      ${isSelected ? 'bg-cyan-500/5 border-cyan-500/40 ring-cyan-400/50' : 'bg-rex-surface'}
+                      ${isSelected ? 'bg-red-500/5 border-red-500/40 ring-red-400/50' : 'bg-rex-surface'}
                     `}
                     aria-label={`${node.label}, ${node.ip || 'no IP'}, trust: ${tTokens.label}, status: ${node.status || 'unknown'}`}
                     aria-selected={isSelected}
                   >
                     {/* Gateway indicator */}
                     {isGateway && (
-                      <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-cyan-500 text-rex-bg px-1.5 py-0.5 rounded-full">
+                      <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-red-500 text-rex-bg px-1.5 py-0.5 rounded-full">
                         GW
                       </span>
                     )}

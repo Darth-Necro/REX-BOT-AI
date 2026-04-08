@@ -58,11 +58,11 @@ export const TRUST_TOKENS = {
     label: 'Trusted',
   },
   known: {
-    bg: 'bg-cyan-500/10',
-    text: 'text-cyan-300',
-    border: 'border-cyan-500/30',
-    ring: 'ring-cyan-400',
-    dot: 'bg-cyan-400',
+    bg: 'bg-red-500/10',
+    text: 'text-red-300',
+    border: 'border-red-500/30',
+    ring: 'ring-red-400',
+    dot: 'bg-red-400',
     label: 'Known',
   },
   new: {
@@ -118,7 +118,7 @@ export function trustTokens(raw) {
 export function trustStrokeColor(tier) {
   const map = {
     trusted: 'stroke-emerald-400',
-    known: 'stroke-cyan-400',
+    known: 'stroke-red-400',
     new: 'stroke-amber-400',
     untrusted: 'stroke-orange-400',
     blocked: 'stroke-red-400',

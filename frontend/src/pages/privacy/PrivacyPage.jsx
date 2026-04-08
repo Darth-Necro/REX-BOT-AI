@@ -31,7 +31,7 @@ function RetentionCard({ retention }) {
     : retention.policy;
 
   return (
-    <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+    <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5">
       <h3 className="text-xs font-bold tracking-widest uppercase text-slate-400 mb-2">
         Data Retention
       </h3>
@@ -62,7 +62,7 @@ function AuditResultPanel({ result }) {
   if (!result) return null;
 
   return (
-    <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 space-y-3">
+    <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold tracking-widest uppercase text-slate-400">
           Audit Result
@@ -148,7 +148,7 @@ export default function PrivacyPage() {
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
         <div className="flex items-center justify-center py-16">
           <div className="flex items-center gap-3 text-sm text-slate-500">
-            <svg className="w-5 h-5 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 animate-spin text-red-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
@@ -223,7 +223,7 @@ export default function PrivacyPage() {
           <button
             onClick={handleAudit}
             disabled={isPending || !canAudit}
-            className="px-5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30 hover:bg-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-5 py-2 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isPending ? 'Running...' : 'Run Audit'}
           </button>
@@ -253,7 +253,7 @@ export default function PrivacyPage() {
           subtitle={connections.length > 0 ? `${connections.length} connection${connections.length !== 1 ? 's' : ''} detected` : 'No outbound connections detected'}
         />
         {connections.length > 0 ? (
-          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 overflow-x-auto">
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5 overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-500 text-left">
@@ -286,7 +286,7 @@ export default function PrivacyPage() {
       {inventory && typeof inventory === 'object' && Object.keys(inventory).length > 1 && (
         <section>
           <SectionHeader title="Data Inventory" subtitle="Data stores managed by REX" />
-          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 space-y-2">
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5 space-y-2">
             {Object.entries(inventory).filter(([k]) => k !== 'status').map(([key, val]) => (
               <div key={key} className="flex justify-between items-center text-sm">
                 <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
@@ -303,7 +303,7 @@ export default function PrivacyPage() {
       {encryption && typeof encryption === 'object' && Object.keys(encryption).length > 1 && (
         <section>
           <SectionHeader title="Encryption Status" subtitle="Encryption-at-rest compliance" />
-          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5 space-y-2">
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5 space-y-2">
             {Object.entries(encryption).filter(([k]) => k !== 'status').map(([key, val]) => (
               <div key={key} className="flex justify-between items-center text-sm">
                 <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>

@@ -11,7 +11,7 @@ import React from 'react';
 /* ---------- color palette ---------- */
 
 const PALETTE = [
-  { bg: 'bg-cyan-500/10',    text: 'text-cyan-300',    border: 'border-cyan-500/30' },
+  { bg: 'bg-red-500/10',    text: 'text-red-300',    border: 'border-red-500/30' },
   { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },
   { bg: 'bg-amber-500/10',   text: 'text-amber-300',   border: 'border-amber-500/30' },
   { bg: 'bg-emerald-500/10', text: 'text-emerald-300', border: 'border-emerald-500/30' },

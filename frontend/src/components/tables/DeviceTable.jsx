@@ -25,11 +25,11 @@ const STATUS_DOT = {
   online:       'bg-rex-safe',
   offline:      'bg-gray-500',
   quarantined:  'bg-rex-threat',
-  trusted:      'bg-cyan-400',
+  trusted:      'bg-red-400',
 };
 
 const TRUST_BADGE = {
-  trusted:  'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  trusted:  'bg-red-500/15 text-red-400 border-red-500/30',
   known:    'bg-rex-safe/15 text-rex-safe border-rex-safe/30',
   unknown:  'bg-rex-warn/15 text-rex-warn border-rex-warn/30',
   blocked:  'bg-rex-threat/15 text-rex-threat border-rex-threat/30',
@@ -59,7 +59,7 @@ function SortArrow({ field, sortField, sortDir }) {
     );
   }
   return (
-    <svg className="w-3 h-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       {sortDir === 'asc' ? (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
       ) : (
@@ -198,7 +198,7 @@ export default function DeviceTable({
                   onClick={() => onSelect?.(device)}
                   className={`cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-cyan-500/5 border-l-2 border-l-cyan-500'
+                      ? 'bg-red-500/5 border-l-2 border-l-red-500'
                       : 'hover:bg-rex-surface/40'
                   }`}
                 >

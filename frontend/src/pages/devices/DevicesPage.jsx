@@ -177,7 +177,7 @@ export default function DevicesPage() {
               placeholder="Search devices..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-rex-surface border border-rex-card rounded-lg text-sm text-rex-text placeholder-rex-muted/60 focus:outline-none focus:border-cyan-500 transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-rex-surface border border-rex-card rounded-lg text-sm text-rex-text placeholder-rex-muted/60 focus:outline-none focus:border-red-500 transition-colors"
             />
             {search && (
               <button

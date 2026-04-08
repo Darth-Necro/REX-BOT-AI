@@ -36,7 +36,7 @@ function CustomTooltip({ active, payload, label }) {
   return (
     <div className="bg-rex-surface border border-rex-card rounded-lg px-3 py-2 text-xs shadow-lg">
       <p className="text-slate-400 mb-1">{label}</p>
-      <p className="text-cyan-300 font-medium">{payload[0].value} threat{payload[0].value !== 1 ? 's' : ''}</p>
+      <p className="text-red-300 font-medium">{payload[0].value} threat{payload[0].value !== 1 ? 's' : ''}</p>
     </div>
   );
 }
@@ -58,8 +58,8 @@ export default function ThreatTrendChart({ threats = [] }) {
       <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+            <stop offset="5%" stopColor="#DC2626" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -80,7 +80,7 @@ export default function ThreatTrendChart({ threats = [] }) {
         <Area
           type="monotone"
           dataKey="threats"
-          stroke="#22d3ee"
+          stroke="#DC2626"
           strokeWidth={2}
           fill="url(#trendFill)"
         />

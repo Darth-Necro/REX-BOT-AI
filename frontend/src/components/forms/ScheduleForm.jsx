@@ -12,7 +12,7 @@ const MODES = [
 ];
 
 const inputCls =
-  'w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/40 transition-colors';
+  'w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-red-500/40 transition-colors';
 const labelCls = 'text-xs text-slate-500 block mb-1';
 
 export default function ScheduleForm({
@@ -52,7 +52,7 @@ export default function ScheduleForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl p-5"
+      className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl p-5"
     >
       <h3 className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-4">
         Power Schedule
@@ -70,11 +70,11 @@ export default function ScheduleForm({
               disabled={disabled}
               className={`text-left p-3 rounded-xl border transition-colors ${
                 selected
-                  ? 'border-cyan-500/40 bg-cyan-500/10'
+                  ? 'border-red-500/40 bg-red-500/10'
                   : 'border-white/[0.06] bg-[#050816] hover:border-white/[0.12]'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <p className={`text-sm font-medium ${selected ? 'text-cyan-300' : 'text-slate-300'}`}>
+              <p className={`text-sm font-medium ${selected ? 'text-red-300' : 'text-slate-300'}`}>
                 {m.label}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">{m.desc}</p>
@@ -114,8 +114,8 @@ export default function ScheduleForm({
         <button
           type="submit"
           disabled={!dirty || saving || disabled}
-          className="px-5 py-2 bg-cyan-500 text-white rounded-xl font-medium text-sm
-                     hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed
+          className="px-5 py-2 bg-red-500 text-white rounded-xl font-medium text-sm
+                     hover:bg-red-400 disabled:opacity-40 disabled:cursor-not-allowed
                      transition-colors"
         >
           {saving ? 'Saving...' : 'Save Schedule'}

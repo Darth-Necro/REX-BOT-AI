@@ -19,7 +19,7 @@ const SEVERITY_CHIP_COLORS = {
   critical: 'border-rex-threat/40 text-rex-threat',
   high:     'border-orange-500/40 text-orange-400',
   medium:   'border-rex-warn/40 text-rex-warn',
-  low:      'border-cyan-500/40 text-cyan-400',
+  low:      'border-emerald-500/40 text-emerald-400',
   info:     'border-gray-500/40 text-gray-400',
 };
 
@@ -28,7 +28,7 @@ const SEVERITY_CHIP_ACTIVE = {
   critical: 'bg-rex-threat/15 border-rex-threat/50 text-rex-threat',
   high:     'bg-orange-500/15 border-orange-500/50 text-orange-400',
   medium:   'bg-rex-warn/15 border-rex-warn/50 text-rex-warn',
-  low:      'bg-cyan-500/15 border-cyan-500/50 text-cyan-400',
+  low:      'bg-emerald-500/15 border-emerald-500/50 text-emerald-400',
   info:     'bg-gray-500/15 border-gray-500/50 text-gray-400',
 };
 
@@ -79,7 +79,7 @@ function ThreatDetailPanel({ threat, onClose }) {
 
         {threat.action_taken && (
           <Section label="Action Taken">
-            <p className="text-xs text-cyan-400">{threat.action_taken}</p>
+            <p className="text-xs text-red-400">{threat.action_taken}</p>
           </Section>
         )}
 

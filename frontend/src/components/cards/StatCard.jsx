@@ -27,14 +27,14 @@ export default function StatCard({ label, value, delta = null, icon = null }) {
       className={`
         relative overflow-hidden
         ${radius.card} border border-white/[0.06]
-        bg-gradient-to-br from-[#0B1020] to-[#11192C]
+        bg-gradient-to-br from-[#0a0a0a] to-[#141414]
         p-5 flex flex-col gap-1
         transition-shadow duration-300
-        hover:shadow-[0_0_24px_rgba(34,211,238,0.06)]
+        hover:shadow-[0_0_24px_rgba(220,38,38,0.06)]
       `}
     >
       {/* Subtle top-edge glow */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
 
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium tracking-wide uppercase text-slate-500">

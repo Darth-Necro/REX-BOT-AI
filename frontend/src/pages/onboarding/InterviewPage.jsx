@@ -40,7 +40,7 @@ export default function InterviewPage() {
       <InterviewProgress />
 
       {/* Chat area */}
-      <div className="flex-1 min-h-0 rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] overflow-hidden flex flex-col">
         <InterviewChat />
       </div>
 
@@ -57,7 +57,7 @@ export default function InterviewPage() {
           </div>
           <button
             onClick={() => navigate('/overview')}
-            className="px-5 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors"
+            className="px-5 py-2 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 transition-colors"
           >
             Go to Dashboard
           </button>

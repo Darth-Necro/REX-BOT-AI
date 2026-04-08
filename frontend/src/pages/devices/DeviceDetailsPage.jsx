@@ -88,7 +88,7 @@ export default function DeviceDetailsPage() {
           heading="Device not found"
           description={error}
           action={
-            <Link to="/devices" className="text-xs text-cyan-400 hover:underline">
+            <Link to="/devices" className="text-xs text-red-400 hover:underline">
               Back to Devices
             </Link>
           }
@@ -107,7 +107,7 @@ export default function DeviceDetailsPage() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-rex-muted">
-        <Link to="/devices" className="hover:text-cyan-400 transition-colors">Devices</Link>
+        <Link to="/devices" className="hover:text-red-400 transition-colors">Devices</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">{device.hostname || device.mac_address}</span>
       </nav>
@@ -179,7 +179,7 @@ export default function DeviceDetailsPage() {
         <Section title="Services" ariaLabel="Running services">
           <div className="flex flex-wrap gap-1.5">
             {services.map((s, i) => (
-              <Badge key={i} variant="cyan" size="sm">
+              <Badge key={i} variant="red" size="sm">
                 {typeof s === 'object' ? s.name : s}
               </Badge>
             ))}
@@ -222,7 +222,7 @@ export default function DeviceDetailsPage() {
                 className="flex items-center justify-between bg-rex-card/20 border border-rex-card rounded-xl px-4 py-2 hover:bg-rex-card/30 transition-colors group"
               >
                 <div className="min-w-0">
-                  <p className="text-xs text-rex-text truncate group-hover:text-cyan-300 transition-colors">
+                  <p className="text-xs text-rex-text truncate group-hover:text-red-300 transition-colors">
                     {t.category || t.title || t.id}
                   </p>
                   <p className="text-[10px] text-rex-muted font-mono">

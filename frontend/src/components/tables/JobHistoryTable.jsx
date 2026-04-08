@@ -6,7 +6,7 @@ import React from 'react';
 function StatusBadge({ status }) {
   const styles = {
     active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    running: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    running: 'bg-red-500/15 text-red-300 border-red-500/30',
     paused: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     disabled: 'bg-slate-700/40 text-slate-400 border-slate-600',
     failed: 'bg-red-500/15 text-red-300 border-red-500/30',

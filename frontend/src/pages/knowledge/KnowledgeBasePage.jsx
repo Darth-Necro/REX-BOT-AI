@@ -60,7 +60,7 @@ export default function KnowledgeBasePage() {
           <button
             onClick={() => setTab('editor')}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === 'editor' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-500 hover:text-slate-300'
+              tab === 'editor' ? 'bg-red-500/15 text-red-300' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
             Editor
@@ -68,7 +68,7 @@ export default function KnowledgeBasePage() {
           <button
             onClick={() => setTab('history')}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === 'history' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-500 hover:text-slate-300'
+              tab === 'history' ? 'bg-red-500/15 text-red-300' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
             History ({history.length})

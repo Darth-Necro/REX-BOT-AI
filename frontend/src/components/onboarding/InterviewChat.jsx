@@ -19,12 +19,12 @@ function ChatBubble({ role, text }) {
           max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed
           ${isRex
             ? 'bg-slate-800/60 border border-white/[0.06] text-slate-200'
-            : 'bg-cyan-500/15 border border-cyan-500/20 text-cyan-100'
+            : 'bg-red-500/15 border border-red-500/20 text-red-100'
           }
         `}
       >
         {isRex && (
-          <span className="text-[10px] font-bold text-cyan-400 tracking-widest uppercase block mb-1">
+          <span className="text-[10px] font-bold text-red-400 tracking-widest uppercase block mb-1">
             REX
           </span>
         )}
@@ -41,7 +41,7 @@ function OptionChip({ label, onClick, disabled }) {
     <button
       onClick={onClick}
       disabled={disabled}
-      className="px-4 py-2 rounded-xl bg-slate-800/60 border border-white/[0.06] text-sm text-slate-200 hover:bg-cyan-500/10 hover:border-cyan-500/20 hover:text-cyan-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      className="px-4 py-2 rounded-xl bg-slate-800/60 border border-white/[0.06] text-sm text-slate-200 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
     >
       {label}
     </button>
@@ -77,7 +77,7 @@ export default function InterviewChat() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="flex items-center gap-3 text-sm text-slate-500">
-          <svg className="w-5 h-5 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 animate-spin text-red-400" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
@@ -187,12 +187,12 @@ export default function InterviewChat() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitFreeText()}
                 placeholder="Type your answer..."
                 disabled={submitting}
-                className="flex-1 bg-slate-900/60 border border-white/[0.06] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition-colors"
+                className="flex-1 bg-slate-900/60 border border-white/[0.06] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/20 disabled:opacity-40 transition-colors"
               />
               <button
                 onClick={handleSubmitFreeText}
                 disabled={submitting || !freeText.trim()}
-                className="px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30 hover:bg-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {submitting ? 'Sending...' : 'Send'}
               </button>

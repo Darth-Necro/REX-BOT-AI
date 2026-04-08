@@ -39,7 +39,7 @@ function ConnectionStatusPill() {
 const PILL_CONFIG = {
   unknown:      { classes: 'border-slate-600 bg-slate-800/60 text-slate-400',         dot: 'bg-slate-500',  pulse: false },
   connecting:   { classes: 'border-amber-500/30 bg-amber-500/10 text-amber-300',      dot: 'bg-amber-400',  pulse: true },
-  connected:    { classes: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',          dot: 'bg-cyan-400',   pulse: false },
+  connected:    { classes: 'border-red-500/30 bg-red-500/10 text-red-400',          dot: 'bg-red-400',   pulse: false },
   degraded:     { classes: 'border-amber-500/30 bg-amber-500/10 text-amber-200',      dot: 'bg-amber-400',  pulse: true },
   disconnected: { classes: 'border-rex-threat/30 bg-rex-threat/10 text-rex-threat',    dot: 'bg-rex-threat', pulse: true },
 };
@@ -115,7 +115,7 @@ export default function TopCommandBar({ pageLabel }) {
           className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-rex-card
                      text-rex-muted hover:text-rex-threat hover:border-rex-threat/50
                      transition-colors text-xs
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
           aria-label="Log out"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">

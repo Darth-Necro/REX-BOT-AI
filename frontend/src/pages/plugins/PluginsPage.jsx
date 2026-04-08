@@ -43,7 +43,7 @@ export default function PluginsPage() {
           <button
             onClick={() => setTab('installed')}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === 'installed' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-500 hover:text-slate-300'
+              tab === 'installed' ? 'bg-red-500/15 text-red-300' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
             Installed ({installed.length})
@@ -51,7 +51,7 @@ export default function PluginsPage() {
           <button
             onClick={() => setTab('available')}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === 'available' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-500 hover:text-slate-300'
+              tab === 'available' ? 'bg-red-500/15 text-red-300' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
             Available ({filteredAvailable.length})

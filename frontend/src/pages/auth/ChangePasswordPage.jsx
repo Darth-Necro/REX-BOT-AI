@@ -33,7 +33,7 @@ export default function ChangePasswordPage() {
     <div className="p-6 lg:p-8 max-w-lg mx-auto space-y-6">
       {/* Breadcrumb */}
       <nav className="text-xs text-rex-muted">
-        <Link to="/settings" className="hover:text-cyan-400 transition-colors">Settings</Link>
+        <Link to="/settings" className="hover:text-red-400 transition-colors">Settings</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">Change Password</span>
       </nav>
@@ -51,7 +51,7 @@ export default function ChangePasswordPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-6 space-y-5">
+          <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-6 space-y-5">
             {/* Current password */}
             <div className="space-y-1.5">
               <label className="text-xs text-slate-400 font-medium" htmlFor="current-pw">
@@ -63,7 +63,7 @@ export default function ChangePasswordPage() {
                 value={oldPw}
                 onChange={(e) => setOldPw(e.target.value)}
                 placeholder="Enter your current password"
-                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-cyan-500/50 transition-colors"
+                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-red-500/50 transition-colors"
                 autoComplete="current-password"
               />
             </div>
@@ -79,7 +79,7 @@ export default function ChangePasswordPage() {
                 value={newPw}
                 onChange={(e) => setNewPw(e.target.value)}
                 placeholder="Enter a new password (min 4 characters)"
-                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-cyan-500/50 transition-colors"
+                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-red-500/50 transition-colors"
                 autoComplete="new-password"
               />
               {newPw && newPw.length < 4 && (
@@ -101,7 +101,7 @@ export default function ChangePasswordPage() {
                 value={confirmPw}
                 onChange={(e) => setConfirmPw(e.target.value)}
                 placeholder="Type the new password again"
-                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-cyan-500/50 transition-colors"
+                className="w-full bg-rex-bg border border-rex-card rounded-xl px-4 py-2.5 text-sm text-rex-text placeholder-rex-muted focus:outline-none focus:border-red-500/50 transition-colors"
                 autoComplete="new-password"
               />
               {confirmPw && newPw !== confirmPw && (
@@ -123,7 +123,7 @@ export default function ChangePasswordPage() {
             <button
               type="submit"
               disabled={loading || !oldPw || newPw.length < 4 || newPw !== confirmPw}
-              className="w-full px-6 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30 hover:bg-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-6 py-2.5 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Changing Password...' : 'Change Password'}
             </button>

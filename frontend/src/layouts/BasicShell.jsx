@@ -99,7 +99,7 @@ export default function BasicShell({ children }) {
       {/* Top bar */}
       <header className="h-14 bg-rex-surface/80 backdrop-blur-sm border-b border-rex-card flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-4">
-          <span className="text-cyan-400 font-bold text-lg tracking-wider">REX</span>
+          <span className="text-red-400 font-bold text-lg tracking-wider">REX</span>
 
           {/* Desktop inline nav (hidden on mobile) */}
           <nav className="hidden sm:flex items-center gap-1" aria-label="Main navigation">
@@ -110,7 +110,7 @@ export default function BasicShell({ children }) {
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'text-cyan-300 bg-cyan-500/10'
+                      ? 'text-red-300 bg-red-500/10'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`
                 }
@@ -126,14 +126,14 @@ export default function BasicShell({ children }) {
           <span
             className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${
               connected
-                ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
+                ? 'border-red-500/30 bg-red-500/10 text-red-400'
                 : 'border-red-500/30 bg-red-500/10 text-red-400'
             }`}
             role="status"
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                connected ? 'bg-cyan-400 animate-pulse' : 'bg-red-400'
+                connected ? 'bg-red-400 animate-pulse' : 'bg-red-400'
               }`}
             />
             <span className="hidden sm:inline">{connected ? 'Connected' : 'Disconnected'}</span>
@@ -173,14 +173,14 @@ export default function BasicShell({ children }) {
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 px-3 py-1.5 transition-colors ${
                   isActive
-                    ? 'text-cyan-400'
+                    ? 'text-red-400'
                     : 'text-slate-500'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-red-400' : 'text-slate-500'}`} />
                   <span className="text-[10px] font-medium">{label}</span>
                 </>
               )}

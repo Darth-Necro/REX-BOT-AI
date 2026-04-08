@@ -14,7 +14,7 @@ const SEVERITY_COLORS = {
   critical: '#ef4444',
   high: '#f97316',
   medium: '#f59e0b',
-  low: '#22d3ee',
+  low: '#22c55e',
   info: '#64748b',
 };
 

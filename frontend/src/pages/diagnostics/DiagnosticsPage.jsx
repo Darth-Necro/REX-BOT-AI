@@ -193,7 +193,7 @@ export default function DiagnosticsPage() {
       {diag && (
         <div>
           <h2 className="text-sm font-semibold text-slate-300 mb-3">System Information</h2>
-          <div className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-white/[0.04]">
                 <DiagRow label="REX Version" value={diag.rex_version} />
@@ -297,7 +297,7 @@ export default function DiagnosticsPage() {
       {diag && (
         <div>
           <h2 className="text-sm font-semibold text-slate-300 mb-3">Resources</h2>
-          <div className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-white/[0.04]">
                 <DiagRow
@@ -334,7 +334,7 @@ export default function DiagnosticsPage() {
       {snapshot && (
         <div>
           <h2 className="text-sm font-semibold text-slate-300 mb-3">Runtime State</h2>
-          <div className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-white/[0.04]">
                 <DiagRow label="System Status" value={status.status} />
@@ -386,7 +386,7 @@ function DependencyCard({ name, healthy, detail }) {
 
   return (
     <div
-      className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06]
+      className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06]
                  rounded-2xl p-4 space-y-2 transition-shadow hover:shadow-md"
       role="listitem"
       aria-label={`${name}: ${label}`}

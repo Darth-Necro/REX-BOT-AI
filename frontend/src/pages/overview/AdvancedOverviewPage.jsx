@@ -40,7 +40,7 @@ const SEVERITY_COLORS = {
   critical: 'border-l-red-500 bg-red-500/5',
   high: 'border-l-orange-500 bg-orange-500/5',
   medium: 'border-l-amber-400 bg-amber-400/5',
-  low: 'border-l-cyan-400 bg-cyan-400/5',
+  low: 'border-l-emerald-400 bg-emerald-400/5',
   info: 'border-l-slate-500 bg-slate-500/5',
 };
 
@@ -235,10 +235,10 @@ export default function AdvancedOverviewPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2 rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+            <div className="md:col-span-2 rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5">
               <ThreatTrendChart threats={threats} />
             </div>
-            <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+            <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5">
               <p className="text-xs font-bold tracking-widest uppercase text-slate-400 mb-3">By Severity</p>
               <SeverityBreakdownChart threats={threats} />
             </div>

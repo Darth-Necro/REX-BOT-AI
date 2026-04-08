@@ -63,7 +63,7 @@ export default function KBHistoryTable({
                       v{entry.version ?? '--'}
                     </span>
                     {isCurrent && (
-                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30">
                         current
                       </span>
                     )}

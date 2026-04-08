@@ -9,9 +9,9 @@ const PROTOCOLS = ['tcp', 'udp', 'icmp', 'any'];
 const DIRECTIONS = ['inbound', 'outbound', 'both'];
 
 const inputCls =
-  'w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/40 transition-colors';
+  'w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-red-500/40 transition-colors';
 const selectCls =
-  'appearance-none w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 pr-8 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/40 transition-colors cursor-pointer';
+  'appearance-none w-full bg-[#050816] border border-white/[0.08] rounded-xl px-3 py-2 pr-8 text-sm text-slate-200 focus:outline-none focus:border-red-500/40 transition-colors cursor-pointer';
 const labelCls = 'text-xs text-slate-500 block mb-1';
 
 const INITIAL = {
@@ -56,7 +56,7 @@ export default function RuleBuilderForm({ onSubmit, disabled = false }) {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gradient-to-br from-[#0B1020] to-[#11192C] border border-white/[0.06] rounded-2xl p-5">
+    <form onSubmit={handleSubmit} className="bg-gradient-to-br from-[#0a0a0a] to-[#141414] border border-white/[0.06] rounded-2xl p-5">
       <h3 className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-4">Add Firewall Rule</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Action */}
@@ -155,8 +155,8 @@ export default function RuleBuilderForm({ onSubmit, disabled = false }) {
           <button
             type="submit"
             disabled={!valid || disabled || submitting}
-            className="w-full px-4 py-2 bg-cyan-500 text-white rounded-xl font-medium text-sm
-                       hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed
+            className="w-full px-4 py-2 bg-red-500 text-white rounded-xl font-medium text-sm
+                       hover:bg-red-400 disabled:opacity-40 disabled:cursor-not-allowed
                        transition-colors"
           >
             {submitting ? 'Adding...' : 'Add Rule'}

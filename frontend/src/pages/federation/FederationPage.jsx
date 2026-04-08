@@ -9,7 +9,7 @@ import { SkeletonCard } from '../../components/primitives/Skeleton';
 
 function StatCard({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-5">
+    <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-5">
       <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">{label}</p>
       <p className="text-2xl font-bold text-slate-100 tabular-nums">{value}</p>
     </div>
@@ -83,7 +83,7 @@ export default function FederationPage() {
           className={`px-5 py-2 rounded-xl text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
             enabled
               ? 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30'
-              : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30'
+              : 'bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30'
           }`}
         >
           {toggling ? 'Updating...' : enabled ? 'Disable Federation' : 'Enable Federation'}

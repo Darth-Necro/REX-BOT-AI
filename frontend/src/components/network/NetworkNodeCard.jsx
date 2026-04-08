@@ -56,7 +56,7 @@ export default function NetworkNodeCard({
     <div
       className={`
         bg-rex-surface border rounded-2xl overflow-hidden transition-colors
-        ${selected ? 'border-cyan-500/40' : 'border-rex-card'}
+        ${selected ? 'border-red-500/40' : 'border-rex-card'}
         ${className}
       `}
       role="region"

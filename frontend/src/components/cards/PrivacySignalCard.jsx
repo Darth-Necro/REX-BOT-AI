@@ -62,7 +62,7 @@ export default function PrivacySignalCard({
         ${radius.card} border ${style.border} ${style.bg}
         p-5 flex flex-col gap-2
         transition-shadow duration-300
-        hover:shadow-[0_0_24px_rgba(34,211,238,0.04)]
+        hover:shadow-[0_0_24px_rgba(220,38,38,0.04)]
       `}
     >
       {/* Top edge glow */}

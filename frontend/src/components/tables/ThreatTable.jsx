@@ -24,7 +24,7 @@ const SEVERITY_BADGE = {
   critical: 'bg-rex-threat/15 text-rex-threat border-rex-threat/30',
   high:     'bg-orange-500/15 text-orange-400 border-orange-500/30',
   medium:   'bg-rex-warn/15 text-rex-warn border-rex-warn/30',
-  low:      'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  low:      'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   info:     'bg-gray-500/15 text-gray-400 border-gray-500/30',
 };
 
@@ -65,7 +65,7 @@ function SortArrow({ field, sortField, sortDir }) {
     );
   }
   return (
-    <svg className="w-3 h-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       {sortDir === 'asc' ? (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
       ) : (
@@ -208,7 +208,7 @@ export default function ThreatTable({
                   onClick={() => onSelect?.(threat)}
                   className={`cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-cyan-500/5 border-l-2 border-l-cyan-500'
+                      ? 'bg-red-500/5 border-l-2 border-l-red-500'
                       : isResolved
                         ? 'opacity-50 hover:opacity-70'
                         : 'hover:bg-rex-surface/40'

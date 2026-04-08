@@ -1,29 +1,29 @@
 /**
  * REX-BOT-AI Design Tokens
- * Dark tactical theme — all values are source-of-truth for the UI.
+ * Dark red/black tactical theme — all values are source-of-truth for the UI.
  */
 
 export const colors = {
   bg: {
-    app: '#050816',
-    shell: '#0B1020',
-    panel: 'rgba(10,15,31,0.78)',
-    elevated: '#11192C',
+    app: '#050505',
+    shell: '#0a0a0a',
+    panel: 'rgba(10,10,10,0.85)',
+    elevated: '#141414',
   },
   border: {
-    subtle: 'rgba(148,163,184,0.14)',
-    signal: 'rgba(34,211,238,0.20)',
+    subtle: 'rgba(148,163,184,0.10)',
+    signal: 'rgba(220,38,38,0.25)',
   },
   text: {
     primary: '#F8FAFC',
     secondary: '#CBD5E1',
     muted: '#64748B',
-    signal: '#A5F3FC',
+    signal: '#FCA5A5',
   },
   accent: {
-    cyan: '#22D3EE',
-    sky: '#38BDF8',
-    fuchsia: '#D946EF',
+    red: '#DC2626',
+    darkRed: '#991B1B',
+    crimson: '#B91C1C',
     danger: '#EF4444',
   },
   state: {
@@ -59,7 +59,7 @@ export const severity = {
   critical: 'red',
   high: 'orange',
   medium: 'amber',
-  low: 'cyan',
+  low: 'emerald',
   info: 'slate',
 };
 

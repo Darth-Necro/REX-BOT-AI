@@ -33,10 +33,10 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm">
         {/* Card */}
-        <div className="bg-rex-surface/90 backdrop-blur-sm border border-rex-card rounded-2xl p-8 shadow-2xl shadow-cyan-500/5">
+        <div className="bg-rex-surface/90 backdrop-blur-sm border border-rex-card rounded-2xl p-8 shadow-2xl shadow-red-500/5">
           {/* REX ASCII identity */}
           <pre
-            className="text-cyan-400 text-center text-xl leading-tight mb-2 select-none font-mono"
+            className="text-red-400 text-center text-xl leading-tight mb-2 select-none font-mono"
             aria-hidden="true"
           >
 {`  /\\_/\\
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </div>
 
         {/* Subtle glow beneath the card */}
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ import React from 'react';
 
 const VARIANT_CLASSES = {
   primary:
-    'bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-500/30 shadow-sm',
+    'bg-red-600 hover:bg-red-500 text-white border-red-500/30 shadow-sm',
   secondary:
     'bg-rex-surface hover:bg-slate-700/50 text-slate-200 border-slate-600/50',
   ghost:
@@ -66,7 +66,7 @@ export default function Button({
       className={`
         inline-flex items-center justify-center gap-2 border font-medium
         transition-colors duration-200
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400
         focus-visible:ring-offset-2 focus-visible:ring-offset-rex-bg
         disabled:opacity-40 disabled:cursor-not-allowed
         ${variantCls} ${sizeCls} ${className}

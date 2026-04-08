@@ -45,7 +45,7 @@ function ErrorIcon() {
 
 function SpinnerIcon() {
   return (
-    <svg className="w-4 h-4 text-cyan-400 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="w-4 h-4 text-red-400 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -72,7 +72,7 @@ const TYPE_STYLES = {
   success: 'border-emerald-500/30 bg-emerald-500/10',
   warning: 'border-amber-500/30 bg-amber-500/10',
   error: 'border-red-500/30 bg-red-500/10',
-  pending: 'border-cyan-500/30 bg-cyan-500/10',
+  pending: 'border-red-500/30 bg-red-500/10',
   unsupported: 'border-slate-600 bg-slate-800/60',
 };
 

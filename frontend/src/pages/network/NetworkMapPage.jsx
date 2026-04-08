@@ -56,7 +56,7 @@ function SummaryCard({ label, value, accent, small }) {
       <p
         className={`mt-1 font-bold tabular-nums ${
           small ? 'text-sm text-slate-300' : 'text-lg text-slate-100'
-        } ${accent ? 'text-cyan-300' : ''}`}
+        } ${accent ? 'text-red-300' : ''}`}
       >
         {value}
       </p>

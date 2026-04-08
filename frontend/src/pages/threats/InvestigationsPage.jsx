@@ -157,7 +157,7 @@ export default function InvestigationsPage() {
           heading="Investigation not found"
           description={error || `Could not load investigation for ${id}.`}
           action={
-            <Link to="/threats" className="text-xs text-cyan-400 hover:underline">
+            <Link to="/threats" className="text-xs text-red-400 hover:underline">
               Back to Threats
             </Link>
           }
@@ -172,7 +172,7 @@ export default function InvestigationsPage() {
     <div className="p-4 md:p-6 space-y-6 max-w-5xl">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-rex-muted">
-        <Link to="/threats" className="hover:text-cyan-400 transition-colors">Threats</Link>
+        <Link to="/threats" className="hover:text-red-400 transition-colors">Threats</Link>
         <span className="mx-2">/</span>
         <span className="text-slate-300">Investigation: {threat.id || id}</span>
       </nav>
@@ -254,7 +254,7 @@ function DeviceContextCard({ device }) {
       {device.mac_address && (
         <Link
           to={`/devices/${encodeURIComponent(device.mac_address)}`}
-          className="inline-block text-xs text-cyan-400 hover:underline mt-2"
+          className="inline-block text-xs text-red-400 hover:underline mt-2"
         >
           View full device details
         </Link>

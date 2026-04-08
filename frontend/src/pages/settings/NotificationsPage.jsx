@@ -22,7 +22,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Form */}
-      <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0B1020] to-[#11192C] p-6">
+      <div className="rounded-[26px] border border-white/[0.06] bg-gradient-to-br from-[#0a0a0a] to-[#141414] p-6">
         <NotificationSettingsForm />
       </div>
     </div>

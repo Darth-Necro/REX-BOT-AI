@@ -11,7 +11,7 @@ import React from 'react';
 
 const VARIANT_MAP = {
   default: 'bg-slate-700/40 text-slate-300 border-slate-600/40',
-  cyan:    'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+  red:    'bg-red-500/10 text-red-300 border-red-500/30',
   emerald: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
   amber:   'bg-amber-500/10 text-amber-300 border-amber-500/30',
   orange:  'bg-orange-500/10 text-orange-300 border-orange-500/30',
@@ -34,7 +34,7 @@ const SIZE_MAP = {
 /**
  * @param {Object}  props
  * @param {string}  props.children       Badge text.
- * @param {'default'|'cyan'|'emerald'|'amber'|'orange'|'red'|'fuchsia'|'success'|'warning'|'danger'|'info'} [props.variant='default']
+ * @param {'default'|'red'|'emerald'|'amber'|'orange'|'red'|'fuchsia'|'success'|'warning'|'danger'|'info'} [props.variant='default']
  * @param {'sm'|'md'|'lg'} [props.size='md']
  * @param {boolean} [props.dot]          Show leading status dot.
  * @param {string}  [props.dotColor]     Override dot color class.
@@ -78,7 +78,7 @@ const SEVERITY_VARIANT = {
   critical: 'red',
   high: 'orange',
   medium: 'amber',
-  low: 'cyan',
+  low: 'red',
   info: 'default',
 };
 
@@ -90,7 +90,7 @@ const STATUS_VARIANT = {
   unknown: 'default',
   critical: 'red',
   disconnected: 'red',
-  connecting: 'cyan',
+  connecting: 'red',
 };
 
 /**
@@ -136,7 +136,7 @@ export function CapabilityBadge({ enabled, label, className }) {
 function deriveDotColor(variant) {
   const map = {
     default: 'bg-slate-400',
-    cyan: 'bg-cyan-400',
+    red: 'bg-red-400',
     emerald: 'bg-emerald-400',
     amber: 'bg-amber-400',
     orange: 'bg-orange-400',
