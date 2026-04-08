@@ -29,6 +29,7 @@
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Starting REX](#starting-rex)
+- [Web GUI & Dashboard](#web-gui--dashboard)
 - [CLI Commands](#cli-commands)
 - [Current State](#current-state)
 - [Architecture](#architecture)
@@ -279,70 +280,147 @@ The dashboard and GUI will be available at `http://localhost:8443`.
 
 ---
 
-## Web GUI (Alpha)
+## Web GUI & Dashboard
 
-REX includes a browser-based GUI served by the dashboard service. The compiled frontend is included in the repository, so no separate build step is needed. This GUI is alpha: some features depend on optional services (Redis/Ollama/system firewall tools) and may be degraded.
+REX includes a full browser-based dashboard served by the built-in FastAPI backend. The compiled frontend is included in the repository -- no separate build step is needed. The dashboard gives you everything you need to monitor your network, manage threats, and interact with REX without touching the terminal.
 
-### Starting GUI Mode
+### Step-by-Step: Accessing the GUI
+
+#### Step 1: Install REX
+
+If you haven't already, clone and set up the project:
 
 ```bash
-# Auto-detects GUI mode on desktop, CLI mode on SSH/headless
-rex start
+git clone https://github.com/Darth-Necro/REX-BOT-AI.git
+cd REX-BOT-AI
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+pip install -r requirements.txt
+```
 
-# Explicit modes
-rex start --mode gui       # Start backend + open browser
-rex start --mode cli       # Start backend, no browser
+#### Step 2: Start Required Services
+
+Make sure Redis is running (required) and Ollama if you want AI chat features:
+
+```bash
+# Start Redis
+sudo systemctl start redis-server
+# or: redis-server --daemonize yes
+
+# Optional: Start Ollama for AI features
+ollama serve &
+```
+
+#### Step 3: Start REX
+
+```bash
+source .venv/bin/activate
+
+# Auto-detects GUI mode on desktop, CLI mode on SSH/headless
+sudo .venv/bin/python -m rex.core.cli start
+
+# Or explicitly choose a mode:
+rex start --mode gui       # Start backend + auto-open browser
+rex start --mode cli       # Start backend only, no browser
 rex start --mode headless  # Start backend, no interactive output
 
-# Open browser to an already-running instance
+# If REX is already running, just open the browser:
 rex gui
 ```
 
-### First Run
+REX starts all 10 services in order (Memory, Eyes, Scheduler, Interview, Brain, Bark, Teeth, Federation, Store, Dashboard) and the dashboard becomes available.
 
-On first launch, the GUI shows a setup wizard that:
-1. Checks your environment (Redis, Ollama, ChromaDB)
-2. Guides you through login with default credentials (`REX-BOT` / `Woof`)
-3. Prompts you to change the default password
+#### Step 4: Open the Dashboard
 
-### GUI Modes
-
-| Mode | For | Shows |
-|------|-----|-------|
-| **Basic** | Normal users | Dashboard, Devices, Threats, Scheduler, Settings, Diagnostics |
-| **Advanced** | Power users | Everything above + Firewall, Plugins, Knowledge Base, Network Map |
-
-Toggle between modes using the switch in the sidebar.
-Pages that are not complete for alpha are explicitly labeled in-UI with an **Alpha** banner.
-
-### Accessing the GUI
-
-After starting REX, open your browser to:
+Open your browser and navigate to:
 
 ```
 http://localhost:8443
 ```
 
-Log in with the default credentials (`REX-BOT` / `Woof`), then change your password.
+If you used `rex start --mode gui`, the browser opens automatically.
 
-### GUI Pages (Alpha)
+#### Step 5: First-Time Setup
 
-| Page | Description |
-|------|-------------|
-| **Dashboard** | Overall status, device count, threats, protection mode, service health |
-| **Devices** | Network device inventory, trust levels, device details |
-| **Threats** | Threat events, investigations, severity breakdown |
-| **Firewall** | Active firewall rules, rule builder |
-| **Scheduler** | Patrol schedules, scan jobs, cron management |
-| **Privacy** | Privacy audit, data inventory, encryption status |
-| **Plugins** | Installed and bundled plugins |
-| **Network Map** | Visual network topology |
-| **Knowledge Base** | REX's learned knowledge, version history |
-| **Settings** | Configuration, notifications, about |
-| **Diagnostics** | Service health details, system info |
-| **Onboarding** | First-run setup wizard |
+On your first visit, REX shows a **Setup Wizard** that:
 
-If a page/feature is incomplete in the current alpha build, the UI should label it with an **Alpha** banner.
+1. **Checks your environment** -- verifies Redis, Ollama, ChromaDB, and system dependencies
+2. **Shows you what's available** -- tells you honestly which features work and which are degraded
+3. **Prompts you to log in** with the default credentials:
+
+| Field | Value |
+|-------|-------|
+| **Username** | `REX-BOT` |
+| **Password** | `Woof` |
+
+4. **Asks you to change your password** -- do this immediately for security
+
+#### Step 6: Explore the Dashboard
+
+Once logged in, you'll see the main dashboard with REX (a Black Great Dane) guarding your network. Use the **sidebar navigation** on the left to access all features.
+
+### Dashboard Pages
+
+#### Basic Mode (shown to all users)
+
+| Page | What You Can Do |
+|------|-----------------|
+| **Dashboard** | See overall network status, active threats, blocked attacks (24h), uptime, threat trend charts, and severity breakdown |
+| **REX Chat** | Talk to REX directly -- ask about your network, devices, threats, or tell him to run a scan. Requires Ollama |
+| **Devices** | Browse all discovered network devices, view details (IP, MAC, vendor, trust level), trust or block devices |
+| **Threats** | View all detected threats with severity filters, resolve threats or mark false positives, investigate threat timelines |
+| **Scheduler** | Set up patrol schedules, view scan job history, manage power states (wake/sleep) |
+| **Diagnostics** | System info, dependency status, service health, resource usage, log viewer |
+| **Settings** | Hub for all configuration -- system settings, notifications, password change, about page |
+
+#### Advanced Mode (toggle via sidebar switch)
+
+| Page | What You Can Do |
+|------|-----------------|
+| **Network Map** | Visual topology of your network with device grouping by segment |
+| **Firewall** | View and create firewall rules, activate panic mode to block all traffic |
+| **Knowledge Base** | Read and edit REX's learned knowledge, view version history, revert changes |
+| **Plugins** | Browse installed and available plugins, install or remove extensions |
+| **Federation** | Enable peer-to-peer threat sharing between REX instances, view connected peers |
+| **Agent Actions** | Browse all whitelisted actions REX can execute, filtered by domain and risk level |
+| **Services** | Detailed health view of each running service with dependency chains |
+| **Privacy** | Privacy signals, outbound connections, data inventory, encryption status, run audits |
+| **System Config** | Configure scan interval, protection mode, sleep/wake schedule, data retention, telemetry |
+
+### Switching Between Basic and Advanced Mode
+
+Click the **mode toggle** at the bottom of the sidebar to switch:
+- **Basic mode** -- simplified view, fewer options, ideal for everyday monitoring
+- **Advanced mode** -- full access to all pages including firewall, plugins, federation, and network map
+
+### Docker Setup (Alternative)
+
+If you prefer Docker, this starts everything in one command:
+
+```bash
+# Set your Redis password
+echo "REDIS_PASSWORD=$(openssl rand -base64 32)" > .env
+
+# Start the full stack (Redis + Ollama + ChromaDB + REX)
+docker compose up -d
+
+# Open dashboard
+open http://localhost:8443   # macOS
+xdg-open http://localhost:8443  # Linux
+```
+
+### Accessing REX Remotely
+
+To access the dashboard from another device on your network, use the host machine's IP address instead of `localhost`:
+
+```
+http://<your-machine-ip>:8443
+```
+
+For example: `http://192.168.1.100:8443`
+
+> **Security note:** REX is designed for local network use. Do not expose port 8443 to the public internet without additional security measures (VPN, reverse proxy with TLS, etc.).
 
 ### Rebuilding the Frontend (optional)
 
