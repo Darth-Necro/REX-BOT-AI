@@ -178,8 +178,7 @@ const junkyardArt = `    ^
   /         O  JUNKYARD DOG!
  /   (_____/
 /_____/   U
-  |||||||||
-  CHAIN~~~~`;
+|||||||`;
 
 export default function RexGuardDog() {
   const { powerState, activeThreats } = useSystemStore();

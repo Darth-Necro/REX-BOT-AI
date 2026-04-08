@@ -1,0 +1,1 @@
+import{j as e}from"./index-BGr7QAgk.js";import"./vendor-CcksFWhd.js";function s({feature:r}){return e.jsx("div",{className:"bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded",children:e.jsxs("p",{className:"text-amber-700 text-sm font-medium",children:[r||"This feature"," is in alpha and may be incomplete."]})})}export{s as A};

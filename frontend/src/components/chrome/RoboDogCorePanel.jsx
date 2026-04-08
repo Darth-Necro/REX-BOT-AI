@@ -120,8 +120,7 @@ const sideArt = {
   /         O  JUNKYARD DOG!
  /   (_____/
 /_____/   U
-  |||||||||
-  CHAIN~~~~`,
+|||||||`,
   unknown: rexDog.sleep,
 };
 
