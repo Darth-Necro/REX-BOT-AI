@@ -59,6 +59,10 @@ class TrafficMonitor:
         self.pal = pal
         self._running: bool = False
         self._logger = logging.getLogger("rex.eyes.traffic")
+        # IPs belonging to REX itself — excluded from threat detection
+        # to prevent REX's own scans from being flagged as threats.
+        self._self_ips: set[str] = set()
+        self._init_self_ips()
 
         # Per-device connection tracking
         # device_ip -> list of connection dicts
@@ -202,6 +206,33 @@ class TrafficMonitor:
     # Anomaly detection
     # ==================================================================
 
+    def _init_self_ips(self) -> None:
+        """Detect REX's own IP addresses so we can exclude self-scans."""
+        import socket
+        try:
+            hostname = socket.gethostname()
+            for info in socket.getaddrinfo(hostname, None):
+                ip = info[4][0]
+                if ip and not ip.startswith("::"):
+                    self._self_ips.add(ip)
+        except Exception:
+            pass
+        # Also add common localhost addresses
+        self._self_ips.update({"127.0.0.1", "::1"})
+        # Try to get the default interface IP
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            self._self_ips.add(s.getsockname()[0])
+            s.close()
+        except Exception:
+            pass
+        if self._self_ips:
+            self._logger.info(
+                "Self-scan filter: excluding REX IPs from threat detection: %s",
+                sorted(self._self_ips - {"127.0.0.1", "::1"}),
+            )
+
     def detect_anomalies(
         self,
         device_ip: str,
@@ -233,6 +264,11 @@ class TrafficMonitor:
             Zero or more threat events detected.
         """
         threats: list[ThreatEvent] = []
+
+        # Skip threat detection for REX's own IPs -- our scans (nmap,
+        # ARP discovery) naturally touch many internal hosts and ports.
+        if device_ip in self._self_ips:
+            return threats
 
         if current is None:
             raw_counters = self._counters.get(device_ip)
