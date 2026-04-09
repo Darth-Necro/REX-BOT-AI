@@ -484,3 +484,149 @@ class TestURLParsing:
 
     def test_parse_port_invalid_number(self) -> None:
         assert VectorStore._parse_port("http://localhost:notaport") == 8000
+
+
+# ---- tests: metadata sanitization ------------------------------------------
+
+
+class TestMetadataSanitization:
+    """Tests for _sanitize_metadata -- strips reserved keys and enforces types."""
+
+    def test_strips_underscore_prefixed_keys(self) -> None:
+        raw = {"_type": "internal", "_id": "123", "name": "ok"}
+        result = VectorStore._sanitize_metadata(raw)
+        assert "_type" not in result
+        assert "_id" not in result
+        assert result["name"] == "ok"
+
+    def test_preserves_valid_types(self) -> None:
+        raw = {"str_val": "hello", "int_val": 42, "float_val": 3.14, "bool_val": True}
+        result = VectorStore._sanitize_metadata(raw)
+        assert result == raw
+
+    def test_converts_none_to_empty_string(self) -> None:
+        raw = {"field": None}
+        result = VectorStore._sanitize_metadata(raw)
+        assert result["field"] == ""
+
+    def test_converts_complex_types_to_string(self) -> None:
+        raw = {"list_val": [1, 2], "dict_val": {"a": 1}}
+        result = VectorStore._sanitize_metadata(raw)
+        assert result["list_val"] == "[1, 2]"
+        assert result["dict_val"] == "{'a': 1}"
+
+    def test_empty_metadata_stays_empty(self) -> None:
+        assert VectorStore._sanitize_metadata({}) == {}
+
+    def test_all_underscore_keys_returns_empty(self) -> None:
+        raw = {"_a": 1, "_b": 2, "_type": "x"}
+        assert VectorStore._sanitize_metadata(raw) == {}
+
+
+# ---- tests: collection creation fallback -----------------------------------
+
+
+class TestCollectionCreationFallback:
+    """Tests for _type KeyError fallback during collection creation."""
+
+    def test_keyerror_triggers_fallback_without_metadata(self) -> None:
+        """When get_or_create_collection raises KeyError('_type'),
+        it retries without metadata and succeeds."""
+        store = _make_store()
+        mock_chromadb = MagicMock()
+        mock_chromadb.__version__ = "0.6.3"
+        mock_client = MagicMock()
+        mock_client.heartbeat.return_value = True
+
+        call_count = 0
+
+        def mock_get_or_create(name, metadata=None):
+            nonlocal call_count
+            call_count += 1
+            if metadata is not None:
+                raise KeyError("_type")
+            return MagicMock()
+
+        mock_client.get_or_create_collection = mock_get_or_create
+        mock_chromadb.HttpClient.return_value = mock_client
+
+        with patch.dict("sys.modules", {"chromadb": mock_chromadb}):
+            store._init_sync()
+
+        assert store._available is True
+        assert call_count == 4  # 2 calls with metadata (fail) + 2 without (succeed)
+
+    def test_typeerror_triggers_fallback(self) -> None:
+        """TypeError during collection creation also triggers fallback."""
+        store = _make_store()
+        mock_chromadb = MagicMock()
+        mock_chromadb.__version__ = "0.6.3"
+        mock_client = MagicMock()
+        mock_client.heartbeat.return_value = True
+
+        def mock_get_or_create(name, metadata=None):
+            if metadata is not None:
+                raise TypeError("unexpected keyword argument '_type'")
+            return MagicMock()
+
+        mock_client.get_or_create_collection = mock_get_or_create
+        mock_chromadb.HttpClient.return_value = mock_client
+
+        with patch.dict("sys.modules", {"chromadb": mock_chromadb}):
+            store._init_sync()
+
+        assert store._available is True
+
+    def test_fallback_also_fails_disables_store(self) -> None:
+        """When both metadata and no-metadata attempts fail, store is disabled."""
+        store = _make_store()
+        mock_chromadb = MagicMock()
+        mock_chromadb.__version__ = "0.6.3"
+        mock_client = MagicMock()
+        mock_client.heartbeat.return_value = True
+        mock_client.get_or_create_collection.side_effect = KeyError("_type")
+        mock_chromadb.HttpClient.return_value = mock_client
+
+        with patch.dict("sys.modules", {"chromadb": mock_chromadb}):
+            store._init_sync()
+
+        assert store._available is False
+
+    def test_successful_init_with_metadata(self) -> None:
+        """Normal case: collection creation with metadata succeeds."""
+        store = _make_store()
+        mock_chromadb = MagicMock()
+        mock_chromadb.__version__ = "0.6.3"
+        mock_client = MagicMock()
+        mock_client.heartbeat.return_value = True
+        mock_client.get_or_create_collection.return_value = MagicMock()
+        mock_chromadb.HttpClient.return_value = mock_client
+
+        with patch.dict("sys.modules", {"chromadb": mock_chromadb}):
+            store._init_sync()
+
+        assert store._available is True
+        assert mock_client.get_or_create_collection.call_count == 2  # behaviors + threats
+
+
+# ---- tests: telemetry suppression ------------------------------------------
+
+
+class TestTelemetrySuppression:
+    """Verify telemetry env var is set before ChromaDB client init."""
+
+    def test_anonymized_telemetry_set(self) -> None:
+        """ANONYMIZED_TELEMETRY should be set to False before init."""
+        import os
+        store = _make_store()
+        mock_chromadb = MagicMock()
+        mock_chromadb.__version__ = "0.6.3"
+        mock_client = MagicMock()
+        mock_client.heartbeat.return_value = True
+        mock_client.get_or_create_collection.return_value = MagicMock()
+        mock_chromadb.HttpClient.return_value = mock_client
+
+        with patch.dict("sys.modules", {"chromadb": mock_chromadb}):
+            store._init_sync()
+
+        assert os.environ.get("ANONYMIZED_TELEMETRY") == "False"
