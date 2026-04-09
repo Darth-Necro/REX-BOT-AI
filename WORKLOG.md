@@ -28,13 +28,43 @@
 ### Blockers
 - None identified yet
 
-### 2026-04-08: Release Hardening & Auth/Dashboard Overhaul
+### 2026-04-09: Auth State Machine, ChromaDB Fix, Runtime Bug Fixes
 
-Comprehensive changes across auth, dashboard, frontend toolchain, and release hygiene:
+**Auth Bootstrap Overhaul (Model 2: Forced First-Run Setup):**
+- Removed ALL hardcoded/generated default passwords
+- New auth state machine: `setup_required` (no credentials) → `active` (configured)
+- `GET /api/auth/auth-state` — unauthenticated endpoint returns current state
+- `POST /api/auth/setup` — creates initial password, returns JWT token
+- Login page checks auth-state on mount: shows "Create Password" form or normal login
+- Setup wizard skips redundant password-change step
+- Lockout messages now include remaining wait time
+- `rex reset-auth --yes` CLI command for password recovery
+- 10 new auth bootstrap tests
+
+**ChromaDB Integration Fix:**
+- Root cause: `chromadb-client==0.6.3` has `_type` KeyError bug in `configuration.py` response deserialization — breaks ALL collection operations
+- Fix: Upgraded to `chromadb-client==1.5.7` (verified compatible with server 0.6.3)
+- Fixed heartbeat endpoint from `/api/v1/heartbeat` to `/api/v2/heartbeat`
+- Added `ANONYMIZED_TELEMETRY=False` to suppress PostHog crash
+- Added `_sanitize_metadata()` to strip reserved underscore-prefixed keys
+- 13 new ChromaDB integration tests (metadata sanitization, fallback, telemetry)
+
+**SPA Routing Fix:**
+- `StaticFiles(html=True)` only served index.html at root `/`
+- Added catch-all route serving index.html for all non-API paths
+- `/overview`, `/login`, `/setup` etc. now work on direct navigation and refresh
+
+**Dashboard Bug Fixes:**
+- Login page navigates to /overview after successful auth (was stuck)
+- Login page shows REX dog ASCII art (was showing cat)
+- Dog ASCII art alignment fixed (text-center was breaking monospace)
+- Setup wizard environment check uses new `/api/env-check` endpoint
+- Ollama detection: structured states (reachable_with_models/no_models/unreachable/timeout)
+
+### 2026-04-08: Release Hardening & Theme Overhaul
 
 **Auth & Security:**
-- Replaced hardcoded "Woof" default password with random per-install password generation (displayed once at startup, never logged)
-- Dashboard now binds to `127.0.0.1` by default (was `0.0.0.0`); LAN access via `REX_DASHBOARD_HOST=0.0.0.0`
+- Dashboard binds to `127.0.0.1` by default (was `0.0.0.0`)
 - Python pinned to 3.11-3.12 only (3.13 not yet supported)
 
 **Dashboard & Frontend:**
@@ -43,7 +73,7 @@ Comprehensive changes across auth, dashboard, frontend toolchain, and release hy
 - 26 dashboard pages total (added: REX Chat, Federation, Agent Actions, System Config)
 - Threat resolve/false-positive actions wired to backend API
 - Recharts-based trend charts on overview page
-- Frontend toolchain fixed: .npmrc registry config, ESLint v9 flat config
+- Frontend toolchain fixed: .npmrc, ESLint v9 flat config
 
 **Release Hygiene:**
 - All 7 release audit blockers resolved

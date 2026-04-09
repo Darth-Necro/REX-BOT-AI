@@ -991,7 +991,7 @@ During a patrol, REX will deep scan the network, audit for vulnerabilities, insp
 |---------|----------|
 | Browser shows "Connection refused" or "can't reach this page" | REX isn't running. Start it first (Step 8). Make sure you typed `http://localhost:8443` exactly. |
 | Browser shows blank white page | Try a hard refresh: `Ctrl + Shift + R`. Clear browser cache if needed. |
-| Login page appears but password is rejected | Username is `admin`. Password is the random string displayed once in the terminal on first boot. If you lost it, delete the password file and restart REX to regenerate: `rm /etc/rex-bot-ai/.admin_password && rex start` |
+| Login page appears but password is rejected | If this is a fresh install, you should see a "Create Admin Password" form instead of a login form. If you forgot your password, reset it: `rex reset-auth --yes` then restart REX. |
 | Dashboard says "Waiting for backend connection" | Redis isn't running. Open a terminal: `redis-cli ping` -- you should see `PONG`. If not: `sudo systemctl start redis-server` |
 | REX Chat says "brain isn't connected" | Ollama isn't running. Start it: `ollama serve &` |
 | All pages show "--" or "No data" | This is normal on first start. REX needs a few minutes to scan. Click **Patrol Now** on the Scheduler page, or run `rex scan` in terminal. |
@@ -1081,9 +1081,11 @@ mkdir -p "$REX_DATA_DIR"
 
 ### Credential Storage
 
-REX generates a random admin password on first boot. It is displayed once in the terminal output. Write it down immediately. There is no default or hardcoded password.
+On first boot, REX has no password. The dashboard shows a "Create Admin Password" form where you set your own password. There is no default, hardcoded, or terminal-displayed password.
 
-CLI tokens are stored in `~/.rex-tokens.json` (keyed by API URL). Legacy single-instance `~/.rex-token` is fallback only.
+To reset a forgotten password: `rex reset-auth --yes` then restart REX. The dashboard will show the "Create Admin Password" form again.
+
+CLI tokens are stored in `~/.rex-tokens.json` (keyed by API URL).
 
 ---
 

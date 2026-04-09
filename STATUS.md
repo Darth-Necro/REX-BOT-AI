@@ -1,6 +1,6 @@
 # REX-BOT-AI: Project Status
 
-**Last updated**: 2026-04-08
+**Last updated**: 2026-04-09
 **Version**: 0.1.0-alpha
 **Stage**: Alpha — critical bus/event/security fixes applied, per-service EventBus isolation, Linux PAL complete (other platforms experimental)
 
@@ -9,7 +9,7 @@
 After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch list):
 
 - **Build chain works**: `pip install -e .` succeeds, npm lockfile exists, Dockerfile fails on real errors
-- **Auth is real**: bcrypt + PyJWT (not homemade SHA-256)
+- **Auth is real**: bcrypt + PyJWT with auth state machine (setup_required/active), forced first-run password creation
 - **Frontend stops lying**: defaults to "unknown" / "connecting" — not "operational" / "awake"
 - **Frontend fetches real state**: API call on mount, not just passive WebSocket wait
 - **EventBus handler contract fixed**: deserializes Redis fields into RexEvent objects
@@ -50,7 +50,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Mode switch wired end-to-end**: Frontend toggle calls `POST /api/config/mode`, ModeManager updates backend state
 - **Scheduler triggers real scans**: ScanScheduler publishes scan commands to EventBus → EyesService executes
 - **Dead modules wired to dashboard**: Privacy audit, egress firewall, agent security, and federation status now accessible via REST API
-- **First-boot password displayed**: Written to one-time-read file, frontend LoginView checks on mount and shows password prominently
+- **First-run auth bootstrap**: Auth state machine (setup_required/active), forced password creation via dashboard, `rex reset-auth` CLI command, no hardcoded default passwords
 - **Install script path alignment**: `.env` no longer sets `REX_DATA_DIR` (Docker volumes handle it), version corrected to 0.1.0-alpha
 - **Power management suspends services**: PowerManager transition callback pauses/resumes non-essential services (Federation, Store)
 - **Docker entrypoint fixed**: `CMD ["start"]` so `python -m rex.core start` runs correctly
@@ -98,7 +98,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Network scanner: ARP + nmap, device fingerprinting, DNS monitoring
 - Knowledge base: markdown parser/writer, git versioning, section CRUD
 - Firewall manager: safety invariants (gateway/self never blocked), rate limiting, auto-rollback
-- Auth: bcrypt hashing (72-byte safe), PyJWT tokens, per-IP lockout, rate limiting
+- Auth: bcrypt hashing (72-byte safe), PyJWT tokens, per-IP lockout, rate limiting, auth state machine (setup_required/active), `rex reset-auth` CLI
 - Dashboard API: 11 routers, 43+ endpoints (privacy, agent, federation, mode switch, first-boot), honest responses
 - **Standardized command contract**: event_type="command" + payload.command everywhere
 - **Power manager suspends/resumes services** on state transitions
@@ -108,7 +108,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Mode switch: frontend <-> backend ModeManager wired end-to-end
 - Scheduler: publishes scan commands to EventBus for EyesService
 - Power management: transition callbacks pause/resume non-essential services
-- First-boot: password file created, one-time display in frontend
+- First-boot: auth state machine forces password creation via dashboard (no terminal password display)
 
 ## What Does NOT Work Yet
 
@@ -145,7 +145,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - [x] Command contract standardized and tested
 - [x] EventBus WAL path respects configured data_dir
 - [ ] `docker compose up -d` verified end-to-end (smoke test script exists but not validated on clean machine)
-- [x] First-boot password displayed to user
+- [x] First-boot: auth state machine with forced dashboard password creation
 - [x] Mode switch calls backend ModeManager
 - [x] Install script path alignment with Docker volumes
 - [x] Power manager suspends/resumes services

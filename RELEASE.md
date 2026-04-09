@@ -26,11 +26,15 @@ A **developer preview / public alpha** of REX-BOT-AI, a local-first autonomous n
 - Network device discovery (ARP + nmap)
 - Threat detection and classification (12 categories, rule-based)
 - AI-powered analysis via local Ollama LLM
-- Dashboard with 26 pages (browser-based GUI)
+- Dashboard with 26 pages (browser-based GUI, dark red/black theme)
+- Forced first-run password creation (no default passwords)
+- Auth state machine with `rex reset-auth` CLI recovery
 - Firewall rule management (Linux iptables/nftables)
 - 4 protection modes including Junkyard Dog
 - REX Chat (AI assistant)
+- ChromaDB vector memory (requires chromadb-client 1.5.7+)
 - Privacy audit and data encryption
+- Threat trend charts and severity breakdown
 
 ## What Does NOT Work / Is Experimental
 
