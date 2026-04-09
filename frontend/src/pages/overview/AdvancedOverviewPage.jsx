@@ -146,7 +146,8 @@ export default function AdvancedOverviewPage() {
 
   const isLoading = bootstrapState === 'idle' || bootstrapState === 'loading';
 
-  // Derive degraded-service flags from health data
+  // Derive degraded-service flags from health data.
+  // Only Redis and Ollama are critical — others are optional for alpha.
   const degradedServices = health ? {
     redis: health.redis !== 'unhealthy',
     ollama: health.ollama !== 'unhealthy',
