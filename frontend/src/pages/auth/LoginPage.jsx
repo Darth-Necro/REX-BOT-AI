@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { login } from '../../api/auth';
 import api from '../../api/client';
 import useAuthStore from '../../stores/useAuthStore';
@@ -33,6 +34,7 @@ function SetupForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const setAuthToken = useAuthStore((s) => s.setToken);
 
@@ -58,6 +60,8 @@ function SetupForm() {
         return;
       }
       setAuthToken(token);
+      localStorage.setItem('rex_setup_complete', Date.now().toString());
+      navigate('/overview');
     } catch (err) {
       const msg =
         err.response?.data?.detail ||
@@ -143,6 +147,7 @@ function LoginFormInline() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const setAuthToken = useAuthStore((s) => s.setToken);
   const beginLogin = useAuthStore((s) => s.beginLogin);
@@ -159,6 +164,7 @@ function LoginFormInline() {
     try {
       const { token } = await login(password);
       setAuthToken(token);
+      navigate('/overview');
     } catch (err) {
       const msg =
         err.response?.data?.detail ||
@@ -267,17 +273,18 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-rex-surface/90 backdrop-blur-sm border border-rex-card rounded-2xl p-8 shadow-2xl shadow-red-500/5">
           {/* REX ASCII identity */}
-          <pre
-            className="text-red-400 text-center text-xl leading-tight mb-2 select-none font-mono"
-            aria-hidden="true"
-          >
+          <div className="flex justify-center mb-2">
+            <pre
+              className="text-red-400 text-xs leading-tight select-none font-mono"
+              aria-hidden="true"
+            >
 {`    ^
    / \\__
   (    @\\___
   /         O
  /   (_____/
-/_____/   U`}
-          </pre>
+/_____/   U`}</pre>
+          </div>
 
           <h1 className="text-xl font-bold text-center text-rex-text tracking-wide mb-1">
             REX-BOT-AI
