@@ -12,7 +12,7 @@ scapy==2.6.1
 # on some systems. Install separately if needed: pip install python-nmap
 python-nmap==0.7.1; python_version < "3.13"
 ollama==0.4.7
-chromadb-client==0.6.3
+chromadb-client==1.5.7
 gitpython==3.1.44
 jinja2==3.1.5
 PyJWT>=2.8.0

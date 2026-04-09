@@ -333,7 +333,7 @@ async def env_check() -> dict[str, Any]:
         from rex.shared.config import get_config
         config = get_config()
         import httpx
-        resp = httpx.get(f"{config.chroma_url}/api/v1/heartbeat", timeout=3)
+        resp = httpx.get(f"{config.chroma_url}/api/v2/heartbeat", timeout=3)
         chromadb_ok = resp.status_code == 200
     except Exception:
         pass
@@ -523,7 +523,7 @@ async def get_diagnostics(user: dict = Depends(get_current_user)) -> dict[str, A
     chroma_reachable = False
     try:
         import httpx
-        resp = httpx.get(f"{config.chroma_url}/api/v1/heartbeat", timeout=3)
+        resp = httpx.get(f"{config.chroma_url}/api/v2/heartbeat", timeout=3)
         chroma_reachable = resp.status_code == 200
     except Exception:
         pass

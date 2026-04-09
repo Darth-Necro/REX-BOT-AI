@@ -39,7 +39,7 @@ dependencies = [
     # not through the python-nmap library.  The package also fails to build
     # on modern setuptools.  If nmap scripting is needed later, use python3-nmap.
     "ollama>=0.4.0,<1.0",
-    "chromadb-client>=0.6.0,<1.0",
+    "chromadb-client>=1.0.0,<2.0",
     "gitpython>=3.1.43,<4.0",
     "jinja2>=3.1.4,<4.0",
     "PyJWT>=2.8.0",
