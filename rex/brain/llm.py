@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os as _os
 import re
 import time
 from abc import ABC, abstractmethod
@@ -42,11 +43,20 @@ logger = logging.getLogger(__name__)
 ALLOWED_HOSTS: frozenset[str] = frozenset({"127.0.0.1", "localhost", "::1"})
 """Hostnames permitted for the security LLM endpoint."""
 
-_MAX_RETRIES: int = 3
-"""Maximum retry attempts for Ollama API calls."""
+_MAX_RETRIES: int = 1
+"""Maximum retry attempts for Ollama API calls.
 
-_OLLAMA_TIMEOUT: float = 30.0
-"""Per-request timeout for Ollama API calls in seconds."""
+Set to 1 (no retries) because CPU inference on local models can take
+60-120 seconds.  Retrying a slow generation wastes minutes.  If the
+first attempt times out, fall back to rules immediately.
+"""
+
+_OLLAMA_TIMEOUT: float = float(_os.environ.get("REX_OLLAMA_TIMEOUT", "90"))
+"""Per-request timeout for Ollama API calls in seconds.
+
+Default 90s to accommodate CPU-only inference with llama3.2.
+GPU systems can lower this via REX_OLLAMA_TIMEOUT env var.
+"""
 
 _BACKOFF_BASE: float = 1.0
 """Base delay for exponential backoff between retries."""
@@ -699,7 +709,7 @@ class LLMRouter:
         system_prompt: str,
         *,
         temperature: float = 0.1,
-        max_tokens: int = 500,
+        max_tokens: int = 200,
         response_format: str | None = "json",
     ) -> dict[str, Any]:
         """Brain 1: security analysis query.  ALWAYS local, never sanitized.

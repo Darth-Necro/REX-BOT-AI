@@ -73,16 +73,22 @@ class DecisionEngine:
         self._bg_tasks: set[asyncio.Task[None]] = set()
 
     async def evaluate_event(self, event: ThreatEvent) -> Decision:
-        """Run the pipeline with a hard 10-second timeout."""
+        """Run the pipeline with a configurable timeout (default 120s for CPU inference)."""
         start = time.monotonic()
         try:
             decision = await asyncio.wait_for(
                 self._pipeline(event), timeout=DEFAULT_LLM_TIMEOUT
             )
         except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041
-            logger.warning("Pipeline timed out for %s — L1/L2 fallback", event.event_id)
+            elapsed = time.monotonic() - start
+            logger.warning(
+                "Pipeline timed out for %s after %.1fs (limit=%ds) — rules-only fallback",
+                event.event_id, elapsed, DEFAULT_LLM_TIMEOUT,
+            )
             self._llm_timeouts += 1
-            decision = self._fallback_decision(event)
+            decision = self._fallback_decision(
+                event, reason=f"pipeline timeout after {elapsed:.0f}s"
+            )
 
         elapsed = (time.monotonic() - start) * 1000
         self._update_metrics(elapsed)
@@ -139,17 +145,46 @@ class DecisionEngine:
 
     async def _pipeline(self, event: ThreatEvent) -> Decision:
         # CRITICAL: Sanitize all network-derived data before any LLM sees it.
-        # This prevents prompt injection via hostnames, banners, mDNS names, etc.
+        t0 = time.monotonic()
         event.raw_data = sanitize_network_data(event.raw_data)
+        t_sanitize = time.monotonic()
 
         d = await self._layer1_signature(event)
+        t_l1 = time.monotonic()
         if d:
+            logger.debug(
+                "Pipeline %s: sanitize=%.0fms L1=%.0fms → L1 match",
+                event.event_id,
+                (t_sanitize - t0) * 1000,
+                (t_l1 - t_sanitize) * 1000,
+            )
             return d
+
         d = await self._layer2_statistical(event)
+        t_l2 = time.monotonic()
         if d:
+            logger.debug(
+                "Pipeline %s: sanitize=%.0fms L1=%.0fms L2=%.0fms → L2 match",
+                event.event_id,
+                (t_sanitize - t0) * 1000,
+                (t_l1 - t_sanitize) * 1000,
+                (t_l2 - t_l1) * 1000,
+            )
             return d
+
         if self._llm_available:
             d = await self._layer3_llm(event)
+            t_l3 = time.monotonic()
+            logger.info(
+                "Pipeline %s: sanitize=%.0fms L1=%.0fms L2=%.0fms L3=%.0fms total=%.1fs → %s",
+                event.event_id,
+                (t_sanitize - t0) * 1000,
+                (t_l1 - t_sanitize) * 1000,
+                (t_l2 - t_l1) * 1000,
+                (t_l3 - t_l2) * 1000,
+                t_l3 - t0,
+                "L3 match" if d else "L3 no result",
+            )
             if d:
                 task = asyncio.create_task(self._layer4_federated(event, d))
                 self._bg_tasks.add(task)
@@ -200,54 +235,88 @@ class DecisionEngine:
         return None
 
     async def _layer3_llm(self, event: ThreatEvent) -> Decision | None:
-        """LLM contextual analysis with KB context."""
+        """LLM contextual analysis with KB context.
+
+        Stage-by-stage timing is logged so CPU inference bottlenecks
+        are visible in production logs.
+        """
         if not self._llm:
             return None
         async with self._semaphore:
             self._llm_calls += 1
+            t0 = time.monotonic()
             try:
+                # Stage 1: KB context retrieval
                 kb_context = ""
                 if self._kb:
                     with contextlib.suppress(Exception):
                         kb_context = await self._kb.get_context_for_llm("threat")
+                t_kb = time.monotonic()
 
                 from rex.brain.prompts import SYSTEM_PROMPT, THREAT_ANALYSIS_TEMPLATE
 
-                # Sanitize the FULL event data, not just raw_data.
-                # Fields like description, indicators, source_device_id
-                # etc. could contain prompt-injection payloads from
-                # network-derived data and bypass the raw_data-only
-                # sanitization done earlier in the pipeline.
+                # Stage 2: Sanitize event data
                 safe_event = sanitize_network_data(event.model_dump(mode="json"))
                 event_json_str = json.dumps(
                     safe_event, indent=2, default=str,
                 )[:2000]
 
-                # Sanitize KB context as well -- it contains device
-                # hostnames, service banners, and other network-sourced
-                # strings read back from the knowledge base.
                 safe_kb_context = sanitize_network_data(
                     {"_kb": kb_context}
                 )["_kb"] if kb_context else ""
+                t_sanitize = time.monotonic()
 
+                # Stage 3: Prompt assembly (cap context to keep inference fast)
                 prompt = (
                     THREAT_ANALYSIS_TEMPLATE
-                    .replace("{{ network_context }}", safe_kb_context[:2000])
+                    .replace("{{ network_context }}", safe_kb_context[:1500])
                     .replace(
                         "{{ device_context }}",
-                        str(event.raw_data.get("device_context", "N/A")),
+                        str(event.raw_data.get("device_context", "N/A"))[:500],
                     )
                     .replace("{{ recent_threats }}", "See KB context above.")
                     .replace("{{ user_notes }}", "")
                     .replace("{{ event_json }}", event_json_str)
                 )
+                prompt_chars = len(prompt)
+                t_prompt = time.monotonic()
+
+                logger.debug(
+                    "L3 %s: kb=%.0fms sanitize=%.0fms prompt=%.0fms (%d chars) → dispatching to LLM",
+                    event.event_id,
+                    (t_kb - t0) * 1000,
+                    (t_sanitize - t_kb) * 1000,
+                    (t_prompt - t_sanitize) * 1000,
+                    prompt_chars,
+                )
+
+                # Stage 4: LLM inference (the slow part on CPU)
                 resp = await self._llm.security_query(prompt, SYSTEM_PROMPT)
-                return self._parse_llm(event, resp)
+                t_llm = time.monotonic()
+
+                logger.info(
+                    "L3 %s: LLM inference=%.1fs total=%.1fs (%d prompt chars)",
+                    event.event_id,
+                    t_llm - t_prompt,
+                    t_llm - t0,
+                    prompt_chars,
+                )
+
+                # Stage 5: Parse response
+                result = self._parse_llm(event, resp)
+                return result
+
             except (TimeoutError, asyncio.TimeoutError):  # noqa: UP041
+                elapsed = time.monotonic() - t0
                 self._llm_timeouts += 1
+                logger.warning(
+                    "L3 %s: LLM timeout after %.1fs",
+                    event.event_id, elapsed,
+                )
                 return None
             except Exception:
-                logger.exception("LLM L3 error for %s", event.event_id)
+                elapsed = time.monotonic() - t0
+                logger.exception("L3 %s: error after %.1fs", event.event_id, elapsed)
                 return None
 
     async def _layer4_federated(self, event: ThreatEvent, decision: Decision) -> None:
@@ -294,15 +363,22 @@ class DecisionEngine:
             logger.exception("Failed to parse LLM response")
             return None
 
-    def _fallback_decision(self, event: ThreatEvent) -> Decision:
-        """Timeout fallback using rules only."""
+    def _fallback_decision(
+        self, event: ThreatEvent, *, reason: str = "LLM unavailable"
+    ) -> Decision:
+        """Timeout/error fallback using rules only.
+
+        The *reason* parameter is included in the decision reasoning so
+        operators can distinguish pipeline timeout from parse failure,
+        context oversize, or other degradation causes.
+        """
         cat, sev, conf = self._classifier.classify(event.raw_data)
         return Decision(
             decision_id=generate_id(), timestamp=utc_now(),
             threat_event_id=event.event_id,
             action=_SEVERITY_ACTION.get(sev, DecisionAction.ALERT),
             severity=sev,
-            reasoning=f"[rules-only] LLM timeout — {cat.value}",
+            reasoning=f"[rules-only] {reason} — {cat.value}",
             confidence=max(0.5, conf * 0.8), layer=2,
             auto_executed=False, rollback_possible=True,
         )

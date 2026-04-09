@@ -5,6 +5,7 @@ Layer 0 -- no imports from other rex modules.
 
 from __future__ import annotations
 
+import os as _os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -59,7 +60,7 @@ DEFAULT_LOG_DIR: Path = DEFAULT_DATA_DIR / "logs"
 # Timeouts (seconds)
 # ---------------------------------------------------------------------------
 DEFAULT_SCAN_TIMEOUT: int = 120
-DEFAULT_LLM_TIMEOUT: int = 10
+DEFAULT_LLM_TIMEOUT: int = int(_os.environ.get("REX_LLM_TIMEOUT", "120"))
 DEFAULT_NETWORK_TIMEOUT: int = 5
 
 # ---------------------------------------------------------------------------
