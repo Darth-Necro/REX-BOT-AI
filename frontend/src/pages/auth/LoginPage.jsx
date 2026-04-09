@@ -271,9 +271,12 @@ export default function LoginPage() {
             className="text-red-400 text-center text-xl leading-tight mb-2 select-none font-mono"
             aria-hidden="true"
           >
-{`  /\\_/\\
- ( o.o )
-  > ^ <`}
+{`    ^
+   / \\__
+  (    @\\___
+  /         O
+ /   (_____/
+/_____/   U`}
           </pre>
 
           <h1 className="text-xl font-bold text-center text-rex-text tracking-wide mb-1">
