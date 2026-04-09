@@ -4,7 +4,7 @@ import api from '../../api/client';
 import { login as loginApi } from '../../api/auth';
 import useAuthStore from '../../stores/useAuthStore';
 
-const STEPS = ['welcome', 'environment', 'login', 'password', 'complete'];
+const STEPS = ['welcome', 'environment', 'login', 'complete'];
 
 function StepIndicator({ current, steps }) {
   return (
@@ -296,7 +296,6 @@ export default function SetupWizard() {
     <WelcomeStep onNext={next} />,
     <EnvironmentStep onNext={next} />,
     <LoginStep onNext={next} onPasswordCapture={setLoginPassword} />,
-    <PasswordStep onNext={next} loginPassword={loginPassword} />,
     <CompleteStep />,
   ];
 

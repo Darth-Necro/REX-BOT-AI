@@ -383,7 +383,24 @@ def create_app() -> FastAPI:
 
     if _serving_frontend:
         from starlette.staticfiles import StaticFiles
-        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+        from starlette.responses import FileResponse
+
+        # SPA catch-all: serve index.html for any non-API, non-file path
+        # so React Router handles client-side routing (/overview, /login, etc.)
+        _index_html = os.path.join(frontend_dist, "index.html")
+
+        @app.get("/{full_path:path}")
+        async def spa_catch_all(full_path: str) -> FileResponse:
+            """Serve index.html for SPA routes that don't match API endpoints."""
+            # If the path points to an actual file in dist, serve it
+            file_path = os.path.join(frontend_dist, full_path)
+            if full_path and os.path.isfile(file_path):
+                return FileResponse(file_path)
+            # Otherwise serve index.html for React Router
+            return FileResponse(_index_html)
+
+        # Also mount static assets (CSS, JS, images)
+        app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
         logger.info("Serving frontend from %s", frontend_dist)
     else:
         logger.warning(

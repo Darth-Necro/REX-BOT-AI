@@ -70,18 +70,46 @@ def _run_probes() -> dict[str, Any]:
 
     # Check Ollama -- only if URL points to a local service
     ollama_ok = False
+    ollama_model_count = 0
+    ollama_state = "unreachable"
     try:
         from urllib.parse import urlparse
         parsed = urlparse(config.ollama_url)
         allowed_hosts = {"127.0.0.1", "localhost", "::1", "ollama"}
         if parsed.hostname and parsed.hostname in allowed_hosts:
             import httpx
-            resp = httpx.get(f"{config.ollama_url}/api/tags", timeout=3)
-            ollama_ok = resp.status_code == 200
+            ollama_url = config.ollama_url.rstrip("/")
+            logger.debug("Ollama probe: connecting to %s/api/tags", ollama_url)
+            resp = httpx.get(f"{ollama_url}/api/tags", timeout=5)
+            if resp.status_code == 200:
+                try:
+                    data = resp.json()
+                    models = data.get("models", [])
+                    ollama_model_count = len(models)
+                    if ollama_model_count > 0:
+                        ollama_ok = True
+                        ollama_state = "reachable_with_models"
+                        logger.info("Ollama OK: %d model(s) available at %s", ollama_model_count, ollama_url)
+                    else:
+                        ollama_ok = True  # Reachable but no models
+                        ollama_state = "reachable_no_models"
+                        logger.info("Ollama reachable at %s but no models installed", ollama_url)
+                except Exception:
+                    ollama_ok = True  # Reachable but response parse failed
+                    ollama_state = "reachable_parse_error"
+                    logger.warning("Ollama reachable at %s but response parse failed", ollama_url)
+            else:
+                ollama_state = f"http_{resp.status_code}"
+                logger.warning("Ollama probe at %s returned HTTP %d", ollama_url, resp.status_code)
         else:
+            ollama_state = "misconfigured_url"
             logger.warning("Ollama URL %s is not local -- skipping health probe", config.ollama_url)
+    except httpx.TimeoutException:
+        ollama_state = "timeout"
+        logger.warning("Ollama probe timed out at %s", config.ollama_url)
     except Exception:
-        logger.debug("Ollama health check failed", exc_info=True)
+        ollama_state = "unreachable"
+        logger.debug("Ollama health check failed for %s", config.ollama_url, exc_info=True)
 
     # Check disk space
     disk_ok = True
@@ -115,6 +143,8 @@ def _run_probes() -> dict[str, Any]:
         "status": status,
         "redis_ok": redis_ok,
         "ollama_ok": ollama_ok,
+        "ollama_state": ollama_state,
+        "ollama_model_count": ollama_model_count,
         "disk_ok": disk_ok,
         "disk_pct": round(disk_pct, 1),
         "mem_ok": mem_ok,
@@ -312,6 +342,8 @@ async def env_check() -> dict[str, Any]:
         "api": True,
         "redis": probes.get("redis_ok", False),
         "ollama": probes.get("ollama_ok", False),
+        "ollama_state": probes.get("ollama_state", "unknown"),
+        "ollama_models": probes.get("ollama_model_count", 0),
         "chromadb": chromadb_ok,
     }
 
