@@ -36,62 +36,24 @@ function EnvironmentStep({ onNext }) {
   const [checks, setChecks] = useState({ redis: null, ollama: null, chromadb: null, api: null });
 
   useEffect(() => {
-    // Run each check independently with its own timeout and error handling.
-    // The /status endpoint requires auth, so we use /health (unauthenticated)
-    // for API+Redis, and probe Ollama/ChromaDB via /diagnostics or direct calls.
-
-    const checkApi = async () => {
+    // Use the dedicated /env-check endpoint which probes all services
+    // without requiring authentication.
+    const runChecks = async () => {
       try {
-        const res = await api.get('/health', { timeout: 5000 });
-        // /health returns { status: "ok" } if Redis is reachable, 503 if not
-        const ok = res.data?.status === 'ok';
-        setChecks(c => ({ ...c, api: true, redis: ok }));
-      } catch (err) {
-        // If we got a 503, API is up but Redis is down
-        if (err?.response?.status === 503) {
-          setChecks(c => ({ ...c, api: true, redis: false }));
-        } else {
-          setChecks(c => ({ ...c, api: false, redis: false }));
-        }
-      }
-    };
-
-    const checkOllama = async () => {
-      try {
-        // Try the diagnostics endpoint (unauthenticated fields) or probe status
-        const res = await api.get('/status', { timeout: 5000 });
+        const res = await api.get('/env-check', { timeout: 10000 });
         const d = res.data;
-        // Unauthenticated /status returns { status, version, timestamp }
-        // "status" will be "operational" if all services including Ollama are up,
-        // "degraded" if Redis is up but Ollama isn't, "unknown" if no probes ran yet
-        if (d.services?.ollama?.healthy !== undefined) {
-          setChecks(c => ({ ...c, ollama: d.services.ollama.healthy }));
-        } else {
-          // No service details (unauthenticated) -- derive from overall status
-          setChecks(c => ({
-            ...c,
-            ollama: d.status === 'operational' ? true : d.status === 'degraded' ? false : false,
-          }));
-        }
-      } catch {
-        setChecks(c => ({ ...c, ollama: false }));
+        setChecks({
+          api: d.api ?? true,
+          redis: d.redis ?? false,
+          ollama: d.ollama ?? false,
+          chromadb: d.chromadb ?? false,
+        });
+      } catch (err) {
+        // API itself is unreachable
+        setChecks({ api: false, redis: false, ollama: false, chromadb: false });
       }
     };
-
-    const checkChroma = async () => {
-      try {
-        // ChromaDB isn't exposed through the REX API directly.
-        // Mark as not available rather than stuck on "checking"
-        setChecks(c => ({ ...c, chromadb: false }));
-      } catch {
-        setChecks(c => ({ ...c, chromadb: false }));
-      }
-    };
-
-    // Run all checks in parallel
-    checkApi();
-    checkOllama();
-    checkChroma();
+    runChecks();
   }, []);
 
   const allDone = checks.api !== null && checks.redis !== null && checks.ollama !== null && checks.chromadb !== null;

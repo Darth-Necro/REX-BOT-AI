@@ -288,6 +288,34 @@ async def health_check() -> dict[str, str]:
         )
 
 
+@router.get("/env-check")
+async def env_check() -> dict[str, Any]:
+    """Lightweight environment check for the setup wizard. No auth required.
+
+    Probes Redis, Ollama, and ChromaDB directly and returns their status.
+    Results are cached via the existing probe cache.
+    """
+    probes = _run_probes()
+
+    # Check ChromaDB separately (not in main probes)
+    chromadb_ok = False
+    try:
+        from rex.shared.config import get_config
+        config = get_config()
+        import httpx
+        resp = httpx.get(f"{config.chroma_url}/api/v1/heartbeat", timeout=3)
+        chromadb_ok = resp.status_code == 200
+    except Exception:
+        pass
+
+    return {
+        "api": True,
+        "redis": probes.get("redis_ok", False),
+        "ollama": probes.get("ollama_ok", False),
+        "chromadb": chromadb_ok,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Log tail endpoint
 # ---------------------------------------------------------------------------
