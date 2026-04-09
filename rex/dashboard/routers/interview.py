@@ -94,34 +94,48 @@ async def chat(
     user: dict = Depends(get_current_user),
 ) -> dict[str, Any]:
     """REX chat interface. Requires Ollama LLM connection for real responses."""
+    import logging
+    _log = logging.getLogger("rex.dashboard.routers.interview")
+
     try:
         from rex.brain.llm import OllamaClient
+        from rex.shared.config import get_config
 
-        client = OllamaClient()
-        if await client.is_available():
-            result = await client.generate(
-                prompt=message,
-                system_prompt=(
-                    "You are REX, a friendly and knowledgeable "
-                    "cyber-security guard dog AI. "
-                    "Answer questions about network security, "
-                    "devices, and threats. "
-                    "Keep responses concise and helpful. "
-                    "Use a friendly dog persona."
-                ),
-            )
-            reply = result.get("response", "") if isinstance(result, dict) else str(result)
-            return {"reply": reply, "source": "llm"}
-    except Exception:
-        pass
+        config = get_config()
+        client = OllamaClient(base_url=config.ollama_url)
 
-    # Fallback: honest response when LLM is not available
-    return {
-        "reply": "Woof! My LLM brain isn't connected yet. Once Ollama is running, "
-        "I can answer questions about your network, explain threats, and help with security. "
-        "For now, check the dashboard tabs for device and threat information!",
-        "source": "fallback",
-    }
+        if not await client.is_available():
+            _log.warning("Chat: Ollama not available at %s", config.ollama_url)
+            return {
+                "reply": "*whimper* Ruff! My AI brain isn't connected yet. "
+                "*woof woof* Make sure Ollama is running and try again!",
+                "source": "fallback",
+            }
+
+        result = await client.generate(
+            prompt=message,
+            system_prompt=(
+                "You are REX, a friendly and knowledgeable "
+                "cyber-security guard dog AI. "
+                "Answer questions about network security, "
+                "devices, and threats. "
+                "Keep responses concise and helpful. "
+                "Use a friendly dog persona with occasional *woof* sounds."
+            ),
+            max_tokens=300,
+        )
+        reply = result.get("response", "") if isinstance(result, dict) else str(result)
+        if not reply.strip():
+            return {"reply": "*ruff?* I got confused there. Try asking again!", "source": "fallback"}
+        return {"reply": reply, "source": "llm"}
+
+    except Exception as exc:
+        _log.warning("Chat error: %s: %s", type(exc).__name__, exc)
+        return {
+            "reply": "*WOOF!* Something went wrong with my brain. *whimper* "
+            f"Error: {type(exc).__name__}. Try again in a moment!",
+            "source": "fallback",
+        }
 
 
 @router.post("/restart")
