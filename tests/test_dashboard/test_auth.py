@@ -100,17 +100,17 @@ def test_token_missing_required_claims():
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_initialize_generates_password(tmp_path):
-    """First initialize call generates and returns an initial password."""
+async def test_initialize_enters_setup_required(tmp_path):
+    """First initialize call enters setup_required state (no password generated)."""
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None  # disable SecretsManager
-        initial_pw = await manager.initialize()
+        result = await manager.initialize()
 
-    assert initial_pw is not None
-    assert len(initial_pw) >= 4  # Default "Woof" or random if changed
+    assert result is None
     assert manager._initialized is True
-    assert manager._password_hash != ""
+    assert manager.get_auth_state() == "setup_required"
+    assert manager._password_hash == ""
     assert manager._jwt_secret != ""
 
 
@@ -120,8 +120,8 @@ async def test_initialize_loads_existing(tmp_path):
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager", return_value=False):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
-        assert initial_pw is not None
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
         # Re-initialize -- should load from file
         manager2 = AuthManager(data_dir=tmp_path)
@@ -130,6 +130,7 @@ async def test_initialize_loads_existing(tmp_path):
 
     assert result is None  # no new password generated
     assert manager2._initialized is True
+    assert manager2.get_auth_state() == "active"
 
 
 # ------------------------------------------------------------------
@@ -142,9 +143,10 @@ async def test_login_success(tmp_path):
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
-    result = await manager.login("admin", initial_pw, client_ip="127.0.0.1")
+    result = await manager.login("admin", "test-password-123", client_ip="127.0.0.1")
     assert "access_token" in result
     assert result["token_type"] == "bearer"
     assert result["expires_in"] > 0
@@ -157,6 +159,7 @@ async def test_login_bad_password_raises(tmp_path):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
         await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
     with pytest.raises(ValueError, match="Invalid credentials"):
         await manager.login("admin", "wrong-pw", client_ip="127.0.0.1")
@@ -173,6 +176,7 @@ async def test_lockout_after_5_failures(tmp_path):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
         await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
     client_ip = "10.0.0.99"
     for _i in range(_MAX_LOGIN_ATTEMPTS - 1):
@@ -180,11 +184,11 @@ async def test_lockout_after_5_failures(tmp_path):
             await manager.login("admin", "bad-pw", client_ip=client_ip)
 
     # The 5th failure should trigger lockout
-    with pytest.raises(ValueError, match="temporarily locked"):
+    with pytest.raises(ValueError, match="locked"):
         await manager.login("admin", "bad-pw", client_ip=client_ip)
 
     # Subsequent attempt while locked out
-    with pytest.raises(ValueError, match="temporarily locked"):
+    with pytest.raises(ValueError, match="locked"):
         await manager.login("admin", "bad-pw", client_ip=client_ip)
 
 
@@ -198,9 +202,10 @@ async def test_verify_token_after_login(tmp_path):
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
-    result = await manager.login("admin", initial_pw, client_ip="127.0.0.1")
+    result = await manager.login("admin", "test-password-123", client_ip="127.0.0.1")
     payload = manager.verify_token(result["access_token"])
     assert payload is not None
     assert payload["sub"] == "admin"

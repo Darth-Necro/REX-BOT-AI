@@ -184,31 +184,12 @@ def start(
     from rex.dashboard.auth import AuthManager
     auth_mgr = AuthManager(data_dir=config.data_dir)
 
-    initial_pw = asyncio.run(auth_mgr.initialize())
-    if initial_pw and mode != "headless":
-        # Display password prominently so the user can't miss it.
-        # Printed to BOTH stdout (visible in terminal) and stderr
-        # (captured by logging redirects).
-        import sys
-        pw_block = "\n".join([
-            "",
-            "  " + "*" * 50,
-            "  *                                                *",
-            "  *   FIRST-RUN ADMIN PASSWORD                     *",
-            "  *                                                *",
-            f"  *   Username:  REX-BOT                           *",
-            f"  *   Password:  {initial_pw:<33}*",
-            "  *                                                *",
-            "  *   WRITE THIS DOWN NOW!                         *",
-            "  *   It will NOT be shown again.                  *",
-            "  *   Open http://localhost:{:<5} in your browser  *".format(config.dashboard_port),
-            "  *   and log in with these credentials.           *",
-            "  *                                                *",
-            "  " + "*" * 50,
-            "",
-        ])
-        print(pw_block)
-        print(pw_block, file=sys.stderr)
+    asyncio.run(auth_mgr.initialize())
+    if auth_mgr.get_auth_state() == "setup_required" and mode != "headless":
+        typer.echo("")
+        typer.echo("  *** FIRST RUN: Open the dashboard to set your admin password ***")
+        typer.echo(f"  *** Dashboard: http://localhost:{config.dashboard_port} ***")
+        typer.echo("")
 
     # -- chown data dir back to SUDO_USER when running as root --
     sudo_user = os.environ.get("SUDO_USER", "")
@@ -423,6 +404,44 @@ def status() -> None:
         if "CERTIFICATE_VERIFY_FAILED" in str(exc) or "SSL" in str(exc):
             typer.echo("  TLS verification failed. For self-signed certs, set REX_DEV_INSECURE=1")
         typer.echo("  Start with: rex start")
+
+
+@app.command()
+def reset_auth(
+    confirm: bool = typer.Option(False, "--yes", help="Skip confirmation prompt"),
+) -> None:
+    """Reset admin authentication. Requires setting a new password on next login."""
+    from rex.shared.config import get_config
+    config = get_config()
+
+    if not confirm:
+        typer.echo("This will reset the admin password.")
+        typer.echo("You will need to set a new password on next dashboard visit.")
+        typer.echo("Run with --yes to confirm.")
+        raise typer.Exit(code=0)
+
+    creds_file = config.data_dir / ".credentials"
+
+    # Remove credentials
+    removed = False
+    if creds_file.exists():
+        creds_file.unlink()
+        removed = True
+
+    # Try clearing from SecretsManager
+    try:
+        from rex.core.privacy.encryption import SecretsManager
+        sm = SecretsManager(config.data_dir)
+        sm.store_secret("password_hash", "")
+        sm.store_secret("jwt_secret", "")
+        removed = True
+    except Exception:
+        pass
+
+    if removed:
+        typer.echo("Auth reset. Set a new password at the dashboard on next start.")
+    else:
+        typer.echo("No credentials found to reset.")
 
 
 @app.command()

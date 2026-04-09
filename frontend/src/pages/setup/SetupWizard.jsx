@@ -134,10 +134,21 @@ function EnvironmentStep({ onNext }) {
 }
 
 function LoginStep({ onNext, onPasswordCapture }) {
+  const [authState, setAuthState] = useState(null); // null=loading, 'setup_required', 'active'
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setToken = useAuthStore(s => s.setToken);
+
+  useEffect(() => {
+    api.get('/auth/auth-state').then(res => {
+      setAuthState(res.data?.state || 'active');
+    }).catch(() => {
+      setAuthState('active');
+    });
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -153,23 +164,87 @@ function LoginStep({ onNext, onPasswordCapture }) {
     setLoading(false);
   };
 
+  const handleSetup = async () => {
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/auth/setup', { new_password: newPassword });
+      const token = res.data?.access_token || '';
+      if (token) {
+        setToken(token);
+        onPasswordCapture(newPassword);
+        onNext();
+      } else {
+        setError('Server returned an empty token');
+      }
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message || 'Setup failed');
+    }
+    setLoading(false);
+  };
+
+  if (authState === null) {
+    return (
+      <div className="text-center py-4">
+        <div className="text-gray-400 text-sm">Checking auth state...</div>
+      </div>
+    );
+  }
+
+  if (authState === 'setup_required') {
+    return (
+      <div>
+        <h2 className="text-xl font-bold text-white mb-4">Create Admin Password</h2>
+        <div className="bg-gray-800 rounded-lg p-4 mb-4">
+          <p className="text-gray-300 text-sm mb-3">
+            This is your first time running REX. Create a password for the admin account.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <input
+            type="password"
+            placeholder="New password (min 8 characters)"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+            className="w-full bg-gray-700 text-white rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="password"
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
+            autoComplete="new-password"
+            className="w-full bg-gray-700 text-white rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <button
+            onClick={handleSetup}
+            disabled={loading || !newPassword || !confirmPassword}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+          >
+            {loading ? 'Creating...' : 'Create Password & Continue'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="text-xl font-bold text-white mb-4">Login</h2>
       <div className="bg-gray-800 rounded-lg p-4 mb-4">
         <p className="text-gray-300 text-sm mb-3">
-          Enter the initial admin password shown in your terminal when REX first started.
+          Enter your admin password to continue.
         </p>
-        <div className="bg-gray-700 rounded p-3 font-mono text-sm mb-3">
-          <div className="text-gray-400">Username: <span className="text-white">REX-BOT</span></div>
-          <div className="text-gray-400">Password: <span className="text-white italic">check terminal output</span></div>
-        </div>
-        <p className="text-amber-400 text-xs">You should change the password after logging in.</p>
       </div>
       <div className="space-y-3">
         <input
           type="password"
-          placeholder="Enter password"
+          placeholder="Enter admin password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleLogin()}

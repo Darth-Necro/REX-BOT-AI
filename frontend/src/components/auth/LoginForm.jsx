@@ -2,7 +2,8 @@
  * LoginForm -- secure password-only login form.
  *
  * Futuristic dark styling consistent with the REX theme.
- * Shows loading spinner and error states. No stored credentials.
+ * Shows loading spinner, error states, and lockout info with remaining time.
+ * No stored credentials.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -45,6 +46,9 @@ export default function LoginForm() {
     [password, setAuthToken, beginLogin, setAuthError],
   );
 
+  // Detect lockout messages for special styling
+  const isLockout = error && /locked|lock.*try again/i.test(error);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5 w-full">
       {/* Password field */}
@@ -54,7 +58,7 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter admin password"
+          placeholder="Enter your admin password"
           autoComplete="current-password"
           autoFocus
           className="relative w-full px-4 py-3 bg-rex-bg/80 border border-rex-card rounded-lg text-rex-text placeholder-rex-muted/60 focus:border-red-500 focus:ring-1 focus:ring-red-500/30 focus:outline-none transition-all text-sm tracking-wide"
@@ -63,9 +67,17 @@ export default function LoginForm() {
 
       {/* Error message */}
       {error && (
-        <div className="flex items-center gap-2 text-sm text-rex-threat bg-rex-threat/10 border border-rex-threat/20 rounded-lg px-3 py-2">
+        <div className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
+          isLockout
+            ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+            : 'text-rex-threat bg-rex-threat/10 border border-rex-threat/20'
+        }`}>
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            {isLockout ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            )}
           </svg>
           <span>{error}</span>
         </div>

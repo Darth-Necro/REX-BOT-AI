@@ -13,6 +13,38 @@ from rex.dashboard.deps import get_auth, get_current_user
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+@router.get("/auth-state")
+async def get_auth_state() -> dict[str, Any]:
+    """Return the current auth state. No authentication required.
+
+    Used by the frontend to decide whether to show setup wizard or login.
+    """
+    auth = get_auth()
+    state = auth.get_auth_state()
+    return {"state": state}
+
+
+@router.post("/setup")
+async def setup_initial_password(
+    request: Request,
+    new_password: str = Body(..., embed=True),
+) -> dict[str, Any]:
+    """Set the initial admin password during first-run setup.
+
+    Only available when auth state is 'setup_required'.
+    Returns a JWT token on success (user is immediately logged in).
+    """
+    auth = get_auth()
+    try:
+        result = await auth.setup_initial_password(new_password)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return result
+
+
 @router.post("/login")
 async def login(request: Request, password: str = Body(..., embed=True)) -> dict[str, Any]:
     """Authenticate and receive a JWT token."""

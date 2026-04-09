@@ -300,37 +300,17 @@ class TestStartCommand:
         assert result.exit_code == 0
         assert "sleep" in result.output.lower() or "Goodbye" in result.output
 
-    def test_start_with_initial_password(self) -> None:
-        """start should display admin password on first boot (shown on stderr)."""
+    def test_start_with_setup_required(self) -> None:
+        """start should display first-run setup message when auth state is setup_required."""
         mock_config = MagicMock()
         mock_config.mode.value = "basic"
         mock_config.data_dir = Path(f"{_tmp}/rex-test")
         mock_config.redis_url = "redis://localhost:6379"
         mock_config.ollama_url = "http://localhost:11434"
+        mock_config.dashboard_port = 8443
 
         mock_auth = MagicMock()
-
-        with (
-            patch("rex.shared.config.get_config", return_value=mock_config),
-            patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
-            patch("asyncio.run", side_effect=self._close_coro_side_effect(["super-secret-pw", KeyboardInterrupt])),
-        ):
-            result = runner.invoke(app, ["start"])
-
-        assert result.exit_code == 0
-        # Password is now displayed on stderr; typer runner captures both
-        assert "ADMIN PASSWORD" in result.output
-        assert "super-secret-pw" in result.output
-
-    def test_start_no_initial_password(self) -> None:
-        """start without initial password should skip password display."""
-        mock_config = MagicMock()
-        mock_config.mode.value = "basic"
-        mock_config.data_dir = f"{_tmp}/rex-test"
-        mock_config.redis_url = "redis://localhost:6379"
-        mock_config.ollama_url = "http://localhost:11434"
-
-        mock_auth = MagicMock()
+        mock_auth.get_auth_state.return_value = "setup_required"
 
         with (
             patch("rex.shared.config.get_config", return_value=mock_config),
@@ -340,7 +320,29 @@ class TestStartCommand:
             result = runner.invoke(app, ["start"])
 
         assert result.exit_code == 0
-        assert "ADMIN PASSWORD" not in result.output
+        assert "FIRST RUN" in result.output
+        assert "set your admin password" in result.output
+
+    def test_start_no_setup_required(self) -> None:
+        """start with existing auth should skip first-run message."""
+        mock_config = MagicMock()
+        mock_config.mode.value = "basic"
+        mock_config.data_dir = f"{_tmp}/rex-test"
+        mock_config.redis_url = "redis://localhost:6379"
+        mock_config.ollama_url = "http://localhost:11434"
+
+        mock_auth = MagicMock()
+        mock_auth.get_auth_state.return_value = "active"
+
+        with (
+            patch("rex.shared.config.get_config", return_value=mock_config),
+            patch("rex.dashboard.auth.AuthManager", return_value=mock_auth),
+            patch("asyncio.run", side_effect=self._close_coro_side_effect([None, KeyboardInterrupt])),
+        ):
+            result = runner.invoke(app, ["start"])
+
+        assert result.exit_code == 0
+        assert "FIRST RUN" not in result.output
 
 
 # ------------------------------------------------------------------

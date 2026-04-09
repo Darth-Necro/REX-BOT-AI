@@ -335,8 +335,8 @@ class AuthManager:
             self._throttle = _create_throttle_backend(self._data_dir, self._redis_url)
         return self._throttle
 
-    async def initialize(self) -> str | None:
-        """Load or create credentials. Returns initial password if newly created."""
+    async def initialize(self) -> None:
+        """Load or create credentials. Sets auth state to setup_required if no credentials exist."""
         self._creds_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Initialize throttle backend
@@ -382,33 +382,13 @@ class AuthManager:
             except Exception:
                 logger.warning("Corrupted credentials file, regenerating")
 
-        # Generate a random password for first boot.
-        # The CLI displays this once so the admin can log in.
-        initial_password = secrets.token_urlsafe(16)
+        # No credentials found -- enter setup_required state.
+        # The dashboard will prompt the user to create a password.
         self._jwt_secret = secrets.token_hex(32)
-        self._password_hash = hash_password(initial_password)
-
-        # Store encrypted if possible, plaintext only as last resort
-        stored_encrypted = self._store_to_secrets_manager()
-        if not stored_encrypted:
-            # No encrypted storage available -- fall back to plaintext file.
-            # Only the password hash is persisted; the JWT secret stays
-            # in memory so that a local file compromise does not yield a
-            # token-forging capability.  The trade-off: a restart without
-            # SecretsManager generates a new JWT secret (invalidating
-            # existing sessions).
-            atomic_write_json(
-                self._creds_file,
-                {"password_hash": self._password_hash},
-                chmod=0o600,
-            )
-            logger.warning(
-                "Credentials stored WITHOUT encryption -- only password hash persisted. "
-                "Install SecretsManager dependencies for full encrypted storage."
-            )
-
+        self._password_hash = ""  # Empty = setup_required
         self._initialized = True
-        return initial_password
+        audit_event("first_run_bootstrap_started")
+        return None
 
     def _store_to_secrets_manager(self) -> bool:
         """Persist credentials via SecretsManager if available."""
@@ -437,6 +417,48 @@ class AuthManager:
                 self._creds_file,
             )
 
+    def get_auth_state(self) -> str:
+        """Return auth state: 'setup_required' or 'active'."""
+        if not self._initialized:
+            return "setup_required"
+        if not self._password_hash:
+            return "setup_required"
+        return "active"
+
+    async def setup_initial_password(self, new_password: str) -> dict[str, Any]:
+        """Set the initial admin password during first-run setup.
+
+        Only works when auth state is 'setup_required'.
+        Raises ValueError if auth is already configured.
+        """
+        if self.get_auth_state() != "setup_required":
+            raise ValueError("Setup already completed. Use change-password instead.")
+
+        if len(new_password) < 8:
+            raise ValueError("Password must be at least 8 characters")
+
+        self._password_hash = hash_password(new_password)
+        self._jwt_secret = secrets.token_hex(32)
+
+        stored_encrypted = self._store_to_secrets_manager()
+        if not stored_encrypted:
+            atomic_write_json(
+                self._creds_file,
+                {"password_hash": self._password_hash},
+                chmod=0o600,
+            )
+
+        self._initialized = True
+        audit_event("first_run_bootstrap_completed")
+
+        # Return a token so the user is immediately logged in
+        token = create_token({"sub": "REX-BOT"}, self._jwt_secret)
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "expires_in": _JWT_EXPIRY_HOURS * 3600,
+        }
+
     async def login(
         self, username: str, password: str, client_ip: str = "unknown",
     ) -> dict[str, Any]:
@@ -449,14 +471,19 @@ class AuthManager:
         if not self._initialized:
             raise RuntimeError("AuthManager not initialized")
 
+        if self.get_auth_state() == "setup_required":
+            raise ValueError("No password configured. Complete first-run setup.")
+
         throttle = self._ensure_throttle()
 
         # Check per-IP lockout
         now = time.time()
         lockout_until = throttle.get_lockout(client_ip)
         if now < lockout_until:
+            remaining = int(lockout_until - now)
+            minutes = remaining // 60
             audit_event("lockout_active", client_ip=client_ip)
-            raise ValueError("Account temporarily locked. Try again later.")
+            raise ValueError(f"Account locked. Try again in {minutes + 1} minute{'s' if minutes > 0 else ''}.")
 
         # Retrieve password hash -- prefer SecretsManager
         pw_hash = self._password_hash
@@ -472,13 +499,16 @@ class AuthManager:
         if not verify_password(password, pw_hash):
             count = throttle.record_failure(client_ip, now)
             if count >= _MAX_LOGIN_ATTEMPTS:
-                throttle.set_lockout(client_ip, now + _LOCKOUT_SECONDS)
+                lockout_end = now + _LOCKOUT_SECONDS
+                throttle.set_lockout(client_ip, lockout_end)
+                remaining = int(lockout_end - now)
+                minutes = remaining // 60
                 audit_event(
                     "lockout",
                     client_ip=client_ip,
                     detail=f"Lockout triggered after {count} failed attempts",
                 )
-                raise ValueError("Account temporarily locked. Try again later.")
+                raise ValueError(f"Account locked. Try again in {minutes + 1} minute{'s' if minutes > 0 else ''}.")
             audit_event("login_failure", client_ip=client_ip)
             raise ValueError("Invalid credentials.")
 

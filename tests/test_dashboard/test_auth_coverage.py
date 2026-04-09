@@ -32,7 +32,7 @@ async def test_initialize_creates_parent_dir(tmp_path: Path) -> None:
         manager = AuthManager(data_dir=nested)
         manager._secrets_manager = None
         pw = await manager.initialize()
-    assert pw is not None
+    assert pw is None  # No initial password returned; user sets via dashboard
     assert nested.exists()
 
 
@@ -45,7 +45,7 @@ async def test_initialize_corrupted_creds_regenerates(tmp_path: Path) -> None:
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
         pw = await manager.initialize()
-    assert pw is not None
+    assert pw is None  # No initial password returned; user sets via dashboard
     assert manager._initialized is True
 
 
@@ -75,8 +75,9 @@ async def test_initialize_secrets_manager_fails_falls_back(tmp_path: Path) -> No
     manager._secrets_manager = mock_sm
 
     pw = await manager.initialize()
-    assert pw is not None  # generated new creds via file fallback
+    assert pw is None  # No initial password; setup_required state
     assert manager._initialized is True
+    assert manager.get_auth_state() == "setup_required"
 
 
 # ------------------------------------------------------------------
@@ -104,19 +105,21 @@ async def test_lockout_blocks_even_correct_password(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     ip = "10.0.0.50"
     # Exhaust all attempts
     for _ in range(_MAX_LOGIN_ATTEMPTS - 1):
         with pytest.raises(ValueError):
             await manager.login("admin", "wrong", client_ip=ip)
 
-    with pytest.raises(ValueError, match="temporarily locked"):
+    with pytest.raises(ValueError, match="locked"):
         await manager.login("admin", "wrong", client_ip=ip)
 
     # Now even the correct password should fail during lockout
-    with pytest.raises(ValueError, match="temporarily locked"):
+    with pytest.raises(ValueError, match="locked"):
         await manager.login("admin", initial_pw, client_ip=ip)
 
 
@@ -126,8 +129,10 @@ async def test_different_ips_have_separate_lockouts(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     bad_ip = "10.0.0.50"
     good_ip = "10.0.0.51"
 
@@ -147,8 +152,10 @@ async def test_successful_login_clears_failed_attempts(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     ip = "10.0.0.60"
 
     # Fail a few times (but not enough for lockout)
@@ -177,8 +184,10 @@ async def test_change_password_success(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     old_jwt_secret = manager._jwt_secret
     result = await manager.change_password("admin", initial_pw, "NewP@ssword123")
     assert result is True
@@ -192,6 +201,7 @@ async def test_change_password_wrong_old_raises(tmp_path: Path) -> None:
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
         await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
     with pytest.raises(ValueError, match="Current password is incorrect"):
         await manager.change_password("admin", "wrong-old-pw", "NewP@ssword123")
@@ -203,8 +213,10 @@ async def test_change_password_too_short_raises(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     with pytest.raises(ValueError, match="at least 12 characters"):
         await manager.change_password("admin", initial_pw, "short")
 
@@ -215,8 +227,10 @@ async def test_change_password_then_login_with_new(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     new_pw = "MyNewSecurePassword!"
     await manager.change_password("admin", initial_pw, new_pw)
 
@@ -240,8 +254,10 @@ async def test_old_token_invalid_after_password_change(tmp_path: Path) -> None:
     with patch("rex.dashboard.auth.AuthManager._store_to_secrets_manager"):
         manager = AuthManager(data_dir=tmp_path)
         manager._secrets_manager = None
-        initial_pw = await manager.initialize()
+        await manager.initialize()
+        await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     login_result = await manager.login("admin", initial_pw)
     old_token = login_result["access_token"]
 
@@ -331,9 +347,10 @@ async def test_change_password_deletes_plaintext_when_encrypted(tmp_path: Path) 
     # Set up with plaintext first
     manager = AuthManager(data_dir=tmp_path)
     manager._secrets_manager = None
-    initial_pw = await manager.initialize()
-    assert initial_pw is not None
+    await manager.initialize()
+    await manager.setup_initial_password("test-password-123")
 
+    initial_pw = "test-password-123"
     creds_file = tmp_path / ".credentials"
     assert creds_file.exists()
 
