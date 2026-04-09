@@ -55,28 +55,49 @@ class VectorStore:
         except ImportError:
             self._logger.warning(
                 "chromadb not installed -- vector store disabled. "
-                "Install with: pip install chromadb"
+                "Install with: pip install chromadb-client"
             )
             self._available = False
             return
 
+        chroma_host = self._parse_host(self._config.chroma_url)
+        chroma_port = self._parse_port(self._config.chroma_url)
+
+        # Suppress chromadb telemetry errors that can poison startup.
+        # The PostHog telemetry in chromadb-client has a known signature
+        # mismatch bug (capture() takes 1 positional argument but 3 were given).
+        import os
+        os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+
         try:
+            # chromadb-client 0.6.x uses chromadb.HttpClient
             self._client = chromadb.HttpClient(
-                host=self._parse_host(self._config.chroma_url),
-                port=self._parse_port(self._config.chroma_url),
+                host=chroma_host,
+                port=chroma_port,
             )
             # Test the connection
             self._client.heartbeat()
+            self._logger.info(
+                "ChromaDB reachable at %s:%d (client version: %s)",
+                chroma_host,
+                chroma_port,
+                getattr(chromadb, "__version__", "unknown"),
+            )
         except Exception as exc:
             self._logger.warning(
-                "ChromaDB unreachable at %s (%s) -- vector store disabled.",
-                self._config.chroma_url,
+                "ChromaDB unreachable at %s:%d (%s: %s) -- vector store disabled.",
+                chroma_host,
+                chroma_port,
+                type(exc).__name__,
                 exc,
             )
             self._available = False
             return
 
         try:
+            # get_or_create_collection in chromadb 0.6.x
+            # Only pass metadata keys that Chroma actually supports.
+            # The 'hnsw:space' key is a valid HNSW parameter.
             self._behaviors_collection = self._client.get_or_create_collection(
                 name="device_behaviors",
                 metadata={"hnsw:space": "cosine"},
@@ -86,9 +107,48 @@ class VectorStore:
                 metadata={"hnsw:space": "cosine"},
             )
             self._available = True
-            self._logger.info("Vector store connected to ChromaDB at %s", self._config.chroma_url)
+            self._logger.info(
+                "Vector store ready: collections 'device_behaviors' and 'threat_events' "
+                "at %s:%d",
+                chroma_host,
+                chroma_port,
+            )
+        except (KeyError, TypeError) as exc:
+            # KeyError '_type' is a known Chroma client/server version mismatch.
+            # Try without metadata as a fallback.
+            self._logger.warning(
+                "ChromaDB collection creation failed with metadata (%s: %s). "
+                "Retrying without HNSW metadata...",
+                type(exc).__name__,
+                exc,
+            )
+            try:
+                self._behaviors_collection = self._client.get_or_create_collection(
+                    name="device_behaviors",
+                )
+                self._threats_collection = self._client.get_or_create_collection(
+                    name="threat_events",
+                )
+                self._available = True
+                self._logger.info(
+                    "Vector store ready (no HNSW metadata): collections at %s:%d",
+                    chroma_host,
+                    chroma_port,
+                )
+            except Exception as inner_exc:
+                self._logger.warning(
+                    "ChromaDB collection creation failed even without metadata "
+                    "(%s: %s) -- vector store disabled.",
+                    type(inner_exc).__name__,
+                    inner_exc,
+                )
+                self._available = False
         except Exception as exc:
-            self._logger.warning("Failed to create ChromaDB collections: %s", exc)
+            self._logger.warning(
+                "Failed to create ChromaDB collections (%s: %s) -- vector store disabled.",
+                type(exc).__name__,
+                exc,
+            )
             self._available = False
 
     # ------------------------------------------------------------------
@@ -116,12 +176,31 @@ class VectorStore:
 
         await asyncio.to_thread(self._store_behavior_sync, device_mac, profile)
 
+    @staticmethod
+    def _sanitize_metadata(meta: dict[str, Any]) -> dict[str, Any]:
+        """Remove reserved/problematic keys from metadata before Chroma insertion.
+
+        Chroma reserves keys starting with underscore (e.g. '_type', '_id').
+        Also ensures all values are str/int/float/bool (Chroma requirement).
+        """
+        clean: dict[str, Any] = {}
+        for k, v in meta.items():
+            if k.startswith("_"):
+                continue  # Skip reserved keys
+            if isinstance(v, (str, int, float, bool)):
+                clean[k] = v
+            elif v is None:
+                clean[k] = ""
+            else:
+                clean[k] = str(v)
+        return clean
+
     def _store_behavior_sync(self, device_mac: str, profile: BehavioralProfile) -> None:
         """Synchronous embedding store."""
         embedding = self._profile_to_vector(profile)
         doc_id = f"behavior_{device_mac.replace(':', '')}"
 
-        metadata = {
+        metadata = self._sanitize_metadata({
             "device_id": profile.device_id,
             "device_mac": device_mac,
             "avg_bandwidth_kbps": profile.avg_bandwidth_kbps,
@@ -129,7 +208,7 @@ class VectorStore:
             "num_destinations": len(profile.typical_destinations),
             "num_active_hours": len(profile.active_hours),
             "last_updated": iso_timestamp(profile.last_updated),
-        }
+        })
 
         try:
             self._behaviors_collection.upsert(
