@@ -1,6 +1,6 @@
 # REX-BOT-AI Beta Gap Analysis
 
-## Remaining Gaps to Beta (Updated 2026-04-01)
+## Remaining Gaps to Beta (Updated 2026-04-08)
 
 ### Build/Install/Deploy
 - [ ] Docker compose end-to-end verified on clean machine
@@ -34,6 +34,8 @@
 - [x] Per-IP lockout (FIXED)
 - [x] API rate limiting (FIXED)
 - [x] Credentials encrypted via SecretsManager with Docker fallback (FIXED)
+- [x] Random per-install admin password generation (FIXED 2026-04-08 -- no more hardcoded "Woof")
+- [x] Dashboard binds to 127.0.0.1 by default (FIXED 2026-04-08)
 
 ### Prompt Injection
 - [x] All event fields sanitized before LLM (FIXED)
@@ -78,6 +80,22 @@
 - [x] No nested zip/test artifacts in repo (FIXED)
 - [x] .gitignore and .dockerignore updated (FIXED)
 - [x] EventBus WAL path bug fixed (FIXED)
+- [x] CHANGELOG.md, CODE_OF_CONDUCT.md, RELEASE.md added (2026-04-08)
+- [x] All 7 release audit blockers resolved (2026-04-08)
+- [x] Frontend toolchain fixed (.npmrc, ESLint v9 config) (2026-04-08)
+
+### 2026-04-08 Completions
+- [x] Auth: Random per-install password (no more hardcoded "Woof"), displayed once at startup
+- [x] Dashboard defaults to 127.0.0.1 (not 0.0.0.0), override with REX_DASHBOARD_HOST
+- [x] Python pinned to 3.11-3.12 only (3.13 not supported)
+- [x] Dark red/black theme (was cyan/blue)
+- [x] GUI is default startup mode
+- [x] 26 dashboard pages total (added: REX Chat, Federation, Agent Actions, System Config)
+- [x] Threat resolve/false-positive wired to backend
+- [x] Recharts trend charts on overview
+- [x] Frontend toolchain fixed (.npmrc, ESLint v9 config)
+- [x] All 7 release audit blockers resolved
+- [x] CHANGELOG.md, CODE_OF_CONDUCT.md, RELEASE.md added
 
 ### Remaining for Beta
 - [ ] Docker compose end-to-end verified with live events

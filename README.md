@@ -453,9 +453,9 @@ Press **Enter**.
 
 **What you should see:** The REX login page with a Black Great Dane icon.
 
-> **Alternative:** If you want the browser to open automatically when REX starts:
+> **Note:** GUI mode is the default. REX automatically opens the dashboard in your browser on startup. To start without opening a browser, use:
 > ```bash
-> rex start --mode gui
+> rex start --mode cli
 > ```
 
 ---
@@ -479,18 +479,18 @@ If this is your very first time, REX shows a **Setup Wizard** instead of the log
 
 On the login page, you'll see two text boxes and a button:
 
-1. **Click the Username box** and type: `REX-BOT`
-2. **Click the Password box** and type: `Woof` (capital W)
+1. **Click the Username box** and type: `admin`
+2. **Click the Password box** and type the random password that REX displayed in the terminal when it first started
 3. **Click the "Log In" button**
 
 | Field | What to Type |
 |-------|-------------|
-| Username | `REX-BOT` |
-| Password | `Woof` |
+| Username | `admin` |
+| Password | The random password from REX's first-boot terminal output |
+
+> **Important:** REX generates a random admin password on first boot. It is displayed once in the terminal output. Write it down immediately -- it will not be shown again.
 
 **What you should see:** The main dashboard loads. You'll see REX (the Black Great Dane) in the upper right, and network statistics in the center.
-
-> **Change your password immediately!** Click **Settings** in the left sidebar, then click **Change Password**. The default password is public knowledge -- anyone who reads this guide knows it.
 
 ---
 
@@ -499,7 +499,7 @@ On the login page, you'll see two text boxes and a button:
 The dashboard has three main areas:
 
 **1. The Sidebar (left side)**
-This is your navigation menu -- a vertical list of page names. Click any item to go to that page. The currently active page is highlighted in cyan/blue with a colored bar on the left edge.
+This is your navigation menu -- a vertical list of page names. Click any item to go to that page. The currently active page is highlighted with a colored bar on the left edge (dark red/black theme).
 
 **2. The Main Content Area (center)**
 This is where the selected page's content appears. It changes when you click different sidebar items.
@@ -509,7 +509,7 @@ The animated Black Great Dane in the top-right shows REX's current threat postur
 
 | REX's Eyes | What It Means | Your Action |
 |-----------|---------------|-------------|
-| Cyan/Blue | All clear -- no threats detected | Nothing needed, REX is happy |
+| Dark Red | All clear -- no threats detected | Nothing needed, REX is happy |
 | Amber/Yellow | Something suspicious found | Check the Threats page for details |
 | Red | Active threat detected | Check Threats page -- REX may already be blocking it |
 | Orange + chains | Junkyard Dog mode active | REX is in maximum protection -- no mercy for threats |
@@ -563,7 +563,13 @@ Your choice is remembered. You won't need to switch every time you log in.
 
 #### A7. Accessing the Dashboard from Your Phone or Another Computer
 
-The dashboard isn't just for the computer running REX. You can open it from any device on the same WiFi network:
+By default, the dashboard binds to `127.0.0.1` (localhost only). To access it from other devices on your network, you must first enable LAN access:
+
+```bash
+export REX_DASHBOARD_HOST=0.0.0.0
+```
+
+Or add `REX_DASHBOARD_HOST=0.0.0.0` to your `.env` file and restart REX.
 
 **Step 1:** Find the IP address of the computer running REX. In the terminal on that computer, type:
 
@@ -625,8 +631,8 @@ rex login
 REX will ask for your username and password:
 
 ```
-Username: REX-BOT
-Password: Woof
+Username: admin
+Password: <the random password from first boot>
 ```
 
 **What you should see:** `Login successful` or a token confirmation message.
@@ -717,7 +723,7 @@ Gracefully shuts down all services. Or just press `Ctrl + C` in the terminal whe
 curl -X POST http://localhost:8443/api/auth/change-password \
   -H "Authorization: Bearer $(jq -r 'to_entries[0].value' ~/.rex-tokens.json)" \
   -H "Content-Type: application/json" \
-  -d '{"old_password": "Woof", "new_password": "your-new-secure-password"}'
+  -d '{"old_password": "<your-current-password>", "new_password": "your-new-secure-password"}'
 ```
 
 ---
@@ -815,7 +821,7 @@ Open your browser and go to:
 http://localhost:8443
 ```
 
-Log in with username `REX-BOT`, password `Woof`. Change your password immediately.
+Log in with username `admin` and the random password displayed in the terminal on first boot.
 
 ---
 
@@ -985,7 +991,7 @@ During a patrol, REX will deep scan the network, audit for vulnerabilities, insp
 |---------|----------|
 | Browser shows "Connection refused" or "can't reach this page" | REX isn't running. Start it first (Step 8). Make sure you typed `http://localhost:8443` exactly. |
 | Browser shows blank white page | Try a hard refresh: `Ctrl + Shift + R`. Clear browser cache if needed. |
-| Login page appears but password is rejected | Username is `REX-BOT` (with a hyphen, capital letters). Password is `Woof` (capital W). |
+| Login page appears but password is rejected | Username is `admin`. Password is the random string displayed once in the terminal on first boot. If you lost it, delete the password file and restart REX to regenerate: `rm /etc/rex-bot-ai/.admin_password && rex start` |
 | Dashboard says "Waiting for backend connection" | Redis isn't running. Open a terminal: `redis-cli ping` -- you should see `PONG`. If not: `sudo systemctl start redis-server` |
 | REX Chat says "brain isn't connected" | Ollama isn't running. Start it: `ollama serve &` |
 | All pages show "--" or "No data" | This is normal on first start. REX needs a few minutes to scan. Click **Patrol Now** on the Scheduler page, or run `rex scan` in terminal. |
@@ -1020,9 +1026,8 @@ Use this checklist to make sure everything is working. Check each item:
 - [ ] `python -m rex.core.cli version` shows a version number
 - [ ] REX started with `sudo .venv/bin/python -m rex.core.cli start`
 - [ ] Browser opens `http://localhost:8443` and shows the login page
-- [ ] Logged in with `REX-BOT` / `Woof`
+- [ ] Logged in with `admin` and the random password from terminal output
 - [ ] Dashboard loads and shows REX the Black Great Dane
-- [ ] Changed default password in Settings > Change Password
 
 If all boxes are checked, you're fully set up. REX is protecting your network.
 
@@ -1050,7 +1055,7 @@ cp .env.example .env
 | `REX_LOG_LEVEL` | `info` | Log verbosity: `debug`, `info`, `warning`, `error` |
 | `REX_DATA_DIR` | `/etc/rex-bot-ai` | Data directory (needs write access) |
 | `REX_DASHBOARD_PORT` | `8443` | Dashboard web UI port |
-| `REX_DASHBOARD_HOST` | `0.0.0.0` | Dashboard bind address |
+| `REX_DASHBOARD_HOST` | `127.0.0.1` | Dashboard bind address (set to `0.0.0.0` for LAN access) |
 | `REX_REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `REDIS_PASSWORD` | *(none)* | Redis authentication password |
 | `REX_OLLAMA_URL` | `http://localhost:11434` | Ollama LLM endpoint (localhost only enforced) |
@@ -1076,7 +1081,7 @@ mkdir -p "$REX_DATA_DIR"
 
 ### Credential Storage
 
-Default admin credentials: `REX-BOT` / `Woof` (per instance/data directory).
+REX generates a random admin password on first boot. It is displayed once in the terminal output. Write it down immediately. There is no default or hardcoded password.
 
 CLI tokens are stored in `~/.rex-tokens.json` (keyed by API URL). Legacy single-instance `~/.rex-token` is fallback only.
 

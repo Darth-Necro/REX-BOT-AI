@@ -9,7 +9,7 @@ A step-by-step guide to get REX running on your network.
 Before starting, verify you have:
 
 ```bash
-python3 --version       # Must be 3.11+
+python3 --version       # Must be 3.11 or 3.12 (3.13 not yet supported)
 docker compose version  # Must be Docker Compose v2
 ```
 
@@ -135,7 +135,7 @@ pip install -r requirements-dev.txt
 # Start infrastructure services
 docker compose up -d redis ollama chromadb
 
-# Run REX directly
+# Run REX directly (GUI is the default startup mode)
 rex start
 ```
 
@@ -172,15 +172,18 @@ Open your browser:
 https://localhost:8443
 ```
 
+> **Note:** The dashboard binds to `127.0.0.1` by default, so it is only accessible from the local machine. To allow LAN access, set `REX_DASHBOARD_HOST=0.0.0.0` in your `.env`.
+
 **Accept the self-signed certificate warning.** REX generates a self-signed TLS cert at `/etc/rex-bot-ai/certs/`. You can replace it with your own certificate later.
 
 ### Find Your Admin Password
 
-The initial admin password is displayed in the CLI output on first boot (it is
-**not** written to log files to prevent accidental secret leakage):
+REX generates a random admin password on first boot. It is displayed once in the terminal output. Write it down immediately.
+
+The password is **not** written to log files to prevent accidental secret leakage.
 
 ```bash
-# Direct install
+# Direct install -- GUI is the default startup mode
 rex start   # Password shown in terminal output only
 ```
 
@@ -197,7 +200,7 @@ You'll see:
 
 Log in with:
 - **Username:** `admin`
-- **Password:** The password from the CLI output
+- **Password:** The random password from the CLI output
 
 ---
 
@@ -291,7 +294,7 @@ Switch modes anytime from Settings or via CLI: `PUT /api/config/mode`.
 All commands available via `rex` (or `python -m rex.core.cli`):
 
 ```bash
-rex start                  # Start all services (blocks until Ctrl+C)
+rex start                  # Start all services in GUI mode (default)
 rex start --log-level debug # Start with verbose logging
 rex stop                   # Stop running instance gracefully
 rex status                 # Show service health, device count, threat count
@@ -321,7 +324,7 @@ rex version                # Print version
 
 | Port | Service | Exposed To |
 |------|---------|------------|
-| 8443 | Dashboard / API | All interfaces |
+| 8443 | Dashboard / API | Localhost only (override with `REX_DASHBOARD_HOST=0.0.0.0`) |
 | 6379 | Redis | Localhost only |
 | 11434 | Ollama | Localhost only |
 | 8000 | ChromaDB | Localhost only |

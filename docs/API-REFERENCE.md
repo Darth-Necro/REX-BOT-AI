@@ -2,6 +2,8 @@
 
 Base URL: `https://localhost:8443`
 
+> **Note:** The dashboard binds to `127.0.0.1` by default. To allow LAN access, set `REX_DASHBOARD_HOST=0.0.0.0` in your environment or `.env` file. The initial admin password is randomly generated per-install and displayed once at first boot in the terminal output.
+
 All endpoints return JSON. Errors use standard HTTP status codes with a JSON body:
 
 ```json

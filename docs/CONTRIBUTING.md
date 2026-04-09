@@ -8,7 +8,7 @@ Thank you for your interest in contributing to REX-BOT-AI. This document covers 
 
 ### Prerequisites
 
-- Python 3.11 or later
+- Python 3.11 or 3.12 (3.13 not yet supported)
 - Docker and Docker Compose v2
 - Node.js 18+ and npm (for frontend development)
 - Git
@@ -29,8 +29,11 @@ source .venv/bin/activate
 pip install -e .
 pip install -r requirements-dev.txt
 
-# Install frontend dependencies
+# Install frontend dependencies (uses .npmrc for registry config)
 cd frontend && npm install && cd ..
+
+# Note: The frontend uses ESLint v9 flat config (eslint.config.js, not .eslintrc).
+# See frontend/eslint.config.js for details.
 
 # Start infrastructure (Redis, Ollama, ChromaDB)
 docker compose up -d redis ollama chromadb

@@ -5,7 +5,7 @@ Step-by-step guide to get REX running locally with AI connected for testing.
 ## Prerequisites
 
 - Linux (Ubuntu 22.04+ or Debian 12+ recommended)
-- Python 3.11+
+- Python 3.11-3.12 (3.13 not yet supported)
 - Node.js 20+
 - Docker and Docker Compose
 - Git
@@ -66,7 +66,9 @@ On first boot, REX will display the admin password:
 
 ### 6. Access the dashboard
 
-Open http://localhost:8443 in your browser. Log in with the displayed password.
+The dashboard binds to `127.0.0.1` by default (localhost only). To allow LAN access, set `REX_DASHBOARD_HOST=0.0.0.0`.
+
+Open http://localhost:8443 (or https://localhost:8443 if TLS is configured) in your browser. Log in with the displayed password.
 
 ### 7. Run the CLI
 

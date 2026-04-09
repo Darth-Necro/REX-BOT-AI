@@ -102,7 +102,7 @@ Interview is the onboarding wizard that runs when REX is first deployed. It asks
 
 ### DASHBOARD (`rex/dashboard/`)
 
-Dashboard is the FastAPI web application and REST API that provides the operator interface. It includes 11 API routers (auth, config, devices, firewall, health, interview, knowledge base, notifications, plugins, schedule, threats), WebSocket real-time updates with channel-based subscriptions, JWT authentication with rate-limited login, and security headers (CSP, X-Frame-Options, HSTS).
+Dashboard is the FastAPI web application and REST API that provides the operator interface. It serves 26 frontend pages across Basic and Advanced modes (including REX Chat, Federation, Agent Actions, and System Config). The backend includes 11 API routers (auth, config, devices, firewall, health, interview, knowledge base, notifications, plugins, schedule, threats), WebSocket real-time updates with channel-based subscriptions, JWT authentication with rate-limited login, and security headers (CSP, X-Frame-Options, HSTS). The overview page features Recharts-based trend charts, and threat resolve/false-positive actions are wired to the backend. The dashboard binds to `127.0.0.1` by default (override with `REX_DASHBOARD_HOST=0.0.0.0` for LAN access). The frontend uses a dark red/black theme.
 
 ### SCHEDULER (`rex/scheduler/`)
 
@@ -226,7 +226,7 @@ flowchart LR
 
 | Component        | Technology                  | Version       | Purpose                                      |
 |------------------|-----------------------------|---------------|----------------------------------------------|
-| Language         | Python                      | 3.11+         | All backend services                         |
+| Language         | Python                      | 3.11-3.12     | All backend services (3.13 not yet supported)|
 | Web Framework    | FastAPI                     | 0.115+        | REST API and WebSocket server                |
 | ASGI Server      | Uvicorn                     | 0.32+         | HTTP/WebSocket serving                       |
 | Frontend         | React                       | 18            | Dashboard SPA                                |

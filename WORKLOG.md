@@ -28,6 +28,28 @@
 ### Blockers
 - None identified yet
 
+### 2026-04-08: Release Hardening & Auth/Dashboard Overhaul
+
+Comprehensive changes across auth, dashboard, frontend toolchain, and release hygiene:
+
+**Auth & Security:**
+- Replaced hardcoded "Woof" default password with random per-install password generation (displayed once at startup, never logged)
+- Dashboard now binds to `127.0.0.1` by default (was `0.0.0.0`); LAN access via `REX_DASHBOARD_HOST=0.0.0.0`
+- Python pinned to 3.11-3.12 only (3.13 not yet supported)
+
+**Dashboard & Frontend:**
+- Dark red/black theme (replaced cyan/blue)
+- GUI is now the default startup mode
+- 26 dashboard pages total (added: REX Chat, Federation, Agent Actions, System Config)
+- Threat resolve/false-positive actions wired to backend API
+- Recharts-based trend charts on overview page
+- Frontend toolchain fixed: .npmrc registry config, ESLint v9 flat config
+
+**Release Hygiene:**
+- All 7 release audit blockers resolved
+- Added CHANGELOG.md, CODE_OF_CONDUCT.md, RELEASE.md
+- Updated all stale documentation to reflect current state
+
 ### Phase 5: Prompt Safety Documentation (2026-03-31)
 
 Completed comprehensive prompt safety documentation:

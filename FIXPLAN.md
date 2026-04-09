@@ -19,12 +19,24 @@
 14. [x] Dashboard routers return real data from live stores
 15. [x] WebSocket broadcasts real events from Redis (with event-to-channel mapping)
 16. [x] CLI commands talk to real API
-17. [ ] Plugin system loads and runs bundled plugins
+17. [ ] Plugin system loads and runs bundled plugins (registry works, Docker sandbox planned)
 18. [x] Scheduler executes real periodic tasks (publishes RexEvent)
 19. [x] Power manager affects service behavior
 20. [x] Mode switch changes runtime behavior
 21. [x] Interview flow works end-to-end
 22. [ ] Notification channels send real alerts (integration-tested)
+
+## Completed 2026-04-08
+- [x] Auth: Random per-install admin password (no hardcoded default)
+- [x] Dashboard binds to 127.0.0.1 by default
+- [x] Python pinned to 3.11-3.12 (3.13 not supported)
+- [x] Dark red/black theme, GUI default startup mode
+- [x] 26 dashboard pages (added REX Chat, Federation, Agent Actions, System Config)
+- [x] Threat resolve/false-positive wired to backend
+- [x] Recharts trend charts on overview
+- [x] Frontend toolchain fixed (.npmrc, ESLint v9 config)
+- [x] All 7 release audit blockers resolved
+- [x] CHANGELOG.md, CODE_OF_CONDUCT.md, RELEASE.md added
 
 ## P2: Cross-Platform / Plugin Hardening / Federation
 23. [ ] Windows PAL functional (basic network + firewall)

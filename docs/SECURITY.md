@@ -116,8 +116,8 @@ Brain 1 (security analysis) is **never** routed to an external provider. This in
 
 ### Dashboard (Port 8443)
 
-- **Exposure**: HTTPS on configurable port, default 8443.
-- **Authentication**: JWT with HS256, 4-hour expiry.
+- **Exposure**: HTTPS on configurable port, default 8443. Binds to `127.0.0.1` by default (override with `REX_DASHBOARD_HOST=0.0.0.0` for LAN access).
+- **Authentication**: JWT with HS256, 4-hour expiry. Initial password is randomly generated per-install (no default password).
 - **Rate limiting**: 5 failed login attempts trigger 30-minute lockout.
 - **Headers**: CSP restricts script sources to `'self'`, frames to `'none'`.
 - **CORS**: Default same-origin; configurable in production.
@@ -306,7 +306,7 @@ Unknown data types default to MEDIUM (fail-safe). Log sanitization automatically
 
 - Passwords are pre-hashed with SHA-256 (to handle bcrypt's 72-byte limit safely) then hashed with bcrypt using a unique random salt per hash
 - Minimum password length: 12 characters (enforced on password change)
-- Initial password is auto-generated (24 bytes URL-safe) and displayed once at first boot via CLI stderr only (never logged)
+- Initial password is randomly generated per-install (24 bytes URL-safe) and displayed once at first boot via CLI stderr only (never logged). There is no default or hardcoded password.
 - Password changes require the current password and invalidate all existing JWT tokens
 
 ### Rate Limiting and Lockout
