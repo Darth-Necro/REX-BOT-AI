@@ -186,14 +186,29 @@ def start(
 
     initial_pw = asyncio.run(auth_mgr.initialize())
     if initial_pw and mode != "headless":
-        # Display password on stderr only, so it is never captured in
-        # stdout pipes or redirected logs.
+        # Display password prominently so the user can't miss it.
+        # Printed to BOTH stdout (visible in terminal) and stderr
+        # (captured by logging redirects).
         import sys
-        print("  " + "=" * 46, file=sys.stderr)
-        print(f"  ADMIN PASSWORD: {initial_pw}", file=sys.stderr)
-        print("  Write this down. It will not be shown again.", file=sys.stderr)
-        print("  " + "=" * 46, file=sys.stderr)
-        print("", file=sys.stderr)
+        pw_block = "\n".join([
+            "",
+            "  " + "*" * 50,
+            "  *                                                *",
+            "  *   FIRST-RUN ADMIN PASSWORD                     *",
+            "  *                                                *",
+            f"  *   Username:  REX-BOT                           *",
+            f"  *   Password:  {initial_pw:<33}*",
+            "  *                                                *",
+            "  *   WRITE THIS DOWN NOW!                         *",
+            "  *   It will NOT be shown again.                  *",
+            "  *   Open http://localhost:{:<5} in your browser  *".format(config.dashboard_port),
+            "  *   and log in with these credentials.           *",
+            "  *                                                *",
+            "  " + "*" * 50,
+            "",
+        ])
+        print(pw_block)
+        print(pw_block, file=sys.stderr)
 
     # -- chown data dir back to SUDO_USER when running as root --
     sudo_user = os.environ.get("SUDO_USER", "")

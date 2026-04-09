@@ -1,0 +1,160 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rex-bot-ai"
+version = "0.1.0-alpha"
+description = "Open-source autonomous AI security agent (alpha)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "REX-BOT-AI Contributors"},
+]
+keywords = ["security", "network", "ai", "monitoring", "intrusion-detection"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "fastapi>=0.115.0,<1.0",
+    "uvicorn[standard]>=0.32.0,<1.0",
+    "pydantic>=2.10.0,<3.0",
+    "pydantic-settings>=2.7.0,<3.0",
+    "redis>=5.2.0,<6.0",
+    "httpx>=0.28.0,<1.0",
+    "scapy>=2.6.0,<3.0",
+    # python-nmap removed: REX invokes nmap via CommandExecutor (direct exec),
+    # not through the python-nmap library.  The package also fails to build
+    # on modern setuptools.  If nmap scripting is needed later, use python3-nmap.
+    "ollama>=0.4.0,<1.0",
+    "chromadb-client>=0.6.0,<1.0",
+    "gitpython>=3.1.43,<4.0",
+    "jinja2>=3.1.4,<4.0",
+    "PyJWT>=2.8.0",
+    "bcrypt>=4.0.0",
+    "cryptography>=41.0.0",
+    "apscheduler>=3.10.4,<4.0",
+    "docker>=7.1.0,<8.0",
+    "python-crontab>=3.2.0,<4.0",
+    "dnslib>=0.9.25,<1.0",
+    "aiosmtplib>=3.0.2,<4.0",
+    "watchdog>=6.0.0,<7.0",
+    "typer>=0.15.0,<1.0",
+    "rich>=13.9.0,<14.0",
+    "python-dotenv>=1.0.1,<2.0",
+    "pyyaml>=6.0.2,<7.0",
+    "aiosqlite>=0.20.0,<1.0",
+    "anyio>=4.7.0,<5.0",
+    "defusedxml>=0.7.1",
+    "psutil>=5.9.0,<7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Darth-Necro/REX-BOT-AI"
+Repository = "https://github.com/Darth-Necro/REX-BOT-AI"
+Issues = "https://github.com/Darth-Necro/REX-BOT-AI/issues"
+
+[project.scripts]
+rex = "rex.core.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rex*"]
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra -q --strict-markers"
+# Suppress coroutine-not-awaited warnings caused by cross-test GC timing:
+# when AsyncMock coroutines from one test get garbage-collected during a later test.
+# These are mock-infrastructure artifacts, not production code defects.
+filterwarnings = [
+    "ignore:coroutine 'ServiceOrchestrator._health_monitor' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'EyesService._anomaly_sweep_loop' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'start.<locals>._run' was never awaited:RuntimeWarning",
+    "ignore:coroutine '.*_slow_stop' was never awaited:RuntimeWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests requiring external services",
+]
+
+# ---------------------------------------------------------------------------
+# Linting — Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit
+    "T20",  # flake8-print
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "S101",  # allow assert in tests
+    "S603",  # subprocess calls (needed for nmap/scapy)
+    "S607",  # partial executable path
+    "S104",  # binding to 0.0.0.0 — intentional for network services
+    "S110",  # try-except-pass — used intentionally for resilience
+    "S310",  # suspicious URL open — intentional HTTP client calls
+    "B008",  # function call in default arg — needed for typer.Option()
+    "RUF012",  # mutable class default — handled by dataclass/pydantic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106", "S105", "E501"]
+"rex/core/cli.py" = ["T201"]
+"rex/brain/prompts.py" = ["E501"]
+
+# ---------------------------------------------------------------------------
+# Type Checking — mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scapy.*",
+    "ollama.*",
+    "chromadb.*",
+    "docker.*",
+    "crontab.*",
+    "dnslib.*",
+]
+ignore_missing_imports = true
