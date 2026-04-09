@@ -1,6 +1,6 @@
 # REX-BOT-AI: Project Status
 
-**Last updated**: 2026-04-01
+**Last updated**: 2026-04-08
 **Version**: 0.1.0-alpha
 **Stage**: Alpha — critical bus/event/security fixes applied, per-service EventBus isolation, Linux PAL complete (other platforms experimental)
 
@@ -25,7 +25,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Dashboard routers expanded**: privacy, agent, federation endpoints added
 - **Interview flow connected**: dashboard calls real InterviewService methods
 - **Notification channels wired**: BarkService subscribes to STREAM_BARK_NOTIFICATIONS for dashboard alerts
-- **Plugin sandbox uses Docker**: real `docker create/start/stop/rm` calls with security hardening
+- **Plugin sandbox**: SDK defined, Docker sandbox partially implemented
 - **CLI improved**: login command, scan parameters, proper error handling
 - **Credentials encryption Docker-aware**: stable key derivation in Docker containers
 - **Cross-platform PAL stubs implemented**: Windows, macOS, BSD adapters exist (experimental — many methods raise NotImplementedError)
@@ -57,7 +57,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - **Docker networking clarified**: REX uses `network_mode: host`, reaches Redis/Ollama/ChromaDB via published localhost ports
 - **Live Redis integration test added**: 3 tests exercise EventBus publish/consume/WAL-drain against real Redis (local only, not in CI)
 - **CI integration job**: NOT YET IMPLEMENTED (no Redis service container in GitHub Actions workflow)
-- **Docker smoke test script**: `scripts/docker-smoke-test.sh` verifies end-to-end Docker deployment
+- **Docker smoke test script**: planned (not yet created)
 - **bcrypt compatibility fixed**: Explicit 72-byte truncation and null-byte rejection for bcrypt 5.x
 
 ## P0 Status (was 14 items, all resolved)
@@ -74,7 +74,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 | 8 | WebSocket broadcasts events | **FIXED** (DashboardService._consume_loop) |
 | 9 | Installer vs Docker path mismatch | **FIXED** — .env no longer sets REX_DATA_DIR for Docker |
 | 10 | Scheduler truthfulness | **FIXED** (publishes to EventBus, status = "triggered") |
-| 11 | Plugin sandbox is a dict | **FIXED** (real Docker calls with security hardening) |
+| 11 | Plugin sandbox is a dict | **PARTIAL** (SDK defined, Docker sandbox partially implemented) |
 | 12 | Dead runtime modules | **FIXED** — privacy/agent/federation wired to dashboard API |
 | 13 | Credentials encryption | **FIXED** — SecretsManager with bcrypt 5.x compat, Docker-aware fallback |
 | 14 | Mode switch backend | **FIXED** — POST /api/config/mode publishes event to bus |
@@ -89,7 +89,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - macOS PAL: pfctl anchors, ifconfig, networksetup, launchd (experimental — many methods raise NotImplementedError)
 - BSD PAL: pfctl, ifconfig, pkg, rc.d (experimental — many methods raise NotImplementedError)
 - Threat classifier: 12 categories with MITRE ATT&CK alignment
-- Multi-AI provider system: K9-Engine (built-in offline), Ollama, OpenAI, Anthropic, Google, OpenAI-compat
+- AI provider: Ollama (local). Multi-provider support (K9-Engine, OpenAI, Anthropic, Google) is planned but not yet wired
 - LLM Router: Brain 1 (security, always local) / Brain 2 (assistant, configurable) with data sanitization
 - Command executor: whitelisted commands, parameter validation, zero shell=True
 - Prompt injection sanitizer: 44 patterns, homoglyphs, leetspeak, Unicode normalization, filler stripping
@@ -99,11 +99,11 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - Knowledge base: markdown parser/writer, git versioning, section CRUD
 - Firewall manager: safety invariants (gateway/self never blocked), rate limiting, auto-rollback
 - Auth: bcrypt hashing (72-byte safe), PyJWT tokens, per-IP lockout, rate limiting
-- Dashboard API: 14 routers, 50+ endpoints (privacy, agent, federation, mode switch, first-boot), honest responses
+- Dashboard API: 11 routers, 43+ endpoints (privacy, agent, federation, mode switch, first-boot), honest responses
 - **Standardized command contract**: event_type="command" + payload.command everywhere
 - **Power manager suspends/resumes services** on state transitions
 - **Notification channels receive dashboard-originated alerts**
-- **Plugin sandbox enforces Docker security** (read-only, cap-drop ALL, no-new-privileges)
+- **Plugin sandbox**: SDK defined, Docker isolation partially implemented
 - Orchestrator: service lifecycle, health monitoring, auto-restart (3 attempts), PID file
 - Mode switch: frontend <-> backend ModeManager wired end-to-end
 - Scheduler: publishes scan commands to EventBus for EyesService
@@ -124,7 +124,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 
 | Metric | Value |
 |--------|-------|
-| Tests (core) | 3,848+ |
+| Tests (core) | 4,289 |
 | Failures | 0 |
 | xfail (documented) | 3 |
 | Coverage | 84% |
@@ -137,7 +137,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 
 - [x] All 13 modules implemented with real logic
 - [x] Security regression corpus: 306 tests, 0 failures, 3 xfail (VULN-004/005/010 edge cases)
-- [x] Overall test suite: 3,848+ passed, 84% coverage
+- [x] Overall test suite: 4,289 passed, 84% coverage
 - [x] Prompt injection defense: 44 patterns, Unicode normalization, homoglyph detection
 - [x] Auth: bcrypt + PyJWT (not homemade SHA-256)
 - [x] Docker hardened: pinned images, read-only root, no-new-privileges
@@ -150,7 +150,7 @@ After 5 rounds of adversarial auditing (76+ issues identified, 126-item punch li
 - [x] Install script path alignment with Docker volumes
 - [x] Power manager suspends/resumes services
 - [x] Cross-platform PAL stubs implemented (Windows, macOS, BSD — experimental, many NotImplementedError)
-- [x] Plugin sandbox uses real Docker
+- [ ] Plugin sandbox uses real Docker (SDK defined, Docker sandbox partially implemented)
 - [x] Credentials encryption Docker-aware
 - [x] FastAPI app creation smoke test passes
 - [ ] At least one real integration test with live Redis in CI (tests exist locally but CI has no Redis service container)

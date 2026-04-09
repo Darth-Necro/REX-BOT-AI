@@ -11,11 +11,10 @@ import React from 'react';
 
 const VARIANT_MAP = {
   default: 'bg-slate-700/40 text-slate-300 border-slate-600/40',
-  red:    'bg-red-500/10 text-red-300 border-red-500/30',
+  red:     'bg-red-500/10 text-red-300 border-red-500/30',
   emerald: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
   amber:   'bg-amber-500/10 text-amber-300 border-amber-500/30',
   orange:  'bg-orange-500/10 text-orange-300 border-orange-500/30',
-  red:     'bg-red-500/10 text-red-300 border-red-500/30',
   fuchsia: 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/30',
 
   // Semantic aliases
@@ -34,7 +33,7 @@ const SIZE_MAP = {
 /**
  * @param {Object}  props
  * @param {string}  props.children       Badge text.
- * @param {'default'|'red'|'emerald'|'amber'|'orange'|'red'|'fuchsia'|'success'|'warning'|'danger'|'info'} [props.variant='default']
+ * @param {'default'|'red'|'emerald'|'amber'|'orange'|'fuchsia'|'success'|'warning'|'danger'|'info'} [props.variant='default']
  * @param {'sm'|'md'|'lg'} [props.size='md']
  * @param {boolean} [props.dot]          Show leading status dot.
  * @param {string}  [props.dotColor]     Override dot color class.
@@ -140,7 +139,6 @@ function deriveDotColor(variant) {
     emerald: 'bg-emerald-400',
     amber: 'bg-amber-400',
     orange: 'bg-orange-400',
-    red: 'bg-red-400',
     fuchsia: 'bg-fuchsia-400',
     success: 'bg-emerald-400',
     warning: 'bg-amber-400',

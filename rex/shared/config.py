@@ -58,7 +58,7 @@ class RexConfig(BaseSettings):
     dashboard_port: int = 8443
     """HTTPS port the dashboard and REST API listen on."""
 
-    dashboard_host: str = "0.0.0.0"
+    dashboard_host: str = "127.0.0.1"
     """Network interface address the dashboard binds to."""
 
     cors_origins: str = "http://localhost:3000"

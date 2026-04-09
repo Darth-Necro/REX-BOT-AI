@@ -1,5 +1,13 @@
 # REX-BOT-AI Security Model
 
+## Security Contact
+
+To report security vulnerabilities, email security@rexbot.ai or open a confidential GitHub Security Advisory.
+
+Do NOT open a public GitHub Issue for security vulnerabilities.
+
+---
+
 ## Security Philosophy
 
 REX-BOT-AI operates under a strict **defense-in-depth** model. No single security control is trusted to be sufficient on its own. Every layer assumes the layer above it may be compromised and enforces its own invariants independently.

@@ -93,7 +93,7 @@ services:
       REX_LOG_LEVEL: ${REX_LOG_LEVEL:-info}
       REX_DATA_DIR: /etc/rex-bot-ai
       REX_DASHBOARD_PORT: "8443"
-      REX_DASHBOARD_HOST: "0.0.0.0"
+      REX_DASHBOARD_HOST: "0.0.0.0"  # Intentional: container networking requires binding to all interfaces
       REX_REDIS_URL: redis://:${REDIS_PASSWORD}@localhost:6379
       REX_OLLAMA_URL: http://localhost:11434
       REX_CHROMA_URL: http://localhost:8000

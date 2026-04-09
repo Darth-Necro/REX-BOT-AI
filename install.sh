@@ -215,6 +215,8 @@ install_rex() {
                "${REX_INSTALL_DIR}/.coverage" 2>/dev/null || true
     else
         info "Downloading REX-BOT-AI..."
+        # TODO: For production releases, pin to a tagged version:
+        # git clone --depth 1 --branch v${REX_VERSION} ...
         git clone --depth 1 https://github.com/Darth-Necro/REX-BOT-AI.git \
             "${REX_INSTALL_DIR}" 2>/dev/null || \
             die "Failed to clone repository" $EXIT_NETWORK_FAILURE
@@ -231,7 +233,7 @@ REX_MODE=basic
 REX_LOG_LEVEL=info
 REX_DATA_DIR=${REX_DATA_DIR}
 REX_DASHBOARD_PORT=${REX_PORT}
-REX_DASHBOARD_HOST=0.0.0.0
+REX_DASHBOARD_HOST=127.0.0.1  # Change to 0.0.0.0 for LAN access
 REX_NETWORK_INTERFACE=auto
 REX_SCAN_INTERVAL=300
 REDIS_PASSWORD=${_REDIS_PW}
@@ -322,6 +324,9 @@ post_install() {
     echo ""
     echo "  Logs: ${REX_LOG_DIR}/"
     echo "  Data: ${REX_DATA_DIR}/"
+    echo ""
+    echo "  NOTE: 'rex' commands require the Python venv."
+    echo "  For Docker installs, use: docker compose exec rex rex <command>"
     echo "============================================"
 }
 
